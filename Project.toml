@@ -12,6 +12,10 @@ PrettyTables = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
 Profile = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
 
 [compat]
+CSV = "0.9"
+Coverage = "1"
+DataFrames = "1"
+PrettyTables = "1"
 julia = "1.6"
 
 [extras]
