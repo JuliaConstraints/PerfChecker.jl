@@ -409,7 +409,9 @@ version = "0.2.1"
 
 [[deps.PerfChecker]]
 deps = ["CSV", "Coverage", "DataFrames", "Distributed", "Pkg", "PrettyTables", "Profile", "Random"]
-path = "C:\\Users\\jeanf\\.julia\\dev\\PerfChecker"
+git-tree-sha1 = "efa1854d678a5254da17dd31b25257fe0a3f040f"
+repo-rev = "main"
+repo-url = "https://github.com/JuliaConstraints/PerfChecker.jl"
 uuid = "6309bf6b-a531-4b08-891e-8ee981e5c424"
 version = "0.1.0"
 
