@@ -6,9 +6,11 @@
 [![codecov](https://codecov.io/gh/JuliaConstraints/PerfChecker.jl/branch/main/graph/badge.svg?token=YVJhN4dpBp)](https://codecov.io/gh/JuliaConstraints/PerfChecker.jl)
 [![Code Style: Blue](https://img.shields.io/badge/code%20style-blue-4495d1.svg)](https://github.com/invenia/BlueStyle)
 
+This is a small collections of semi-automated performance checking tools for Julia packages. The long-term goal is to have it run in a similar fashion than the test environment.
+
 Automatic check of allocation is not ready yet. It works only within a test environment (see test/runtests.jl).
 
-Help to solve the issue of making the script in `perf/allocs.jl` and not only `runtests.jl` is more than welcome.
+Help to solve the issue of making the script in `perf/allocs.jl` and not only `runtests.jl` is more than welcome. See issue #2
 
 ### A non-exhaustive list of expected features:
 - [ ] Automatic allocation check
