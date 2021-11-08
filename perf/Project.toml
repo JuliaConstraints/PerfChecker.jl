@@ -1,0 +1,6 @@
+[deps]
+CompositionalNetworks = "4b67e4b5-442d-4ef5-b760-3f5df3a57537"
+ConstraintDomains = "5800fd60-8556-4464-8d61-84ebf7a0bedb"
+PerfChecker = "6309bf6b-a531-4b08-891e-8ee981e5c424"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+Profile = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
