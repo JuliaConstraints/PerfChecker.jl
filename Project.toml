@@ -14,6 +14,10 @@ Profile = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
+CSV = "0.9"
+Coverage = "1"
+DataFrames = "1"
+PrettyTables = "1"
 julia = "1.6"
 
 [extras]
