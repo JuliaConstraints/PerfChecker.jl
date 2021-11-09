@@ -5,6 +5,7 @@ using Coverage
 using CSV
 using DataFrames
 using Distributed
+using LibGit2
 using Pkg
 using PrettyTables
 using Profile
@@ -16,5 +17,6 @@ export alloc_check
 
 # SECTION - Includes
 include("allocations.jl")
+include("utils.jl")
 
 end

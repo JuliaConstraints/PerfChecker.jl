@@ -36,6 +36,12 @@ git-tree-sha1 = "f885e7e7c124f8c92650d61b9477b9ac2ee607dd"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 version = "1.11.1"
 
+[[deps.ChangesOfVariables]]
+deps = ["LinearAlgebra", "Test"]
+git-tree-sha1 = "9a1d594397670492219635b35a3d830b04730d62"
+uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
+version = "0.1.1"
+
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
 git-tree-sha1 = "ded953804d019afa9a3f98981d99b33e3db7b6da"
@@ -124,9 +130,9 @@ uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[deps.Dictionaries]]
 deps = ["Indexing", "Random"]
-git-tree-sha1 = "743cd00ae2a87c338c32bf604e83219b8272ad98"
+git-tree-sha1 = "43ae37eac34e76ac97d1a7db28561243e7242461"
 uuid = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
-version = "0.3.14"
+version = "0.3.15"
 
 [[deps.DiffResults]]
 deps = ["StaticArrays"]
@@ -173,9 +179,9 @@ version = "0.1.6"
 
 [[deps.FilePathsBase]]
 deps = ["Dates", "Mmap", "Printf", "Test", "UUIDs"]
-git-tree-sha1 = "d962b5a47b6d191dbcd8ae0db841bc70a05a3f5b"
+git-tree-sha1 = "5440c1d26aa29ca9ea848559216e5ee5f16a8627"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
-version = "0.9.13"
+version = "0.9.14"
 
 [[deps.FiniteDiff]]
 deps = ["ArrayInterface", "LinearAlgebra", "Requires", "SparseArrays", "StaticArrays"]
@@ -310,10 +316,10 @@ deps = ["Libdl", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LogExpFunctions]]
-deps = ["ChainRulesCore", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "6193c3815f13ba1b78a51ce391db8be016ae9214"
+deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
+git-tree-sha1 = "be9eef9f9d78cecb6f262f3c10da151a6c5ab827"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.4"
+version = "0.3.5"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -409,7 +415,7 @@ version = "0.2.1"
 
 [[deps.PerfChecker]]
 deps = ["CSV", "Coverage", "DataFrames", "Distributed", "Pkg", "PrettyTables", "Profile", "Random"]
-git-tree-sha1 = "efa1854d678a5254da17dd31b25257fe0a3f040f"
+git-tree-sha1 = "35d671cd891ba70b52b9b9c3b9c8b45c6ca9aa85"
 repo-rev = "main"
 repo-url = "https://github.com/JuliaConstraints/PerfChecker.jl"
 uuid = "6309bf6b-a531-4b08-891e-8ee981e5c424"

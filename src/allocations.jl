@@ -1,4 +1,4 @@
-function alloc_check(title, dependencies, targets, pre_alloc, alloc; path=@__DIR__)
+function alloc_check(title, dependencies, targets, pre_alloc, alloc; path=pwd(), labeller=:version)
     @info "Tracking allocations: $title"
 
     # cd to path if valid
@@ -29,6 +29,9 @@ function alloc_check(title, dependencies, targets, pre_alloc, alloc; path=@__DIR
     for t in targets, d in walkdir(dirname(pathof(t))), f in d[end]
         splitext(f)[2] == ".mem" && rm(joinpath(d[1], f))
     end
+    for d in walkdir(path), f in d[end]
+        splitext(f)[2] == ".mem" && rm(joinpath(d[1], f))
+    end
 
     # Make the allocations data readable through a dataframe
     df = DataFrame()
@@ -38,8 +41,16 @@ function alloc_check(title, dependencies, targets, pre_alloc, alloc; path=@__DIR
     df.linenumber = map(a -> a.linenumber, Iterators.reverse(myallocs))
 
     # Save it as a CSV file
-    CSV.write(joinpath(pwd(), "mallocs.csv"), df)
+    label = ""
+    if labeller == :oid
+        label = oid2string(map(p -> joinpath(dirname(pathof(p)), ".."), targets))
+    elseif labeller == :version
+        label = version2string(map(p -> joinpath(dirname(pathof(p)), ".."), targets))
+    end
+    mkpath("mallocs")
+    CSV.write(joinpath(path, "mallocs/mallocs$label.csv"), df)
 
+    # Visualize a pretty table
     pretty_table(df)
 
     return nothing
