@@ -19,5 +19,5 @@ using ConstraintDomains
     for d in walkdir(@__DIR__), f in d[end]
         splitext(f)[2] == ".mem" && rm(joinpath(d[1], f))
     end
-    rm(joinpath(path, "mallocs.csv"))
+    rm(joinpath(path, "mallocs"); force = true, recursive = true)
 end
