@@ -36,7 +36,7 @@ function alloc_check(title, dependencies, targets, pre_alloc, alloc; path=pwd(),
     # Make the allocations data readable through a dataframe
     df = DataFrame()
     df.bytes = map(a -> a.bytes, Iterators.reverse(myallocs))
-    df.ratio = round(df.bytes / sum(df.bytes) * 100; digits = 2)
+    df.ratio = round.(df.bytes / sum(df.bytes) * 100; digits = 2)
     df.filename = map(a -> a.filename, Iterators.reverse(myallocs))
     df.linenumber = map(a -> a.linenumber, Iterators.reverse(myallocs))
 
