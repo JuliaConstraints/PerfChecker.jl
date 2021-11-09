@@ -62,3 +62,52 @@ function alloc_check(
 
     return nothing
 end
+
+function pie_filter(df, threshold=5.0)
+    i = findfirst(x -> x < threshold, df[!, 2])
+    X = df[1:(i - 1), 3] .* " line " .* map(string, df[1:(i - 1), 4])
+    push!(X, "others .< $threshold")
+    Y = df[1:(i - 1), 2]
+    push!(Y, sum(df[i:end, 2]))
+    return X, Y
+end
+
+function alloc_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfplotsx)
+    backend()
+    for target in targets
+        path = normpath(joinpath(dirname(pathof(target)), "..", "perf", "mallocs"))
+        versions = Vector{VersionNumber}()
+        for f in readdir(path; join=true)
+            st = splitext(basename(f))
+            last(st) == ".csv" || continue
+            push!(versions, VersionNumber(first(st)[9:end]))
+        end
+        sort!(versions)
+
+        bytes = Vector{Int}()
+        for version in versions
+            csv_path = joinpath(path, "mallocs-$(string(version)).csv")
+            df = DataFrame(CSV.File(csv_path))
+            push!(bytes, sum(df.bytes))
+
+            X, Y = pie_filter(df)
+            pie(X, Y; title="Mallocs for $target.jl@v$(string(version))", l=0.5)
+            for format in formats
+                savefig(joinpath(path, "mallocs-$version.$format"))
+            end
+        end
+        plot(
+            map(string, versions),
+            bytes;
+            xlabel="version",
+            ylabel="bytes",
+            markershape=:circle,
+            seriestype=:step,
+            title="Mallocs evolution in\n$target.jl",
+            l=0.5,
+        )
+        for format in formats
+            savefig(joinpath(path, "mallocs-evolutions.$format"))
+        end
+    end
+end

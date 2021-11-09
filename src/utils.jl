@@ -17,12 +17,12 @@ function oid2string(paths::Vector{String})
     return prod(get_oid, paths)
 end
 
-version2string(path) = string(Pkg.project().version)
+version2string() = string(Pkg.project().version)
 
 function version2string(paths::Vector{String})
     function get_version(path)
         Pkg.activate(path)
-        v = version2string(path)
+        v = version2string()
         return if isnothing(v)
             @warn "The target $path is not a project folder. Versioning for this target will be ignored to name the output."
             ""
