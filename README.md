@@ -13,13 +13,11 @@ Automatic check of allocation is not ready yet. It works only within a test envi
 Help to solve the issue of making the script in `perf/allocs.jl` and not only `runtests.jl` is more than welcome. See issue #2
 
 ### A non-exhaustive list of expected features:
-- [ ] Automatic allocation check
-  - [x] Basic check (need a fix outside of a test environment) 
-  - [ ] Commit label
+- [x] Automatic allocation check
 - [ ] Automatic Benchmark
-  - [ ] Commit label
 - [ ] Automatic Profiling
 - [ ] Automatic plots of previous features
+  - [x] using commit/project version label 
   - [ ] allocations
   - [ ] benchmark
   - [ ] profiling
