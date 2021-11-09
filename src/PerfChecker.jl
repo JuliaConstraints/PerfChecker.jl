@@ -6,6 +6,7 @@ using CSV
 using DataFrames
 using Distributed
 using LibGit2
+using OrderedCollections
 using Pkg
 using PrettyTables
 using Profile

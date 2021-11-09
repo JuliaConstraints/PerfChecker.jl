@@ -1,4 +1,6 @@
-function alloc_check(title, dependencies, targets, pre_alloc, alloc; path=pwd(), labeller=:version)
+function alloc_check(
+    title, dependencies, targets, pre_alloc, alloc; path=pwd(), labeller=:version
+)
     @info "Tracking allocations: $title"
 
     # cd to path if valid
@@ -33,11 +35,16 @@ function alloc_check(title, dependencies, targets, pre_alloc, alloc; path=pwd(),
         splitext(f)[2] == ".mem" && rm(joinpath(d[1], f))
     end
 
+    # Smart paths
+    common, specifics = smart_paths(map(a -> a.filename, Iterators.reverse(myallocs)))
+    # @info "sizes" map(a -> a.filename, Iterators.reverse(myallocs)) specifics
+    slash = Sys.iswindows() ? "\\" : "/"
+
     # Make the allocations data readable through a dataframe
     df = DataFrame()
     df.bytes = map(a -> a.bytes, Iterators.reverse(myallocs))
-    df.ratio = round.(df.bytes / sum(df.bytes) * 100; digits = 2)
-    df.filename = map(a -> a.filename, Iterators.reverse(myallocs))
+    df[!, "ratio (%)"] = round.(df.bytes / sum(df.bytes) * 100; digits=2)
+    df[!, "filename: [$common$slash"] = map(first ∘ splitext ∘ first ∘ splitext, specifics)
     df.linenumber = map(a -> a.linenumber, Iterators.reverse(myallocs))
 
     # Save it as a CSV file
