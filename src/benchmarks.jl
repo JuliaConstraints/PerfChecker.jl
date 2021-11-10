@@ -34,21 +34,71 @@ function bench_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfp
                 "allocs" => Vector{Float64}(),
             ) for _ in 1:length(versions)
         ]
+        means = Dict(
+            "times" => Vector{Float64}(),
+            "gctimes" => Vector{Float64}(),
+            "memory" => Vector{Float64}(),
+            "allocs" => Vector{Float64}(),
+        )
         for (i, version) in enumerate(versions)
             csv_path = joinpath(path, "benchmark-$(string(version)).csv")
             df = DataFrame(CSV.File(csv_path))
             for dim in ["times", "gctimes", "memory", "allocs"]
                 data[i][dim] = df[!, dim]
+                push!(means[dim], mean(df[!, dim]))
             end
         end
         X = map(string, versions)
-        for dim in ["times", "gctimes", "memory", "allocs"]
-            aux = map(i -> data[i][dim], 1:length(versions))
-            Y = collect(Iterators.flatten(Iterators.zip(aux...)))
-            boxplot(X, Y)
-            for format in formats
-                savefig(joinpath(path, "benchmark-$dim-evolutions.$format"))
+        aux = Vector{Vector{Float64}}()
+        for (i, dim) in enumerate(["times", "gctimes", "memory", "allocs"])
+            ylabel = if dim == "memory"
+                "size (bytes)"
+            elseif dim == "allocs"
+                "allocations"
+            else
+                "time (ns)"
             end
+            aux = map(i -> data[i][dim], 1:length(versions))
+            y = collect(Iterators.flatten(Iterators.zip(aux...)))
+            boxplot(
+                X,
+                y;
+                xlabel="version",
+                ylabel,
+                title="Benchmarks ($dim) evolution in\n$target.jl",
+                l=(0.5, 2),
+                label=dim,
+            )
+            for format in formats
+                savefig(joinpath(path, "benchmark-$dim-evolutions-boxplot.$format"))
+            end
+            z = map(mean, aux)
+            plot(
+                X,
+                z / last(z);
+                xlabel="version",
+                ylabel="ratio",
+                title="Benchmarks ($dim) evolution in\n$target.jl",
+                markershape=:circle,
+                l=(0.5, 2),
+                label=dim,
+            )
+            for format in formats
+                savefig(joinpath(path, "benchmark-$dim-evolutions-line.$format"))
+            end
+            # push!(aux, y)
         end
+        # Y = reshape(collect(Iterators.flatten(values(means))), length(means["times"]), 4)
+        # L = reshape(collect(keys(means)), 1, length(means))
+        # plot(X, Y;
+        # xlabel="version",
+        # ylabel="time",
+        # markershape=:circle,
+        # title="Benchmarks evolution in\n$target.jl",
+        # l=(0.5, 2),
+        # label=L,)
+        # for format in formats
+        #     savefig(joinpath(path, "benchmark-evolutions.$format"))
+        # end
     end
 end

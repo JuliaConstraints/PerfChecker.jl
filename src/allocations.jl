@@ -1,5 +1,12 @@
 function alloc_check(
-    title, dependencies, targets, pre_alloc, alloc; path=pwd(), labeller=:version
+    title,
+    dependencies,
+    targets,
+    pre_alloc,
+    alloc;
+    path=pwd(),
+    labeller=:version,
+    threads=nothing,
 )
     @info "Tracking allocations: $title"
 
@@ -7,7 +14,15 @@ function alloc_check(
     isdir(path) && cd(path)
 
     # add a proc (id == p) that track allocations
-    p = first(addprocs(1; exeflags=["--track-allocation=user", "--project=$path"]))
+    p = first(
+        if isnothing(threads)
+            addprocs(1; exeflags=["--track-allocation=user", "--project=$path"])
+        else
+            addprocs(
+                1; exeflags=["--track-allocation=user", "--project=$path", "-t $threads"]
+            )
+        end,
+    )
 
     @eval @everywhere $p using Pkg
     @eval @everywhere $p Pkg.instantiate()
@@ -72,7 +87,9 @@ function pie_filter(df, threshold=5.0)
     return X, Y
 end
 
-function alloc_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfplotsx, seriestype = :step)
+function alloc_plot(
+    targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfplotsx, seriestype=:step
+)
     backend()
     for target in targets
         path = normpath(joinpath(dirname(pathof(target)), "..", "perf", "mallocs"))
@@ -84,13 +101,13 @@ function alloc_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfp
         end
         sort!(versions)
 
-        bytes = Dict{String, Vector{Int}}()
+        bytes = Dict{String,Vector{Int}}()
         for (i, version) in enumerate(versions)
             csv_path = joinpath(path, "mallocs-$(string(version)).csv")
             df = DataFrame(CSV.File(csv_path))
             v = get!(bytes, "Total", zeros(Int, length(versions)))
             v[i] = sum(df.bytes)
-            for (b, f) in zip(df[:,1], df[:,3])
+            for (b, f) in zip(df[:, 1], df[:, 3])
                 w = get!(bytes, "$f", zeros(Int, length(versions)))
                 w[i] += b
             end
@@ -101,12 +118,12 @@ function alloc_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfp
                 savefig(joinpath(path, "mallocs-$version.$format"))
             end
         end
-        # @info "values(bytes)" reshape(values(bytes), length(bytes), length(versions)) bytes
 
         X = map(string, versions)
-        Y = reshape(collect(Iterators.flatten(values(bytes))), length(versions), length(bytes))
+        Y = reshape(
+            collect(Iterators.flatten(values(bytes))), length(versions), length(bytes)
+        )
         L = reshape(collect(keys(bytes)), 1, length(bytes))
-        @info "X Y" X Y L
         plot(
             X,
             Y;
