@@ -28,7 +28,7 @@ function alloc_check(
 
     myallocs = Coverage.analyze_malloc(map(dirname ∘ pathof ∘ eval, targets))
 
-    for t in targets, d in walkdir(dirname(pathof(t))), f in d[end]
+    for t in dependencies, d in walkdir(dirname(pathof(t))), f in d[end]
         splitext(f)[2] == ".mem" && rm(joinpath(d[1], f))
     end
     for d in walkdir(path), f in d[end]
