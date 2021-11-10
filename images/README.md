@@ -10,9 +10,7 @@ This is a small collections of semi-automated performance checking tools for Jul
 
 Automatic check of allocation is not ready yet. It works only within a test environment (see test/runtests.jl).
 
-![Malloc-check](/images/PerfChecker-alloc_check.png)
-![Malloc-evolution](/images/mallocs-evolutions.png)
-![Malloc-pie](images/mallocs-0.3.1.png)
+![AllocCheck](/images/PerfChecker-alloc_check.png)
 
 Help to solve the issue of making the script in `perf/allocs.jl` and not only `runtests.jl` is more than welcome. See issue #2
 
