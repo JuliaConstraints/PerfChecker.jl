@@ -22,6 +22,7 @@ CSV = "0.9"
 Coverage = "1"
 DataFrames = "1"
 OrderedCollections = "1"
+Plots = "1"
 PrettyTables = "1"
 julia = "1.6"
 
