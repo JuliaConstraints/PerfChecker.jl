@@ -72,7 +72,7 @@ function pie_filter(df, threshold=5.0)
     return X, Y
 end
 
-function alloc_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfplotsx)
+function alloc_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfplotsx, seriestype = :step)
     backend()
     for target in targets
         path = normpath(joinpath(dirname(pathof(target)), "..", "perf", "mallocs"))
@@ -84,11 +84,16 @@ function alloc_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfp
         end
         sort!(versions)
 
-        bytes = Vector{Int}()
-        for version in versions
+        bytes = Dict{String, Vector{Int}}()
+        for (i, version) in enumerate(versions)
             csv_path = joinpath(path, "mallocs-$(string(version)).csv")
             df = DataFrame(CSV.File(csv_path))
-            push!(bytes, sum(df.bytes))
+            v = get!(bytes, "Total", zeros(Int, length(versions)))
+            v[i] = sum(df.bytes)
+            for (b, f) in zip(df[:,1], df[:,3])
+                w = get!(bytes, "$f", zeros(Int, length(versions)))
+                w[i] += b
+            end
 
             X, Y = pie_filter(df)
             pie(X, Y; title="Mallocs for $target.jl@v$(string(version))", l=0.5)
@@ -96,15 +101,22 @@ function alloc_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfp
                 savefig(joinpath(path, "mallocs-$version.$format"))
             end
         end
+        # @info "values(bytes)" reshape(values(bytes), length(bytes), length(versions)) bytes
+
+        X = map(string, versions)
+        Y = reshape(collect(Iterators.flatten(values(bytes))), length(versions), length(bytes))
+        L = reshape(collect(keys(bytes)), 1, length(bytes))
+        @info "X Y" X Y L
         plot(
-            map(string, versions),
-            bytes;
+            X,
+            Y;
             xlabel="version",
             ylabel="bytes",
             markershape=:circle,
-            seriestype=:step,
+            seriestype,
             title="Mallocs evolution in\n$target.jl",
-            l=0.5,
+            l=(0.5, 2),
+            label=L,
         )
         for format in formats
             savefig(joinpath(path, "mallocs-evolutions.$format"))
