@@ -20,6 +20,6 @@ Help to solve the issue of making the script in `perf/allocs.jl` and not only `r
 - [ ] Automatic Profiling
 - [ ] Automatic plots of previous features
   - [x] using commit/project version label
-  - [ ] allocations
+  - [x] allocations
   - [ ] benchmark
   - [ ] profiling
