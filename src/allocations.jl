@@ -130,10 +130,11 @@ function alloc_plot(
             xlabel="version",
             ylabel="bytes",
             markershape=:circle,
-            seriestype,
+            # seriestype,
             title="Mallocs evolution in\n$target.jl",
             l=(0.5, 2),
             label=L,
+            yaxis=:log,
         )
         for format in formats
             savefig(joinpath(path, "mallocs-evolutions.$format"))

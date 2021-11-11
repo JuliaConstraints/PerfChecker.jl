@@ -50,6 +50,7 @@ function bench_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfp
         end
         X = map(string, versions)
         aux = Vector{Vector{Float64}}()
+        Z = Matrix{Float64}(undef, length(versions),4)
         for (i, dim) in enumerate(["times", "gctimes", "memory", "allocs"])
             ylabel = if dim == "memory"
                 "size (bytes)"
@@ -68,25 +69,28 @@ function bench_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfp
                 title="Benchmarks ($dim) evolution in\n$target.jl",
                 l=(0.5, 2),
                 label=dim,
+                yaxis=:log,
             )
             for format in formats
-                savefig(joinpath(path, "benchmark-$dim-evolutions-boxplot.$format"))
+                savefig(joinpath(path, "benchmark-$dim.$format"))
             end
             z = map(mean, aux)
-            plot(
-                X,
-                z / last(z);
-                xlabel="version",
-                ylabel="ratio",
-                title="Benchmarks ($dim) evolution in\n$target.jl",
-                markershape=:circle,
-                l=(0.5, 2),
-                label=dim,
-            )
-            for format in formats
-                savefig(joinpath(path, "benchmark-$dim-evolutions-line.$format"))
-            end
+            Z[:,i] = z / last(z)
             # push!(aux, y)
+        end
+        L = ["times" "gctimes" "memory" "allocs"]
+        plot(
+            X,
+            Z;
+            xlabel="version",
+            ylabel="ratio",
+            title="Benchmarks evolution in\n$target.jl",
+            markershape=:circle,
+            l=(0.5, 2),
+            label=L,
+        )
+        for format in formats
+            savefig(joinpath(path, "benchmark-evolutions.$format"))
         end
         # Y = reshape(collect(Iterators.flatten(values(means))), length(means["times"]), 4)
         # L = reshape(collect(keys(means)), 1, length(means))
