@@ -174,10 +174,6 @@ Well, we probably could get the gist of the previous 4 plots from the wrap-up pl
 
 Note that the analysis on memory stability despite a stochastic process that reflect on the `times` and `gctimes` is not possible here. But it looks much better if you only can show off one performance plot.
 
-
-
-Help to solve the issue of making the script in `perf/allocs.jl` and not only `runtests.jl` is more than welcome. See issue #2
-
 ## A non-exhaustive list of expected features:
 - [x] Automatic allocation check
 - [x] Automatic Benchmark
