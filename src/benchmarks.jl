@@ -69,7 +69,7 @@ function bench_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfp
                 title="Benchmarks ($dim) evolution in\n$target.jl",
                 l=(0.5, 2),
                 label=dim,
-                yaxis=:log,
+                # yaxis=:log,
             )
             for format in formats
                 savefig(joinpath(path, "benchmark-$dim.$format"))

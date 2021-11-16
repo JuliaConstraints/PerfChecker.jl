@@ -50,6 +50,11 @@ function alloc_check(
         splitext(f)[2] == ".mem" && rm(joinpath(d[1], f))
     end
 
+    if isempty(myallocs)
+        @warn "No allocations was found in " targets
+        return nothing
+    end
+
     # Smart paths
     common, specifics = smart_paths(map(a -> a.filename, Iterators.reverse(myallocs)))
     # @info "sizes" map(a -> a.filename, Iterators.reverse(myallocs)) specifics
@@ -134,7 +139,7 @@ function alloc_plot(
             title="Mallocs evolution in\n$target.jl",
             l=(0.5, 2),
             label=L,
-            yaxis=:log,
+            # yaxis=:log,
         )
         for format in formats
             savefig(joinpath(path, "mallocs-evolutions.$format"))

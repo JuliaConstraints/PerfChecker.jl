@@ -41,6 +41,7 @@ end
 function smart_paths(paths)
     splitted_paths = map(splitpath ∘ normpath, paths)
 
+    @info "debug" paths splitted_paths
     common = paths |> first |> dirname |> splitpath
     for path in splitted_paths
         to_pop = length(common)
