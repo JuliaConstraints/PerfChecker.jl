@@ -21,7 +21,7 @@ StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
 BenchmarkTools = "1"
-CSV = "0.9"
+CSV = "0.9, 0.10"
 Coverage = "1"
 DataFrames = "1"
 OrderedCollections = "1"
