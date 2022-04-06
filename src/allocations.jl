@@ -93,7 +93,7 @@ function pie_filter(df, threshold=5.0)
 end
 
 function alloc_plot(
-    targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfplotsx, seriestype=:step
+    targets; formats=["pdf", "svg", "png"], backend=Plots.GRBackend, seriestype=:step
 )
     backend()
     for target in targets
