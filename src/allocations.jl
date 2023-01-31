@@ -16,22 +16,23 @@ function alloc_check(
     # add a proc (id == p) that track allocations
     p = first(isnothing(threads) ? addprocs(1; exeflags=["--track-allocation=user", "--project=$path"]) : addprocs(1; exeflags=["--track-allocation=user", "--project=$path", "-t $threads"]))
     
-    @sync begin
-    	remotecall(eval, p, :(using Pkg))
-	    remotecall(Pkg.instantiate, p, ())
-	    remotecall(eval, p, :(using Profile))
+    remotecall_fetch(Core.eval, p, Main, Expr(:toplevel, (quote
+        import Pkg; Pkg.instantiate()
+        import Profile;
+        nothing
+    end).args...))
+    
+    for d in dependencies
+        remotecall_fetch(Core.eval, p, Main, Expr(:toplevel, (quote
+            using $(Symbol(d))
+            nothing
+        end).args...))
     end
     
-    @sync for d in dependencies
-        remotecall(eval, p, :(using $(Symbol(d))))
-    end
-	
-    @sync begin
-    	remotecall(pre_alloc, p, ())
-    	remotecall(eval, p, :(Profile.clear_malloc_data()))
-    	remotecall(eval, p, :(alloc()))
-    end
-            
+    @eval @everywhere $p $pre_alloc()
+    @eval @everywhere $p Profile.clear_malloc_data()
+    @eval @everywhere $p $alloc()
+
     rmprocs(p)
 
     myallocs = Coverage.analyze_malloc(map(dirname ∘ pathof ∘ eval, targets))
