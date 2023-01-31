@@ -1,6 +1,6 @@
 using PatternFolds
 
-# @testset "PatternFolds.jl" begin
+@testset "PatternFolds.jl" begin
     # Title of the alloc check (for logging purpose)
     title = "Basic intervals and vectors folds operation"
 
@@ -21,7 +21,7 @@ using PatternFolds
         collect(i)
         reverse(collect(i))
 
-        # rand(i, 1000)
+        rand(i, 1000)
 
         # Vectors
         vf = make_vector_fold([0, 1], 2, 1000)
@@ -38,4 +38,4 @@ using PatternFolds
 
     # Actual call to PerfChecker
     alloc_check(title, dependencies, targets, alloc, alloc; path=@__DIR__)
-# end
+end
