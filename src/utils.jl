@@ -38,6 +38,11 @@ function version2string(paths::Vector{String})
     return output
 end
 
+@static if VERSION < v"1.7"
+    Base.joinpath(x) = joinpath(x...)
+end
+
+
 function smart_paths(paths)
     splitted_paths = map(splitpath ∘ normpath, paths)
 

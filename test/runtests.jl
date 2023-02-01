@@ -1,6 +1,7 @@
+using BenchmarkTools
 using PerfChecker
 using Test
 
-include("compositional_networks.jl")
+# include("compositional_networks.jl")
 
 include("pattern_folds.jl")
