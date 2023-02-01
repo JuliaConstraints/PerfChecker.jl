@@ -4,3 +4,6 @@
 *Manifest.toml
 
 /docs/build/
+
+/test/benchmarks/
+/test/mallocs/
