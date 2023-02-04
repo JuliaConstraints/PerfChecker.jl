@@ -2,7 +2,7 @@ module PerfChecker
 
 # SECTION - Imports
 using BenchmarkTools
-using Coverage
+using CoverageTools
 using CSV
 using DataFrames
 using Distributed
