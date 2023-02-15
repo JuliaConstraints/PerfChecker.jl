@@ -13,7 +13,7 @@ This is a small collection of semi-automated performance checking tools for Juli
 
 ## Small tutorial
 
-This tutorial is based on a beta version and is prone to change frequently. Please refer to this `README` if your performance checking scripts stop to work.
+This tutorial is based on a beta version and is prone to change frequently. Please use it as a workflow example.
 
 Let's write two small scripts to check allocations (`allocs.jl`) and benchmarks (`bench.jl`) for [CompositionalNetworks.jl](https://github.com/JuliaConstraints/CompositionalNetworks.jl) using `PerfChecker.jl`.
 In the current state, we write and execute the scripts (and stores a local environment) in the `/perf` folder of `CompositionalNetworks.jl`. You can use `julia --project` to activate that environment when running the script. For instance, I run the check for `CompositionalNetworks.jl` with the following command,
@@ -173,25 +173,3 @@ Well, we probably could get the gist of the previous 4 plots from the wrap-up pl
 ![Benchmark-evolutions](/images/benchmark-evolutions.png)
 
 Note that the analysis on memory stability despite a stochastic process that reflect on the `times` and `gctimes` is not possible here. But it looks much better if you only can show off one performance plot.
-
-## A non-exhaustive list of expected features:
-- [x] Automatic allocation check
-- [x] Automatic Benchmark
-- [ ] Automatic Profiling ? (not sure, there already is a bunch of super cool packages)
-- [x] Automatic plots of previous features
-  - [x] using commit/project version label
-  - [x] allocations
-  - [x] benchmark
-  - [ ] profiling ? (See above)
-- [ ] Independent environment for performance checks
-  - [x] allocations
-  - [x] benchmark
-- [ ] Automatic environment selection based on
-  - [ ] Julia compatibility: run the latest compatible Julia version available
-  - [x] Dependencies' compatibility
-- [ ] Sugar syntax and perfchecks options
-  - [ ] wrap `@benchmark`
-  - [ ] wrap `plot` from `Plots.jl` and `StatsPlots.jl`
-- [ ] ML to generate (smells of a GSoC project?)
-  - [ ] possible performances bottlenecks, issues, regressions
-  - [ ] automatic captions for plots
