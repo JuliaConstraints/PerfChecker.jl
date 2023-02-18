@@ -15,6 +15,8 @@ using PrettyTables
 using Profile
 using Random
 using StatsPlots
+using Term
+using TypedTables
 
 # SECTION - Exports
 export alloc_check
