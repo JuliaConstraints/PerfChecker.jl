@@ -11,7 +11,6 @@ using OrderedCollections
 using PGFPlotsX
 using Pkg
 using Plots
-using PrettyTables
 using Profile
 using Random
 using StatsPlots
