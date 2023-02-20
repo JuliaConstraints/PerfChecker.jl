@@ -6,7 +6,6 @@ function store_benchmark(bench, target; path=pwd())
     mkpath("benchmarks")
     CSV.write(joinpath(path, "benchmarks/benchmark$label.csv"), t)
 
-    # Visualize a pretty table
     return t
 end
 
