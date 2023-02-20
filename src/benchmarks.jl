@@ -9,7 +9,7 @@ function store_benchmark(bench, target; path=pwd())
     CSV.write(joinpath(path, "benchmarks/benchmark$label.csv"), df)
 
     # Visualize a pretty table
-    pretty_table(df)
+    # pretty_table(df)
 
     return nothing
 end
