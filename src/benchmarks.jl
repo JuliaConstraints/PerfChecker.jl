@@ -1,5 +1,4 @@
 function store_benchmark(bench, target; path=pwd())
-    
     t = let 
         ti = bench.times
         l = length(ti)
