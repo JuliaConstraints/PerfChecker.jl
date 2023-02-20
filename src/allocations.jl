@@ -50,17 +50,28 @@ function alloc_check(
     end
 
     # Smart paths
-    common, specifics = smart_paths(map(a -> a.filename, Iterators.reverse(myallocs)))
+    
+    # common, specifics = smart_paths(map(a -> a.filename, Iterators.reverse(myallocs)))
     # @info "sizes" map(a -> a.filename, Iterators.reverse(myallocs)) specifics
-    slash = Sys.iswindows() ? "\\" : "/"
+    # slash = Sys.iswindows() ? "\\" : "/"
 
     # Make the allocations data readable through a dataframe
+    
+    #=
     df = DataFrame()
     df.bytes = map(a -> a.bytes, Iterators.reverse(myallocs))
     df[!, "ratio (%)"] = round.(df.bytes / sum(df.bytes) * 100; digits=2)
     df[!, "filename: [$common$slash"] = map(first ∘ splitext ∘ first ∘ splitext, specifics)
     df.linenumber = map(a -> a.linenumber, Iterators.reverse(myallocs))
-
+    =#
+    t = let
+        b = map(a -> a.bytes, Iterators.reverse(myallocs))
+        r = round.(b / sum(b) * 100; digits=2)
+        f = map(first ∘ splitext ∘ first ∘ splitext, map(a -> a.filename, Iterators.reverse(myallocs)))
+        l = map(a -> a.linenumber, Iterators.reverse(myallocs))
+        TypedTables.Table(bytes = b, percentage = r, filenames = f, linenumbers = l)
+    end
+    
     # Save it as a CSV file
     label = ""
     if labeller == :oid
@@ -69,12 +80,10 @@ function alloc_check(
         label = version2string(map(p -> joinpath(dirname(pathof(p)), ".."), targets))
     end
     mkpath("mallocs")
-    CSV.write(joinpath(path, "mallocs/mallocs$label.csv"), df)
+    CSV.write(joinpath(path, "mallocs/mallocs$label.csv"), t)
 
     # Visualize a pretty table
-    pretty_table(df)
-
-    return nothing
+    return t
 end
 
 function pie_filter(df, threshold=5.0)
