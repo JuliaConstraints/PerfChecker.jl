@@ -1,10 +1,10 @@
 function store_benchmark(bench, target; path=pwd())
-    t = let 
+    t = let
         ti = bench.times
         l = length(ti)
         TypedTables.Table(times=ti, gctimes=bench.gctimes, memory=fill(bench.memory, l), allocs=fill(bench.allocs, l))
     end
-    
+
     # Save it as a CSV file
     label = version2string(map(p -> joinpath(dirname(pathof(p)), ".."), [target]))
     mkpath("benchmarks")
