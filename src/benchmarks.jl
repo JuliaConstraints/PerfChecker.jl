@@ -1,17 +1,13 @@
 function store_benchmark(bench, target; path=pwd())
-    df = DataFrame(;
-        times=bench.times, gctimes=bench.gctimes, memory=bench.memory, allocs=bench.allocs
-    )
+    t = TypedTables.Table(times=bench.times, gctimes=bench.gctimes, memory=bench.memory, allocs=bench.allocs)
 
     # Save it as a CSV file
     label = version2string(map(p -> joinpath(dirname(pathof(p)), ".."), [target]))
     mkpath("benchmarks")
-    CSV.write(joinpath(path, "benchmarks/benchmark$label.csv"), df)
+    CSV.write(joinpath(path, "benchmarks/benchmark$label.csv"), t)
 
     # Visualize a pretty table
-    pretty_table(df)
-
-    return nothing
+    return t
 end
 
 function bench_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfplotsx)
