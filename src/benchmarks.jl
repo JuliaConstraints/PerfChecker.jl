@@ -1,12 +1,13 @@
 function store_benchmark(bench, target; path=pwd())
-    t = TypedTables.Table(times=bench.times, gctimes=bench.gctimes, memory=bench.memory, allocs=bench.allocs)
+    ti = bench.times
+    l = length(ti)
+    t = TypedTables.Table(times=ti, gctimes=bench.gctimes, memory=fill(bench.memory, l), allocs=fill(bench.allocs, l))
 
     # Save it as a CSV file
     label = version2string(map(p -> joinpath(dirname(pathof(p)), ".."), [target]))
     mkpath("benchmarks")
     CSV.write(joinpath(path, "benchmarks/benchmark$label.csv"), t)
 
-    # Visualize a pretty table
     return t
 end
 
