@@ -27,8 +27,11 @@ CoverageTools = "1"
 DataFrames = "1"
 OrderedCollections = "1"
 PGFPlotsX = "1"
+Pkg = "1"
 Plots = "1"
 StatsPlots = "0.15"
+Term = "2"
+TypedTables = "1"
 julia = "1.6"
 
 [extras]
