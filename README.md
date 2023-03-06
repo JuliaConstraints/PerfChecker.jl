@@ -5,11 +5,82 @@
 [![Build Status](https://github.com/JuliaConstraints/PerfChecker.jl/workflows/CI/badge.svg)](https://github.com/JuliaConstraints/PerfChecker.jl/actions)
 [![codecov](https://codecov.io/gh/JuliaConstraints/PerfChecker.jl/branch/main/graph/badge.svg?token=YVJhN4dpBp)](https://codecov.io/gh/JuliaConstraints/PerfChecker.jl)
 [![Code Style: Blue](https://img.shields.io/badge/code%20style-blue-4495d1.svg)](https://github.com/invenia/BlueStyle)
+[![Chat: Mattermost](https://img.shields.io/badge/chat-mattermost-blueviolet.svg)](https://nohost.iijlab.net/chat/signup_user_complete/?id=nnuc1g14gtrqtnas6thu193xmr)
+[![Website: JuliaConstraints](https://img.shields.io/badge/website-JuliaConstraints-informational.svg)](https://juliaconstraints.github.io/)
 
-This is a small collection of semi-automated performance checking tools for Julia packages. The long-term goal is to have it run similarly than the test environment. The performances check of a package `P` would occur in independent instances of Julia that would allow for each version of `P`:
 
-- Using the latest compatible versions of Julia and other dependencies of `P`
-- Making `PerfChecker.jl` compatibility requirements independent of the environment used during performance checks.
+
+`PerfChecker` is a set of performance checking tools for Julia packages. The ultimate aim is to create an environment where the tool can run similarly to a test environment. By doing so, it would be possible to test the performance of a package `P` in separate Julia instances. This would allow for each version of `P`:
+
+- The use of the latest compatible versions of Julia and other dependencies of P
+- Independence of compatibility requirements of `PerfChecker.jl` from the environment used during performance checks.
+
+## Google Summer of Code (2023)
+
+`JuliaConstraints`, including `PerfChecker.jl`, is participating in Google Summer of Code (GSoC) through the Julia language umbrella and is looking for contributors. Complete lists of projects:
+
+- [JuliaConstraints](https://julialang.org/jsoc/gsoc/juliaconstraints/)
+- Other [Julia language projects](https://julialang.org/jsoc/projects/)
+
+### Project Ideas
+
+This package consists of a set of tools designed to check the performance of packages over time and versions. The targeted audience is the whole community of packages' developers in Julia (not only JuliaConstraints).
+
+This README provides a short demo on how PerfChecker can be used.
+
+**Basic features to implement (length ≈ 175 hours)**
+
+- PerfCheck environment similar to Test.jl and Pkg.jl
+- Sugar syntax `@bench`, `@alloc`, `@profile` similar to Test.jl and Pkg.jl
+- Interactive REPL interface
+- Interactive GUI interface (using for instance Makie)
+- Automatic Profiling ? (not sure how, there already is a bunch of super cool packages)
+- Automatic plotting of previous features
+
+**Advanced features (length +≈ 175 hours)**
+
+- *Smart* semi-automatic analysis of performances
+- Performances bottlenecks
+- Regressions
+- Allocations vs speed trade-off
+- Descriptive plot captions
+- Handle Julia and other packages versions
+- Integrates with juliaup
+- Automatically generate versions parametric space for both packages and Julia
+
+Note that some features are interchangeable depending on the interest of the candidate. For candidates with a special interest in the JuliaConstraints ecosystem, checking the performances of some packages is an option.
+
+**Length**
+
+175 hours – 350 hours (depending on features)
+
+**Recommended Skills (||)**
+
+- Familiarity with package development
+- REPL and/or GUI interfaces
+- Coverage, Benchmarks, and Profiling tools
+
+**Difficulty**
+
+Easy to Medium, depending on the features implemented
+
+### Getting Started
+
+Although it is part of JuliaConstraints, `PerfChecker` is a standalone project. As such a good start is to understand fully its features and workflow. For instance, one way is to write a small use case in the vein of the small tutorial below. Possible packages could be
+
+- A JuliaConstraints package or dependency
+- A package written by the GSoC candidate
+- Another package from the Julia community
+
+Please bear in mind that, ideally, writing performance checks for such a package should be simple.
+
+Also, allocation checks generate memory files in the package local folder. Ideally the package should be `dev`ed in a local environment.
+
+To contribute, please fork the repo, create a new branch, make your changes, and submit a pull request. If you are unsure about anything or need any help, please don't hesitate to ask through issues, [JuliaConstraints chat](https://nohost.iijlab.net/chat/signup_user_complete/?id=nnuc1g14gtrqtnas6thu193xmr), or the `#juliaconstraints` channel on Humans-of-Julia's [Discord](https://discord.gg/7KC28q98nP).
+
+
+We encourage students and other possible GSoC contributors to participate in `PerfChecker`'s development as it would bring a tools for the Julia community as a whole. It would bring them experience and deep understanding of Julia packages development and, more generally, open source development along with performance testing.
+We're looking forward for proposals submissions.
 
 ## Small tutorial
 
@@ -17,6 +88,7 @@ This tutorial is based on a beta version and is prone to change frequently. Plea
 
 Let's write two small scripts to check allocations (`allocs.jl`) and benchmarks (`bench.jl`) for [CompositionalNetworks.jl](https://github.com/JuliaConstraints/CompositionalNetworks.jl) using `PerfChecker.jl`.
 In the current state, we write and execute the scripts (and stores a local environment) in the `/perf` folder of `CompositionalNetworks.jl`. You can use `julia --project` to activate that environment when running the script. For instance, I run the check for `CompositionalNetworks.jl` with the following command,
+
 ```shell
 julia -t 10 --project
 ```
@@ -40,7 +112,6 @@ Depending on the nature of your code, it is important to be sure to trigger all 
 Note that in the case of `CompositionalNetworks.jl`, it stochastically generates a great deal of methods to compile.
 
 For deterministic code, `pre-alloc()` can be minimal, and `@benchmark` will handle triggering the necessary compilation before the checks.
-
 
 ### Allocation checks
 
@@ -173,3 +244,13 @@ Well, we probably could get the gist of the previous 4 plots from the wrap-up pl
 ![Benchmark-evolutions](/images/benchmark-evolutions.png)
 
 Note that the analysis on memory stability despite a stochastic process that reflect on the `times` and `gctimes` is not possible here. But it looks much better if you only can show off one performance plot.
+
+## Contributing
+
+We appreciate contributions from users including reporting bugs, fixing issues, improving performance and adding new features.
+
+To contribute, please fork the repo, create a new branch, make your changes, and submit a pull request. If you are unsure about anything or need any help, please don't hesitate to ask.
+
+## Acknowledgments
+
+This package is part of the [JuliaConstraints](https://juliaconstraints.github.io/) project. We thank the entire community for their contributions.
