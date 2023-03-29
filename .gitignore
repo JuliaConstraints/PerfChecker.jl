@@ -7,3 +7,7 @@
 
 /test/benchmarks/
 /test/mallocs/
+
+*~
+*.swp
+*.swo
