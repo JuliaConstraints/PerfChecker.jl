@@ -11,3 +11,5 @@
 *~
 *.swp
 *.swo
+
+.vscode/
