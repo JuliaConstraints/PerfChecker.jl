@@ -44,11 +44,28 @@ As mentioned before, due to some of the missing features in `PerfChecker.jl`, ru
 To start generating visualizations, we can run the following commands in the REPL:
 ```julia
 using PerfChecker
+
 # switch to pkg REPL using ]
+
 develop <point-to-GLM.jl-directory>
+
 # exit out of pkg REPL by pressing the backspace key
+
 using GLM
 
 alloc_plot([GLM])
 bench_plot([GLM])
 ```
+
+### Analysis of the plot
+#### Allocs (Pie chart)
+![Malloc-pie](/perf/GLM/mallocs/mallocs-1.8.2.png)
+#### Allocs over time
+![Malloc-evolution](/perf/GLM/mallocs/mallocs-evolutions.png)
+#### Benchmark (allocs and memory)
+![Benchmark-allocs](/perf/GLM/benchmarks/benchmark-allocs.png)
+![Benchmark-memory](/perf/GLM/benchmarks/benchmark-memory.png)
+#### Benchmark (times and garbage collection times)
+![Benchmark-times](/perf/GLM/benchmarks/benchmark-times.png)
+#### Benchmark (evolutions overview)
+![Benchmark-evolutions](/perf/GLM/benchmarks/benchmark-evolutions.png)
