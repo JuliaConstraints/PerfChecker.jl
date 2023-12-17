@@ -1,3 +1,59 @@
+prep(d::Dict, block::Expr, ::Val{:alloc}) = quote
+    import Pkg
+    Pkg.instantiate()
+    import Profile
+    macro check(repeat, block)
+        repeat && block
+        Profile.clear_malloc_data()
+        block
+    end
+    macro check(block)
+        block
+        Profile.clear_malloc_data()
+        block
+    end
+    $block
+    targets = eval(Meta.parse("[" * (typeof($d[:targets]) == String ? $d[:targets] : join($d[:targets], ", ")) * "]"))
+    @warn targets
+    return map(dirname ∘ pathof ∘ eval, targets)
+end
+
+prep(d::Dict, b::Expr, v::Symbol) = prep(d, b, Val(v))
+
+macro prep(x, d, block)
+    block = Expr(:quote, block)
+    quote
+        g = prep($d, $block, $x)
+
+        p = remotecall_fetch(Core.eval, 1, Main,
+            Expr(:toplevel, quote
+                import Distributed
+                d = $($d)
+                Distributed.addprocs(1; exeflags=["--track-allocation=$(d[:track])", "--project=$(d[:path])", "-t $(d[:threads])"])
+            end).args...) |> first
+
+        j = remotecall_fetch(Core.eval, p, Main,
+            Expr(:toplevel, g.args...))
+
+        remotecall_fetch(Core.eval, 1, Main,
+            Expr(:toplevel, quote
+                import Distributed
+                Distributed.rmprocs($p)
+            end).args...)
+
+        files = find_malloc_files(j)
+
+        myallocs = analyze_malloc_files(files)
+        if isempty(myallocs)
+            @error "No allocation files found in $($d[:targets])"
+        else
+            rm.(files)
+            return myallocs
+        end
+    end
+end
+
+#=
 function alloc_check(
     title,
     dependencies,
@@ -15,20 +71,20 @@ function alloc_check(
 
     # add a proc (id == p) that track allocations
     p = first(isnothing(threads) ? addprocs(1; exeflags=["--track-allocation=user", "--project=$path"]) : addprocs(1; exeflags=["--track-allocation=user", "--project=$path", "-t $threads"]))
-    
+
     remotecall_fetch(Core.eval, p, Main, Expr(:toplevel, (quote
         import Pkg; Pkg.instantiate()
         import Profile;
         nothing
     end).args...))
-    
+
     for d in dependencies
         remotecall_fetch(Core.eval, p, Main, Expr(:toplevel, (quote
             using $(Symbol(d))
             nothing
         end).args...))
     end
-    
+
     @eval @everywhere $p $pre_alloc()
     @eval @everywhere $p Profile.clear_malloc_data()
     @eval @everywhere $p $alloc()
@@ -50,13 +106,13 @@ function alloc_check(
     end
 
     # Smart paths
-    
+
     # common, specifics = smart_paths(map(a -> a.filename, Iterators.reverse(myallocs)))
     # @info "sizes" map(a -> a.filename, Iterators.reverse(myallocs)) specifics
     # slash = Sys.iswindows() ? "\\" : "/"
 
     # Make the allocations data readable through a dataframe
-    
+
     #=
     df = DataFrame()
     df.bytes = map(a -> a.bytes, Iterators.reverse(myallocs))
@@ -71,7 +127,7 @@ function alloc_check(
         l = map(a -> a.linenumber, Iterators.reverse(myallocs))
         TypedTables.Table(bytes = b, percentage = r, filenames = f, linenumbers = l)
     end
-    
+
     # Save it as a CSV file
     label = ""
     if labeller == :oid
@@ -149,3 +205,4 @@ function alloc_plot(
         end
     end
 end
+=#
