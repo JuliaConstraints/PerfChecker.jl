@@ -1,6 +1,6 @@
 using PerfChecker
 
-j = @prep :alloc Dict(:threads => 1, :targets => ["GLM"], :path => @__DIR__, :track => "user") begin
+@prep :alloc Dict(:threads => 1, :targets => ["GLM"], :path => @__DIR__, :track => "user") begin
     using GLM, Random, StatsModels
     @check begin
         n = 2_500_000
@@ -22,4 +22,4 @@ j = @prep :alloc Dict(:threads => 1, :targets => ["GLM"], :path => @__DIR__, :tr
     end
 end
 
-println(j)
+# println(j)
