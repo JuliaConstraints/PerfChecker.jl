@@ -2,29 +2,46 @@ prep(d::Dict, block::Expr, ::Val{:alloc}) = quote
     import Pkg
     Pkg.instantiate()
     import Profile
-    macro check(repeat, block)
-        repeat && block
-        Profile.clear_malloc_data()
-        block
-    end
-    macro check(block)
-        block
-        Profile.clear_malloc_data()
-        block
-    end
     $block
-    targets = eval(Meta.parse("[" * (typeof($d[:targets]) == String ? $d[:targets] : join($d[:targets], ", ")) * "]"))
-    @warn targets
-    return map(dirname ∘ pathof ∘ eval, targets)
+    nothing
 end
 
-prep(d::Dict, b::Expr, v::Symbol) = prep(d, b, Val(v))
+function check(d::Dict, block::Expr, ::Val{:alloc})
 
-macro prep(x, d, block)
-    block = Expr(:quote, block)
+    j = haskey(d, :repeat) && d[:repeat] ? block : nothing
+
     quote
-        g = prep($d, $block, $x)
+        $j
+        Profile.clear_malloc_data()
+        $block
+        targets = eval(Meta.parse("[" * join($(d[:targets]), ", ") *  "]"))
+        rmstuff = Base.loaded_modules_array()
+        return dirname.(filter(!isnothing, pathof.(targets))), dirname.(filter(!isnothing, pathof.(rmstuff)))
+    end
+end
 
+function post(result, d::Dict, ::Val{:alloc})
+    files = find_malloc_files(result[1])
+    delete_files = find_malloc_files(result[2])
+    myallocs = analyze_malloc_files(files)
+    if !isempty(myallocs)
+        rm.(delete_files)
+    else
+        @error "No allocation files found in $(d[:targets])"
+    end
+    myallocs
+end
+
+
+prep(d::Dict, b::Expr, v::Symbol) = prep(d, b, Val(v))
+check(d::Dict, b::Expr, v::Symbol) = check(d, b, Val(v))
+post(result, d::Dict, v::Symbol) = post(result, d, Val(v))
+
+macro check(x, d, block1, block2)
+    block1, block2 = Expr(:quote, block1), Expr(:quote, block2)
+    quote
+        g = prep($d, $block1, $x)
+        h = check($d, $block2, $x)
         p = remotecall_fetch(Core.eval, 1, Main,
             Expr(:toplevel, quote
                 import Distributed
@@ -32,24 +49,19 @@ macro prep(x, d, block)
                 Distributed.addprocs(1; exeflags=["--track-allocation=$(d[:track])", "--project=$(d[:path])", "-t $(d[:threads])"])
             end).args...) |> first
 
-        j = remotecall_fetch(Core.eval, p, Main,
+        remotecall_fetch(Core.eval, p, Main,
             Expr(:toplevel, g.args...))
+
+        j = remotecall_fetch(Core.eval, p, Main,
+            Expr(:toplevel, h.args...))
 
         remotecall_fetch(Core.eval, 1, Main,
             Expr(:toplevel, quote
-                import Distributed
+                 import Distributed
                 Distributed.rmprocs($p)
             end).args...)
 
-        files = find_malloc_files(j)
-
-        myallocs = analyze_malloc_files(files)
-        if isempty(myallocs)
-            @error "No allocation files found in $($d[:targets])"
-        else
-            rm.(files)
-            return myallocs
-        end
+        $post(j, $d, $x)
     end
 end
 
@@ -206,3 +218,4 @@ function alloc_plot(
     end
 end
 =#
+

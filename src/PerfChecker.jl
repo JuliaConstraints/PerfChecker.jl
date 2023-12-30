@@ -17,26 +17,18 @@ using TypedTables
 import Distributed: remotecall_fetch, addprocs, rmprocs
 import CoverageTools: analyze_malloc_files, find_malloc_files
 
-struct CheckerOptions
-    threads::Int
-    path::AbstractString
-    targets::Union{String, Vector{String}}
-end
-
 # SECTION - Exports
-export alloc_check
-export alloc_plot
 export bench_plot
 export store_benchmark
-export @prep 
-export CheckerOptions
+export @check
 
 # SECTION - Includes
 
 include("init.jl")
 
-include("allocations.jl")
+include("check.jl")
 include("benchmarks.jl")
 include("utils.jl")
 
 end
+
