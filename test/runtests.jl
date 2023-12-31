@@ -1,4 +1,5 @@
 using BenchmarkTools
+using Distributed
 using PerfChecker
 using Test
 

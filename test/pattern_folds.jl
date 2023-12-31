@@ -1,8 +1,8 @@
 using PatternFolds
 
 @testset "PatternFolds.jl" begin
-    @check :alloc Dict(:target => ["PatternFolds"]) begin
-    	using PatternFolds 
+    @check :alloc Dict(:target => ["PatternFolds"], :path => pwd()) begin
+    	using PatternFolds
     	end begin
         itv = Interval{Open,Closed}(0.0, 1.0)
         i = IntervalsFold(itv, 2.0, 1000)
