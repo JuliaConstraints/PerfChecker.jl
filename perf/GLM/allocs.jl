@@ -2,7 +2,7 @@ using PerfChecker
 
 x = @check :alloc Dict(:threads => 1, :targets => ["GLM"], :path => @__DIR__, :track => "user", :repeat => true) begin
     using GLM, Random, StatsModels
-    end begin
+end begin
     n = 2_500_000
     rng = Random.MersenneTwister(1234321)
     tbl = (
@@ -22,4 +22,4 @@ x = @check :alloc Dict(:threads => 1, :targets => ["GLM"], :path => @__DIR__, :t
 end
 
 
-@info x
+# @info x

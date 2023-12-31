@@ -25,8 +25,9 @@ export @check
 # SECTION - Includes
 
 include("init.jl")
-
 include("check.jl")
+include("alloc.jl")
+
 include("benchmarks.jl")
 include("utils.jl")
 

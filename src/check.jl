@@ -1,67 +1,100 @@
-prep(d::Dict, block::Expr, ::Val{:alloc}) = quote
-    import Pkg
-    Pkg.instantiate()
-    import Profile
-    $block
-    nothing
-end
+## Check macro and related functions
 
-function check(d::Dict, block::Expr, ::Val{:alloc})
+#SECTION - Generic dispatch methods
+prep(::Val, args...) = nothing
+check(::Val, args...) = nothing
+post(::Val, args...) = nothing
 
-    j = haskey(d, :repeat) && d[:repeat] ? block : nothing
+#SECTION - Multiple dispatch methods
+prep(tool::Symbol, d, b) = prep(Val(tool), d, b)
+check(tool::Symbol, d, b) = check(Val(tool), d, b )
+post(tool::Symbol, d, r) = post(Val(tool), d, r)
 
+#SECTION - Check macro
+macro check(tool, d, block1, block2)
+    block1 = Expr(:quote, block1)
+    block2 = Expr(:quote, block2)
     quote
-        $j
-        Profile.clear_malloc_data()
-        $block
-        targets = eval(Meta.parse("[" * join($(d[:targets]), ", ") *  "]"))
-        rmstuff = Base.loaded_modules_array()
-        return dirname.(filter(!isnothing, pathof.(targets))), dirname.(filter(!isnothing, pathof.(rmstuff)))
-    end
-end
+        g = prep($tool, $d, $block1)
+        h = check($tool, $d, $block2)
+        p = remotecall_fetch(
+            Core.eval,
+            1,
+            Main,
+            Expr(
+                :toplevel,
+                quote
+                    import Distributed
+                    d = $($d)
+                    Distributed.addprocs(
+                        1;
+                        exeflags=["--track-allocation=$(d[:track])",
+                        "--project=$(d[:path])",
+                        "-t $(d[:threads])"]
+                    )
+                end
+            ).args...
+        ) |> first
 
-function post(result, d::Dict, ::Val{:alloc})
-    files = find_malloc_files(result[1])
-    delete_files = find_malloc_files(result[2])
-    myallocs = analyze_malloc_files(files)
-    if !isempty(myallocs)
-        rm.(delete_files)
-    else
-        @error "No allocation files found in $(d[:targets])"
-    end
-    myallocs
-end
+        r1 = remotecall_fetch(
+            Core.eval,
+            p,
+            Main,
+            Expr(:toplevel, g.args...),
+        )
 
+        $d[:prep_result] = r1
+        @warn "debug" $d
 
-prep(d::Dict, b::Expr, v::Symbol) = prep(d, b, Val(v))
-check(d::Dict, b::Expr, v::Symbol) = check(d, b, Val(v))
-post(result, d::Dict, v::Symbol) = post(result, d, Val(v))
+        # push!(
+        #     $d,
+        #     :prep_result => remotecall_fetch(
+        #         Core.eval,
+        #         p,
+        #         Main,
+        #         Expr(:toplevel, g.args...),
+        #     )
+        # )
 
-macro check(x, d, block1, block2)
-    block1, block2 = Expr(:quote, block1), Expr(:quote, block2)
-    quote
-        g = prep($d, $block1, $x)
-        h = check($d, $block2, $x)
-        p = remotecall_fetch(Core.eval, 1, Main,
-            Expr(:toplevel, quote
-                import Distributed
-                d = $($d)
-                Distributed.addprocs(1; exeflags=["--track-allocation=$(d[:track])", "--project=$(d[:path])", "-t $(d[:threads])"])
-            end).args...) |> first
+        r2 = remotecall_fetch(
+            Core.eval,
+            p,
+            Main,
+            Expr(:toplevel, h.args...),
+        )
 
-        remotecall_fetch(Core.eval, p, Main,
-            Expr(:toplevel, g.args...))
+        $d[:check_result] = r2
 
-        j = remotecall_fetch(Core.eval, p, Main,
-            Expr(:toplevel, h.args...))
+        # push!(
+        #     $d,
+        #     :check_result => remotecall_fetch(
+        #         Core.eval,
+        #         p,
+        #         Main,
+        #         Expr(:toplevel, h.args...),
+        #     )
+        # )
 
-        remotecall_fetch(Core.eval, 1, Main,
-            Expr(:toplevel, quote
-                 import Distributed
-                Distributed.rmprocs($p)
-            end).args...)
+        remotecall_fetch(
+            Core.eval,
+            1,
+            Main,
+            Expr(
+                :toplevel,
+                quote
+                    import Distributed
+                    Distributed.rmprocs($p)
+                end
+            ).args...
+        )
 
-        $post(j, $d, $x)
+        results = $post($tool, $d, r2)
+        # results = $post($tool, $d)
+
+        # pop!($d, :prep_result)
+        # pop!($d, :check_result)
+
+        return results
     end
 end
 
