@@ -1,17 +1,9 @@
 using PatternFolds
 
 @testset "PatternFolds.jl" begin
-    # Title of the alloc check (for logging purpose)
-    title = "Basic intervals and vectors folds operation"
-
-    # Dependencies needed to execute pre_alloc and alloc
-    dependencies = [PatternFolds]
-
-    # Target of the alloc check
-    targets = [PatternFolds]
-
-    function alloc() # 0.2.x
-        # Intervals
+    @check :alloc Dict(:target => ["PatternFolds"]) begin
+    	using PatternFolds 
+    	end begin
         itv = Interval{Open,Closed}(0.0, 1.0)
         i = IntervalsFold(itv, 2.0, 1000)
 
@@ -30,15 +22,9 @@ using PatternFolds
         reverse(collect(vf))
 
         rand(vf, 1000)
-
-        return nothing
     end
-
-    # Actual call to PerfChecker
-    alloc_check(title, dependencies, targets, alloc, alloc; path=@__DIR__)
-
 end
-
+#=
 target = PatternFolds
 
 function bench() # 0.2.x
@@ -69,3 +55,4 @@ t = @benchmark bench() evals = 1 samples = 1000 seconds = 3600
 
 # Actual call to PerfChecker
 store_benchmark(t, target; path=@__DIR__)
+=#
