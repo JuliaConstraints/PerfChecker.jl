@@ -1,8 +1,8 @@
-using PerfChecker
+using PerfChecker, PrettyTables
 
-x = @check :alloc Dict(:threads => 1, :targets => ["GLM"], :path => @__DIR__, :track => "user", :repeat => true) begin
+x = @check :alloc Dict(:targets => ["GLM"], :path => @__DIR__) begin
     using GLM, Random, StatsModels
-end begin
+    end begin
     n = 2_500_000
     rng = Random.MersenneTwister(1234321)
     tbl = (
@@ -22,4 +22,4 @@ end begin
 end
 
 
-# @info x
+pretty_table(x |> to_table)
