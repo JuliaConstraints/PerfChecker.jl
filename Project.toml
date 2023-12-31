@@ -1,7 +1,7 @@
 name = "PerfChecker"
 uuid = "6309bf6b-a531-4b08-891e-8ee981e5c424"
 authors = ["Azzaare <jf@baffier.fr>"]
-version = "0.1.4"
+version = "0.2.0"
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
@@ -9,7 +9,6 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CoverageTools = "c36e975a-824b-4404-a568-ef97ca766997"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
-GLM = "38e38edf-8417-5370-95a0-9cbb8c7f171a"
 LibGit2 = "76f85450-5226-5b5a-8eaa-529ad045b433"
 OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 PGFPlotsX = "8314cec4-20b6-5062-9cdb-752b83310925"
@@ -33,7 +32,7 @@ Plots = "1"
 StatsPlots = "0.15"
 Term = "2"
 TypedTables = "1"
-julia = "1.6"
+julia = "1.10"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
