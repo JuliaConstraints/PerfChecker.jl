@@ -1,4 +1,4 @@
-prep(d::Dict, block::Expr, ::Val{:alloc}) = quote
+prep(::Dict, block::Expr, ::Val{:alloc}) = quote
     import Pkg
     Pkg.instantiate()
     import Profile
@@ -7,7 +7,12 @@ prep(d::Dict, block::Expr, ::Val{:alloc}) = quote
 end
 
 function default_options(::Val{:alloc})
-    return Dict(:threads => 1, :targets => [], :track => "user", :repeat => true)
+    return Dict(
+        :threads => 1,
+        :targets => [],
+        :track => "user",
+        :repeat => true,
+    )
 end
 
 function check(d::Dict, block::Expr, ::Val{:alloc})

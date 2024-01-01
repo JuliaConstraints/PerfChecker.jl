@@ -40,3 +40,9 @@ macro check(x, d, block1, block2)
         $post(di, $x)
     end
 end
+
+macro check(x, d, block)
+    quote
+        @check $x $d nothing $block
+    end
+end
