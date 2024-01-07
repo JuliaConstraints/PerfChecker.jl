@@ -1,3 +1,4 @@
+#=
 function store_benchmark(bench, target; path=pwd())
     t = let
         ti = bench.times
@@ -105,3 +106,4 @@ function bench_plot(targets; formats=["pdf", "tikz", "svg", "png"], backend=pgfp
         # end
     end
 end
+=#

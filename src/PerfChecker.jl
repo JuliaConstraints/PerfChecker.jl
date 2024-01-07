@@ -1,8 +1,6 @@
 module PerfChecker
 
 # SECTION - Imports
-using BenchmarkTools
-using CSV
 using DataFrames
 using LibGit2
 using OrderedCollections
@@ -27,7 +25,6 @@ export to_table
 
 # SECTION - Includes
 
-include("init.jl")
 include("check.jl")
 include("alloc.jl")
 include("benchmarks.jl")
