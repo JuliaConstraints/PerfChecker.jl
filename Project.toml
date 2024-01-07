@@ -4,8 +4,6 @@ authors = ["Azzaare <jf@baffier.fr>"]
 version = "0.2.0"
 
 [deps]
-BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
-CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CoverageTools = "c36e975a-824b-4404-a568-ef97ca766997"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
@@ -21,8 +19,6 @@ Term = "22787eb5-b846-44ae-b979-8e399b8463ab"
 TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 
 [compat]
-BenchmarkTools = "1"
-CSV = "0.10"
 CoverageTools = "1"
 DataFrames = "1"
 OrderedCollections = "1"
@@ -33,6 +29,12 @@ StatsPlots = "0.15"
 Term = "2"
 TypedTables = "1"
 julia = "1.10"
+
+[weakdeps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+
+[extensions]
+BenchmarkToolsExt = "BenchmarkTools"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
