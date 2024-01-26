@@ -4,13 +4,9 @@ module PerfChecker
 using DataFrames
 using LibGit2
 using OrderedCollections
-using PGFPlotsX
 using Pkg
-using Plots
 using Profile
 using Random
-using StatsPlots
-using Term
 import TypedTables: Table
 import Distributed: remotecall_fetch, addprocs, rmprocs
 import CoverageTools: analyze_malloc_files, find_malloc_files, MallocInfo
