@@ -41,4 +41,6 @@ macro check(x, d, block1, block2)
     end
 end
 
+function perf_table end
+
 function perf_plot end
