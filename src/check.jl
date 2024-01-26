@@ -40,3 +40,5 @@ macro check(x, d, block1, block2)
         $post(di, $x)
     end
 end
+
+function perf_plot end
