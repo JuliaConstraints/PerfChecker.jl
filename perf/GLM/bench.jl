@@ -1,13 +1,8 @@
-using PerfChecker
-using BenchmarkTools
+using PerfChecker, BenchmarkTools, PrettyTables
 
-using GLM
-using Random
-using StatsModels
-
-target = GLM
-
-function bench()
+t = @check :benchmark Dict(:path => @__DIR__, :evals => 1, :samples => 100, :seconds => 100) begin
+    using GLM, Random, StatsModels
+    end begin
     n = 2_500_000
     rng = Random.MersenneTwister(1234321)
     tbl = (
@@ -27,5 +22,6 @@ function bench()
     return nothing
 end
 
-t = @benchmark bench() evals = 1 samples = 100 seconds = 100
-store_benchmark(t, target; path=@__DIR__)
+Base.show(stdout, "text/plain", t)
+println()
+pretty_table(t |> to_table)
