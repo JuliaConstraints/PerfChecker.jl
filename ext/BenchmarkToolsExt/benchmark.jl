@@ -21,7 +21,7 @@ end
 
 PerfChecker.post(d::Dict, ::Val{:benchmark}) = d[:prep_result]
 
-function PerfChecker.perf_table(bench::BenchmarkTools.Trial)
+function PerfChecker.to_table(bench::BenchmarkTools.Trial)
     ti = bench.times
     l = length(ti)
     return Table(times=ti, gctimes=bench.gctimes, memory=fill(bench.memory, l), allocs=fill(bench.allocs, l))
