@@ -14,7 +14,6 @@ import CoverageTools: analyze_malloc_files, find_malloc_files, MallocInfo
 # SECTION - Exports
 export alloc_check
 export alloc_plot
-export bench_plot
 export store_benchmark
 export @check
 export to_table
