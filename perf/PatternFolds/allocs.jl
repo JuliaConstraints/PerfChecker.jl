@@ -1,7 +1,7 @@
 using PerfChecker
 using PrettyTables
 
-x = @check :alloc Dict(:target => ["PatternFolds"], :path => @__DIR__) begin
+x = @check :alloc Dict(:targets => ["PatternFolds"], :path => @__DIR__) begin
     using PatternFolds
     end begin
     itv = Interval{Open,Closed}(0.0, 1.0)
