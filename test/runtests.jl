@@ -1,6 +1,7 @@
 using BenchmarkTools
 using Distributed
 using PerfChecker
+using PrettyTables
 using Test
 
 import CompatHelperLocal
