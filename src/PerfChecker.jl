@@ -1,7 +1,7 @@
 module PerfChecker
 
 # SECTION - Imports
-using DataFrames
+#using DataFrames
 using LibGit2
 using OrderedCollections
 using Pkg
@@ -22,7 +22,7 @@ export to_table
 
 include("check.jl")
 include("alloc.jl")
-include("benchmarks.jl")
-include("utils.jl")
+#include("benchmarks.jl")
+#include("utils.jl")
 
 end

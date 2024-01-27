@@ -5,7 +5,6 @@ version = "0.2.0"
 
 [deps]
 CoverageTools = "c36e975a-824b-4404-a568-ef97ca766997"
-DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 LibGit2 = "76f85450-5226-5b5a-8eaa-529ad045b433"
 OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
@@ -23,7 +22,6 @@ BenchmarkToolsExt = "BenchmarkTools"
 
 [compat]
 CoverageTools = "1"
-DataFrames = "1"
 OrderedCollections = "1"
 Pkg = "1"
 TypedTables = "1"
