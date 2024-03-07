@@ -23,27 +23,7 @@ struct CheckerResult
     tags::Vector{Symbol}
 end
 
-function find_by_tags(tags::Vector{Symbol}, results::CheckerResult; exact_match = true)
-    results = []
-    if exact_match
-        for j in results
-            if tags == j.tags
-                push!(results, tags)
-            else
-        end
-    else
-        for j in results
-            for i in tags
-                if i in j.tags
-                    push!(results, tags)
-                    break
-                end
-            end
-        end
-    end
-        
-    return results
-end
+find_by_tags(tags::Vector{Symbol}, results::CheckerResult; exact_match = true) = findall(x -> exact_match ? (tags == x.tags) : (!isempty(x.tags ∩ tags)), results)
 
 # SECTION - Exports
 export @check
