@@ -1,23 +1,74 @@
+"""
+Finds all versions of a package in all the installed registries and returns it as a vector.
+
+Example:
+
+```julia-repl
+julia> get_pkg_versions("ConstraintLearning")
+7-element Vector{VersionNumber}:
+ v"0.1.4"
+ v"0.1.5"
+ v"0.1.0"
+ v"0.1.6"
+ v"0.1.1"
+ v"0.1.3"
+ v"0.1.2"
+```
+"""
+function get_pkg_versions(name::String, regname::Union{Nothing,Vector{String}} = nothing)::Vector{VersionNumber}
+	regs = Types.Context().registries
+    indexes = isnothing(regname) ? collect(1:length(regs)) : findall(x -> x.name in regname, regs)
+
+	versions::Set{String} = Set([])
+	for i in indexes
+		push!(versions, keys(TOML.parse(regs[i].in_memory_registry[join([first(name),name,"Versions.toml"], '/')]))...)
+	end
+	return VersionNumber.(versions)
+end
+
 const VerConfig = Tuple{Symbol, Vector{VersionNumber}, Bool}
 
-struct PackVer
-	pack::String
-	ver::VerConfig
+function get_versions(name::String, pkgconf::VerConfig, head::Bool = true, regname::Union{Nothing, Vector{String}} = nothing)
+	versions = get_pkg_versions(name, regname)
+	s = pkgconf[1]
+	f = if s == :patches
+		arrange_patches
+	elseif s == :breaking
+		arrange_breaking
+	elseif s == :major
+		arrange_major
+	else
+		error("Unknown option provided $(pkgconf[1])")
+	end
+	return map(x -> f(x, versions, pkgconf[3]), pkgconf[2])
 end
 
-to_version_numbers(x) = to_version_numbers(x...)
-to_version_numbers(s::Symbol, x...) = to_version_numbers(Val(s), x...)
 
-function findmaxversion(d::String,m::String)
-    l=m[1:1]
-    a_path=joinpath(d,"registries","General",l,m)
-    if isdir(d)&&isdir(a_path)
-        di=Pkg.Operations.load_versions(a_path)
-        return maximum(keys(di))
-    end
-    return v"0.0.0"
+"""
+Outputs the last patch or first patch of a version. 
+If the input is 1.2.3, then the output is 1.2.0 or 1.2.9 (assuming both exist, and both are the first and last patch of the version)
+"""
+function arrange_patches(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
+	a = filter(x -> a.minor == x.minor && a.major == x.major, v)
+	return maxo ? maximum(a) : minimum(a)
 end
 
-findmaxversion(m::String)=maximum(findmaxversion.(DEPOT_PATH,m))
+"""
+Outputs the last breaking or next breaking version. 
+If the input is 1.2.3, then the output is 1.2.0 or 1.3.0 (assuming both exist)
+"""
+function arrange_breaking(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
+	a = filter(x -> a.major == x.major && a.minor == x.minor, v)
+	b = filter(x -> a.major == x.major && a.minor < x.minor, v)
+	return maxo ? minimum(b) : minimum(a)
+end
 
-function to_version_numbers(ver::VerConfig) end
+# I believe breaking and minor are the same?i
+"""
+Outputs the earlier or next major version.
+"""
+function arrange_major(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
+	a = filter(x -> a.major < x.major, v)
+	b = filter(x -> a.major > x.major, v)
+	return maxo ? minimum(a) : maximum(b)
+end

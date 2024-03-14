@@ -2,6 +2,8 @@ module PerfChecker
 
 # SECTION - Imports
 using Pkg
+using Pkg.Types
+import TOML
 using Profile
 import TypedTables: Table
 import Distributed: remotecall_fetch, addprocs, rmprocs
@@ -30,7 +32,7 @@ export @check
 export to_table
 
 # SECTION - Includes
-
+include("versions.jl")
 include("check.jl")
 include("alloc.jl")
 
