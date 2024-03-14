@@ -28,6 +28,37 @@ end
 
 const VerConfig = Tuple{Symbol, Vector{VersionNumber}, Bool}
 
+"""
+Outputs the last patch or first patch of a version. 
+If the input is 1.2.3, then the output is 1.2.0 or 1.2.9 (assuming both exist, and both are the first and last patch of the version)
+"""
+function arrange_patches(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
+	a = filter(x -> a.minor == x.minor && a.major == x.major, v)
+	isempty(a) && error("No matching version found")
+	return maxo ? maximum(a) : minimum(a)
+end
+
+"""
+Outputs the last breaking or next breaking version. 
+If the input is 1.2.3, then the output is 1.2.0 or 1.3.0 (assuming both exist)
+"""
+function arrange_breaking(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
+	p = !maxo && filter(x -> a.major == x.major && a.minor == x.minor, v)
+	q = maxo && filter(x -> a.major == x.major && a.minor < x.minor, v)
+	(isempty(p) || isempty(q)) && error("No matching version found.")
+	return maxo ? minimum(q) : minimum(p)
+end
+
+"""
+Outputs the earlier or next major version.
+"""
+function arrange_major(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
+	p = maxo && filter(x -> a.major < x.major, v)
+	q = !maxo && filter(x -> a.major > x.major, v)
+	(isempty(p) || isempty(q)) && error("No matching version found.")
+	return maxo ? minimum(p) : maximum(q)
+end
+
 function get_versions(name::String, pkgconf::VerConfig, head::Bool = true, regname::Union{Nothing, Vector{String}} = nothing)
 	versions = get_pkg_versions(name, regname)
 	s = pkgconf[1]
@@ -44,31 +75,3 @@ function get_versions(name::String, pkgconf::VerConfig, head::Bool = true, regna
 end
 
 
-"""
-Outputs the last patch or first patch of a version. 
-If the input is 1.2.3, then the output is 1.2.0 or 1.2.9 (assuming both exist, and both are the first and last patch of the version)
-"""
-function arrange_patches(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
-	a = filter(x -> a.minor == x.minor && a.major == x.major, v)
-	return maxo ? maximum(a) : minimum(a)
-end
-
-"""
-Outputs the last breaking or next breaking version. 
-If the input is 1.2.3, then the output is 1.2.0 or 1.3.0 (assuming both exist)
-"""
-function arrange_breaking(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
-	a = filter(x -> a.major == x.major && a.minor == x.minor, v)
-	b = filter(x -> a.major == x.major && a.minor < x.minor, v)
-	return maxo ? minimum(b) : minimum(a)
-end
-
-# I believe breaking and minor are the same?i
-"""
-Outputs the earlier or next major version.
-"""
-function arrange_major(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
-	a = filter(x -> a.major < x.major, v)
-	b = filter(x -> a.major > x.major, v)
-	return maxo ? minimum(a) : maximum(b)
-end
