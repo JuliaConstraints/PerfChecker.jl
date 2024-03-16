@@ -3,16 +3,16 @@ module PerfChecker
 # SECTION - Imports
 using Pkg
 using Pkg.Types
-import TOML
+import TOML: parse
 using Profile
 import TypedTables: Table
 import Distributed: remotecall_fetch, addprocs, rmprocs
 import CoverageTools: analyze_malloc_files, find_malloc_files, MallocInfo
-import Sys
+import Base.Sys: CPUinfo
 import CpuId
 
 struct HwInfo
-    cpus::Vector{CPUInfo}
+    cpus::Vector{CPUinfo}
     machine::String
     word::Int
     simdbytes::Int
@@ -20,9 +20,9 @@ struct HwInfo
 end
 
 struct CheckerResult
-    table::Table
-    hwinfo::HwInfo
-    tags::Vector{Symbol}
+    tables::Vector{Table}
+    hwinfo::Union{HwInfo,Nothing}
+    tags::Union{Nothing,Vector{Symbol}}
 end
 
 find_by_tags(tags::Vector{Symbol}, results::CheckerResult; exact_match = true) = findall(x -> exact_match ? (tags == x.tags) : (!isempty(x.tags ∩ tags)), results)

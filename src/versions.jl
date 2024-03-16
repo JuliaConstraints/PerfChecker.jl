@@ -21,12 +21,12 @@ function get_pkg_versions(name::String, regname::Union{Nothing,Vector{String}} =
 
 	versions::Set{String} = Set([])
 	for i in indexes
-		push!(versions, keys(TOML.parse(regs[i].in_memory_registry[join([first(name),name,"Versions.toml"], '/')]))...)
+		push!(versions, keys(parse(regs[i].in_memory_registry[join([first(name),name,"Versions.toml"], '/')]))...)
 	end
 	return VersionNumber.(versions)
 end
 
-const VerConfig = Tuple{Symbol, Vector{VersionNumber}, Bool}
+const VerConfig = Tuple{String, Symbol, Vector{VersionNumber}, Bool}
 
 """
 Outputs the last patch or first patch of a version. 
@@ -61,7 +61,7 @@ end
 
 function get_versions(name::String, pkgconf::VerConfig, head::Bool = true, regname::Union{Nothing, Vector{String}} = nothing)
 	versions = get_pkg_versions(name, regname)
-	s = pkgconf[1]
+	s = pkgconf[2]
 	f = if s == :patches
 		arrange_patches
 	elseif s == :breaking
@@ -69,9 +69,7 @@ function get_versions(name::String, pkgconf::VerConfig, head::Bool = true, regna
 	elseif s == :major
 		arrange_major
 	else
-		error("Unknown option provided $(pkgconf[1])")
+		error("Unknown option provided $s")
 	end
-	return map(x -> f(x, versions, pkgconf[3]), pkgconf[2])
+	return name, map(x -> f(x, versions, pkgconf[4]), pkgconf[3])
 end
-
-
