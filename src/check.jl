@@ -20,8 +20,15 @@ macro check(x, d, block1, block2)
         h = check(di, $block2, $x)
         results = CheckerResult(
             Table[],
-            nothing,
-            nothing
+            HwInfo(
+                cpu_info(),
+                CPU_NAME,
+                WORD_SIZE,
+                simdbytes(),
+                (cpucores(), cpucores_total(), cputhreads_per_core())
+            ),
+            haskey(di, :tags) ? di[:tags] : Symbol[:none],
+            PackageSpec[]
         )
 
         p = remotecall_fetch(Core.eval, 1, Main,
@@ -59,6 +66,7 @@ macro check(x, d, block1, block2)
 
             res = $post(di, $x)
             push!(results.tables, res |> to_table)
+            push!(results.pkgs, i)
         end
         results
     end

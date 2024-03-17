@@ -50,7 +50,5 @@
         return nothing
     end
 
-    Base.show(stdout, "text/plain", t)
-    println()
     pretty_table(t |> to_table)
 end
