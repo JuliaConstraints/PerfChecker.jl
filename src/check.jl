@@ -18,26 +18,57 @@ macro check(x, d, block1, block2)
         di = default_options($d, $x)
         g = prep(di, $block1, $x)
         h = check(di, $block2, $x)
+        results = CheckerResult(
+            Table[],
+            HwInfo(
+                cpu_info(),
+                CPU_NAME,
+                WORD_SIZE,
+                simdbytes(),
+                (cpucores(), cpucores_total(), cputhreads_per_core())
+            ),
+            haskey(di, :tags) ? di[:tags] : Symbol[:none],
+            PackageSpec[]
+        )
+
         p = remotecall_fetch(Core.eval, 1, Main,
             Expr(:toplevel, quote
                 import Distributed
                 d = $di
-                Distributed.addprocs(1; exeflags=["--track-allocation=$(d[:track])", "--project=$(d[:path])", "-t $(d[:threads])"])
+                t = tempname()
+                cp(d[:path], t)
+                Distributed.addprocs(1; exeflags=["--track-allocation=$(d[:track])", "--project=$t", "-t $(d[:threads])"])
             end).args...) |> first
 
-        di[:prep_result] = remotecall_fetch(Core.eval, p, Main,
-            Expr(:toplevel, g.args...))
+        pkgs = haskey(di, :pkgs) ? [PackageSpec(name=di[:pkgs][1], version=i) for i in get_versions(di[:pkgs])] : PackageSpec[PackageSpec()]
 
-        di[:check_result] = remotecall_fetch(Core.eval, p, Main,
-            Expr(:toplevel, h.args...))
+        for i in pkgs
+            remotecall_fetch(Core.eval, p, Main,
+                    Expr(:toplevel, quote
+                        import Pkg;
+                        d = $di
+                        Pkg.instantiate();
+                        $pkgs != [Pkg.PackageSpec()] && Pkg.add($i)
+                        haskey(d, :extra_pkgs) && Pkg.add(d[:extra_pkgs])
+                end).args...)
 
-        remotecall_fetch(Core.eval, 1, Main,
-            Expr(:toplevel, quote
-                import Distributed
-                Distributed.rmprocs($p)
-            end).args...)
+            di[:prep_result] = remotecall_fetch(Core.eval, p, Main,
+                Expr(:toplevel, g.args...))
 
-        $post(di, $x)
+            di[:check_result] = remotecall_fetch(Core.eval, p, Main,
+                Expr(:toplevel, h.args...))
+
+            remotecall_fetch(Core.eval, 1, Main,
+                Expr(:toplevel, quote
+                    import Distributed
+                    Distributed.rmprocs($p)
+                end).args...)
+
+            res = $post(di, $x)
+            push!(results.tables, res |> to_table)
+            push!(results.pkgs, i)
+        end
+        results
     end
 end
 

@@ -1,6 +1,6 @@
 using PerfChecker, PrettyTables
 
-x = @check :alloc Dict(:targets => ["GLM"], :path => @__DIR__) begin
+result = @check :alloc Dict(:targets => ["GLM"], :path => @__DIR__) begin
     using GLM, Random, StatsModels
     end begin
     n = 2_500_000
@@ -21,5 +21,4 @@ x = @check :alloc Dict(:targets => ["GLM"], :path => @__DIR__) begin
     glm(pred, resp, Bernoulli())
 end
 
-
-pretty_table(x |> to_table)
+@info result

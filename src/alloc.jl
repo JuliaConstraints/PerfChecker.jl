@@ -1,6 +1,4 @@
 prep(d::Dict, block::Expr, ::Val{:alloc}) = quote
-    import Pkg
-    Pkg.instantiate()
     import Profile
     $block
     nothing
