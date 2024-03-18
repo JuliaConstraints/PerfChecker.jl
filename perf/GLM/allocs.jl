@@ -22,6 +22,3 @@ result = @check :alloc Dict(:targets => ["GLM"], :path => @__DIR__) begin
 end
 
 @info result
-pretty_table(result.tables[1])
-
-#pretty_table(x.tables[1])

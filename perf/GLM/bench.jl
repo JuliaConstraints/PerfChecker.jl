@@ -1,4 +1,4 @@
-using PerfChecker, BenchmarkTools, PrettyTables
+using PerfChecker, BenchmarkTools
 
 t = @check :benchmark Dict(:path => @__DIR__, :evals => 1, :samples => 100, :seconds => 100) begin
     using GLM, Random, StatsModels
@@ -22,6 +22,4 @@ t = @check :benchmark Dict(:path => @__DIR__, :evals => 1, :samples => 100, :sec
     return nothing
 end
 
-Base.show(stdout, "text/plain", t)
-println()
-pretty_table(t |> to_table)
+@info t

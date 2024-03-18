@@ -22,7 +22,7 @@
         rand(vf, 1000)
     end
 
-    pretty_table(x |> to_table)
+    @info x
 
     t = @check :benchmark Dict(:path => @__DIR__, :evals => 1, :samples => 100, :seconds => 100) begin
         using PatternFolds
@@ -50,5 +50,5 @@
         return nothing
     end
 
-    pretty_table(t |> to_table)
+    @info t
 end
