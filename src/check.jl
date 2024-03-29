@@ -26,7 +26,7 @@ macro check(x, d, block1, block2)
                 CPU_NAME,
                 WORD_SIZE,
                 simdbytes(),
-                (cpucores(), cpucores_total(), cputhreads_per_core())
+                (cpucores(), cputhreads(), cputhreads_per_core())
             ),
             haskey(di, :tags) ? di[:tags] : Symbol[:none],
             PackageSpec[]
