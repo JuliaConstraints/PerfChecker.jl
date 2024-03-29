@@ -15,7 +15,8 @@ end
 macro check(x, d, block1, block2)
     block1, block2 = Expr(:quote, block1), Expr(:quote, block2)
     quote
-        di = default_options($d, $x)
+        d = $(esc(d))
+        di = default_options(d, $x)
         g = prep(di, $block1, $x)
         h = check(di, $block2, $x)
         results = CheckerResult(
@@ -25,13 +26,25 @@ macro check(x, d, block1, block2)
                 CPU_NAME,
                 WORD_SIZE,
                 simdbytes(),
-                (cpucores(), cpucores_total(), cputhreads_per_core())
+                (cpucores(), cputhreads(), cputhreads_per_core())
             ),
             haskey(di, :tags) ? di[:tags] : Symbol[:none],
             PackageSpec[]
         )
 
-        p = remotecall_fetch(Core.eval, 1, Main,
+        pkgs = if haskey(di, :pkgs)
+            [PackageSpec(name=di[:pkgs][1], version=i) for i in get_versions(di[:pkgs])[2]]
+        else 
+            PackageSpec[PackageSpec()]
+        end
+
+        devop = haskey(di, :devops)
+
+        len = length(pkgs) + devop
+        
+        for i in 1:len
+            p = remotecall_fetch(Core.eval, 1, Main,
+
             Expr(:toplevel, quote
                 import Distributed
                 d = $di
@@ -40,15 +53,17 @@ macro check(x, d, block1, block2)
                 Distributed.addprocs(1; exeflags=["--track-allocation=$(d[:track])", "--project=$t", "-t $(d[:threads])"])
             end).args...) |> first
 
-        pkgs = haskey(di, :pkgs) ? [PackageSpec(name=di[:pkgs][1], version=i) for i in get_versions(di[:pkgs])] : PackageSpec[PackageSpec()]
-
-        for i in pkgs
             remotecall_fetch(Core.eval, p, Main,
                     Expr(:toplevel, quote
                         import Pkg;
                         d = $di
                         Pkg.instantiate();
-                        $pkgs != [Pkg.PackageSpec()] && Pkg.add($i)
+                        if !($i == $len && $devop)
+                            $pkgs != [Pkg.PackageSpec()] && Pkg.add(getindex($pkgs, $i))
+                        else
+                            pkg = d[:devops]
+                            pkg isa Tuple ? Pkg.develop(pkg[1]; pkg[2]...) : Pkg.develop(pkg)
+                        end                       
                         haskey(d, :extra_pkgs) && Pkg.add(d[:extra_pkgs])
                 end).args...)
 
@@ -63,10 +78,12 @@ macro check(x, d, block1, block2)
                     import Distributed
                     Distributed.rmprocs($p)
                 end).args...)
-
             res = $post(di, $x)
             push!(results.tables, res |> to_table)
-            push!(results.pkgs, i)
+            if !(devop && i == len) 
+                push!(results.pkgs, pkgs[i])
+            end
+
         end
         results
     end

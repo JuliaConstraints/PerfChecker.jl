@@ -29,38 +29,56 @@ end
 const VerConfig = Tuple{String, Symbol, Vector{VersionNumber}, Bool}
 
 """
-Outputs the last patch or first patch of a version. 
-If the input is 1.2.3, then the output is 1.2.0 or 1.2.9 (assuming both exist, and both are the first and last patch of the version)
+Outputs the last patch or first patch of a version.
 """
-function arrange_patches(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
-	a = filter(x -> a.minor == x.minor && a.major == x.major, v)
-	isempty(a) && error("No matching version found")
-	return maxo ? maximum(a) : minimum(a)
+function arrange_patches(a::VersionNumber, v::Vector{VersionNumber}, ::Bool)
+    a = filter(x -> a.minor == x.minor && a.major == x.major, v)
+    if isempty(a)
+        @warn "No matching version found"
+        return Vector{VersionNumber}()
+    end
+    return a
+end
+
+function arrange_minor(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
+    p = filter(x -> a.major == x.major && a.minor == x.minor, v)
+    if isempty(p)
+        @warn "No matching version found"
+        return Vector{VersionNumber}()
+    end
+    return maxo ? [maximum(p)] : [minimum(p)]
 end
 
 """
 Outputs the last breaking or next breaking version. 
-If the input is 1.2.3, then the output is 1.2.0 or 1.3.0 (assuming both exist)
 """
 function arrange_breaking(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
-	p = !maxo && filter(x -> a.major == x.major && a.minor == x.minor, v)
-	q = maxo && filter(x -> a.major == x.major && a.minor < x.minor, v)
-	(isempty(p) || isempty(q)) && error("No matching version found.")
-	return maxo ? minimum(q) : minimum(p)
+    if a.major == 0
+        return arrange_minor(a, v, maxo)
+    else
+        return arrange_major(a, v, maxo)
+    end
 end
 
 """
 Outputs the earlier or next major version.
 """
 function arrange_major(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
-	p = maxo && filter(x -> a.major < x.major, v)
-	q = !maxo && filter(x -> a.major > x.major, v)
-	(isempty(p) || isempty(q)) && error("No matching version found.")
-	return maxo ? minimum(p) : maximum(q)
+    p = filter(x -> a.major == x.major, v)
+    if isempty(p)
+        @warn "No matching version found"
+        return Vector{VersionNumber}()
+    end
+    return maxo ? [maximum(p)] : [minimum(p)]
 end
 
-function get_versions(name::String, pkgconf::VerConfig, head::Bool = true, regname::Union{Nothing, Vector{String}} = nothing)
-	versions = get_pkg_versions(name, regname)
+function arrange_custom(a::VersionNumber, ::Vector{VersionNumber}, ::Bool)
+	return [a]
+end
+
+function get_versions(pkgconf::VerConfig, regname::Union{Nothing, Vector{String}} = nothing)
+	versions = get_pkg_versions(pkgconf[1], regname)
+
 	s = pkgconf[2]
 	f = if s == :patches
 		arrange_patches
@@ -68,8 +86,12 @@ function get_versions(name::String, pkgconf::VerConfig, head::Bool = true, regna
 		arrange_breaking
 	elseif s == :major
 		arrange_major
+	elseif s == :minor
+		arrange_minor
+	elseif s == :custom
+		arrange_custom
 	else
 		error("Unknown option provided $s")
 	end
-	return name, map(x -> f(x, versions, pkgconf[4]), pkgconf[3])
+	return pkgconf[1], Iterators.flatten(map(x -> f(x, versions, pkgconf[4]), pkgconf[3]))
 end
