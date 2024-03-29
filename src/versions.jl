@@ -30,7 +30,6 @@ const VerConfig = Tuple{String, Symbol, Vector{VersionNumber}, Bool}
 
 """
 Outputs the last patch or first patch of a version.
-If the input is 1.2.3, then the output is 1.2.0 or 1.2.9 (assuming both exist, and both are the first and last patch of the version)
 """
 function arrange_patches(a::VersionNumber, v::Vector{VersionNumber}, ::Bool)
     a = filter(x -> a.minor == x.minor && a.major == x.major, v)
@@ -52,7 +51,6 @@ end
 
 """
 Outputs the last breaking or next breaking version. 
-If the input is 1.2.3, then the output is 1.2.0 or 1.3.0 (assuming both exist)
 """
 function arrange_breaking(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
     if a.major == 0
@@ -61,7 +59,6 @@ function arrange_breaking(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool
         return arrange_major(a, v, maxo)
     end
 end
-
 
 """
 Outputs the earlier or next major version.
@@ -81,6 +78,7 @@ end
 
 function get_versions(pkgconf::VerConfig, regname::Union{Nothing, Vector{String}} = nothing)
 	versions = get_pkg_versions(pkgconf[1], regname)
+
 	s = pkgconf[2]
 	f = if s == :patches
 		arrange_patches

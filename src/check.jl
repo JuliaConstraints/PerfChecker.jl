@@ -44,6 +44,7 @@ macro check(x, d, block1, block2)
         
         for i in 1:len
             p = remotecall_fetch(Core.eval, 1, Main,
+
             Expr(:toplevel, quote
                 import Distributed
                 d = $di
@@ -82,6 +83,7 @@ macro check(x, d, block1, block2)
             if !(devop && i == len) 
                 push!(results.pkgs, pkgs[i])
             end
+
         end
         results
     end
