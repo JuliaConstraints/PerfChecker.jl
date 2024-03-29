@@ -9,7 +9,7 @@ import TypedTables: Table
 import Distributed: remotecall_fetch, addprocs, rmprocs
 import CoverageTools: analyze_malloc_files, find_malloc_files, MallocInfo
 import Base.Sys: CPUinfo, CPU_NAME, cpu_info, WORD_SIZE
-import CpuId: simdbytes, cpucores, cpucores_total, cputhreads_per_core
+import CpuId: simdbytes, cpucores, cputhreads, cputhreads_per_core
 
 struct HwInfo
     cpus::Vector{CPUinfo}
