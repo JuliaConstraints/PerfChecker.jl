@@ -1,4 +1,4 @@
-using PerfChecker, PrettyTables
+using PerfChecker
 
 result = @check :alloc Dict(:targets => ["GLM"], :path => @__DIR__) begin
     using GLM, Random, StatsModels

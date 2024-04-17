@@ -1,4 +1,4 @@
-using PerfChecker, BenchmarkTools, PrettyTables
+using PerfChecker, BenchmarkTools
 
 t = @check :benchmark Dict(:path => @__DIR__, :evals => 1, :samples => 100, :seconds => 100) begin
     using PatternFolds
@@ -15,7 +15,7 @@ t = @check :benchmark Dict(:path => @__DIR__, :evals => 1, :samples => 100, :sec
 
     # Vectors
     vf = make_vector_fold([0, 1], 2, 1000)
-    # @info "Checking VectorFold" vf pattern(vf) gap(vf) folds(vf) length(vf)
+    # @info "Checking VectorFold" vf pattern(vf) gap(vf) folds (vf) length(vf)
 
     unfold(vf)
     collect(vf)

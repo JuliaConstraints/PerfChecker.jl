@@ -1,5 +1,4 @@
 using PerfChecker
-using PrettyTables
 
 d = Dict(:targets => ["PatternFolds"], :path => @__DIR__, :tags => [:patterns, :intervals], :pkgs => ("PatternFolds", :custom, [v"0.2.3", v"0.2.2"], true))
 

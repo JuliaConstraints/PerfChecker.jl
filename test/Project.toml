@@ -5,6 +5,12 @@ ConstraintDomains = "5800fd60-8556-4464-8d61-84ebf7a0bedb"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 PatternFolds = "c18a7f1d-76ad-4ce4-950d-5419b888513b"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
-PrettyTables = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
 Profile = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+BenchmarkTools = "1.5.0"
+CompatHelperLocal = "0.1.26"
+ConstraintDomains = "0.3.9"
+PatternFolds = "0.2.3"
+julia = "1"

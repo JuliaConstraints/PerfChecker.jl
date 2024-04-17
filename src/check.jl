@@ -56,10 +56,18 @@ macro check(x, d, block1, block2)
             remotecall_fetch(Core.eval, p, Main,
                     Expr(:toplevel, quote
                         import Pkg;
-                        d = $di
                         Pkg.instantiate();
+                        import PerfChecker
+                        d = $di
+
+                        pkgs = if haskey(d, :pkgs)
+                            [Pkg.PackageSpec(name=d[:pkgs][1], version=i) for i in PerfChecker.get_versions(d[:pkgs])[2]]
+                        else 
+                            Pkg.PackageSpec[Pkg.PackageSpec()]
+                        end
+                        
                         if !($i == $len && $devop)
-                            $pkgs != [Pkg.PackageSpec()] && Pkg.add(getindex($pkgs, $i))
+                            pkgs != [Pkg.PackageSpec()] && Pkg.add(getindex(pkgs, $i))
                         else
                             pkg = d[:devops]
                             pkg isa Tuple ? Pkg.develop(pkg[1]; pkg[2]...) : Pkg.develop(pkg)
