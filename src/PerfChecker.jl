@@ -19,6 +19,8 @@ struct HwInfo
     corecount::Tuple{Int, Int, Int}
 end
 
+println("Hell")
+
 struct CheckerResult
     tables::Vector{Table}
     hwinfo::Union{HwInfo,Nothing}
