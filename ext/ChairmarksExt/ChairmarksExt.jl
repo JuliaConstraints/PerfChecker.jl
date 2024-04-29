@@ -1,6 +1,6 @@
 module ChairmarksExt
 
-using Chainmarks
+using Chairmarks
 using PerfChecker
 import TypedTables: Table
 
