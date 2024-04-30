@@ -2,22 +2,18 @@ function PerfChecker.default_options(::Val{:chairmark})
     return Dict(
         :threads => 1,
         :track => "none",
-        :init => nothing,
-        :setup => nothing,
-        :f => nothing,
-        :teardown => nothing,
-        :kwargs => ()
+        :evals => nothing,
+        :seconds => 1,
+        :samples => nothing,
+        :gc => true
     )
 end
 
 function PerfChecker.check(d::Dict, block::Expr, ::Val{:chairmark})
-    if d[:f] == nothing
-        d[:f] = @eval () -> $block
-    end
     quote
         d = $d
         using Chairmarks
-        return Chairmarks.benchmark(d[:init], d[:setup], d[:f], d[:teardown]; d[:kwargs]...)
+        return @be $block evals=d[:evals] seconds=d[:seconds] samples=d[:samples] gc=d[:gc]
     end
 end
 
@@ -27,10 +23,12 @@ PerfChecker.prep(::Dict, block::Expr, ::Val{:chairmark}) = quote
 end
 
 PerfChecker.post(d::Dict, ::Val{:chairmark}) = d[:check_result]
-#=
-function PerfChecker.to_table(bench::BenchmarkTools.Trial)
-    ti = bench.times
-    l = length(ti)
-    return Table(times=ti, gctimes=bench.gctimes, memory=fill(bench.memory, l), allocs=fill(bench.allocs, l))
+
+function PerfChecker.to_table(chair::Chairmarks.Benchmark)
+    l = length(chair.samples)
+    times = [chair.samples[i].time for i in 1:l]
+    gctimes = [chair.samples[i].gc_fraction for i in 1:l]
+    bytes = [chair.samples[i].bytes for i in 1:l]
+    allocs = [chair.samples[i].allocs for i in 1:l]
+    return Table(times=times, gctimes=gctimes, bytes=bytes, allocs=allocs)
 end
-=#
