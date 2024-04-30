@@ -4,6 +4,8 @@ authors = ["Azzaare <jf@baffier.fr>"]
 version = "0.2.0"
 
 [deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+Chairmarks = "0ca39b1e-fe0b-4e98-acfc-b1656634c4de"
 CoverageTools = "c36e975a-824b-4404-a568-ef97ca766997"
 CpuId = "adafc99b-e345-5852-983c-f28acb93d879"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
@@ -14,12 +16,15 @@ TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 
 [weakdeps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+Chairmarks = "0ca39b1e-fe0b-4e98-acfc-b1656634c4de"
 
 [extensions]
 BenchmarkToolsExt = "BenchmarkTools"
+ChairmarksExt = "Chairmarks"
 
 [compat]
-BenchmarkTools = "1.5.0"
+BenchmarkTools = "1.5"
+Chairmarks = "1.2"
 CoverageTools = "1"
 CpuId = "0.3.1"
 TypedTables = "1"
