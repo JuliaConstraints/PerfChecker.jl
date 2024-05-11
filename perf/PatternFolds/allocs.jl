@@ -27,6 +27,7 @@ end begin
 end
 
 @info x
-display(table_to_pie(x.tables[1], Val(:alloc)))
-display(table_to_pie(x.tables[2], Val(:alloc)))
-save("allocs.png", table_to_pie(x.tables[1], Val(:alloc)))
+
+for t in x.tables
+	display(table_to_pie(t, Val(:alloc)))
+end

@@ -23,13 +23,14 @@ function smart_paths(paths)
 	return joinpath(common...), map(joinpath, splitted_paths)
 end
 
-function PerfChecker.table_to_pie(x::Table, ::Val{:alloc})
+function PerfChecker.table_to_pie(x::Table, ::Val{:alloc}; pkg_name = "")
 	data = x.bytes
 	@info data
 	paths = smart_paths(x.filenames)[2] .* " — line " .* string.(x.linenumbers)
 	percentage = data .* 100 ./ sum(data)
 	@info percentage
 	colors = make_colors(length(percentage))
+	str = isempty(pkg_name) ? "" : " for $pkg_name"
 	f, ax, _ = pie(
 		data;
 		axis = (autolimitaspect = 1,),
@@ -38,7 +39,7 @@ function PerfChecker.table_to_pie(x::Table, ::Val{:alloc})
 		radius = 4,
 		strokecolor = :white,
 		strokewidth = 5,
-		title = "Mallocs for Package name file" # TODO: add package name as a keyarg
+		title = "Mallocs$str"
 	)
 	hidedecorations!(ax)
 	hidespines!(ax)
