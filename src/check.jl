@@ -100,3 +100,5 @@ end
 function perf_table end
 
 function perf_plot end
+
+function table_to_pie end

@@ -1,4 +1,4 @@
-using PerfChecker
+using PerfChecker, CairoMakie
 
 d = Dict(:targets => ["PatternFolds"], :path => @__DIR__, :tags => [:patterns, :intervals], :pkgs => ("PatternFolds", :custom, [v"0.2.3", v"0.2.2"], true))
 
@@ -27,3 +27,4 @@ x = @check :alloc d begin
 end
 
 @info x
+display(table_to_pie(x.tables[1], Val(:alloc)))

@@ -53,6 +53,7 @@ export @check
 export to_table
 export find_by_tags
 export get_versions
+export table_to_pie
 
 # SECTION - Includes
 include("versions.jl")
