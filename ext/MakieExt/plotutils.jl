@@ -38,9 +38,9 @@ function PerfChecker.table_to_pie(x::Table, ::Val{:alloc}; pkg_name = "")
 		inner_radius = 2,
 		radius = 4,
 		strokecolor = :white,
-		strokewidth = 5,
-		title = "Mallocs$str"
+		strokewidth = 5
 	)
+	ax.title = "Mallocs$str"
 	hidedecorations!(ax)
 	hidespines!(ax)
 	Legend(f[1, 2], [PolyElement(color = c) for c in colors], paths)

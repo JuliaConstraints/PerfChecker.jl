@@ -28,6 +28,12 @@ end
 
 @info x
 
-for t in x.tables
-	display(table_to_pie(t, Val(:alloc)))
+for (i, t) in enumerate(x.tables)
+	p = d[:pkgs]
+	@info "debug" p[1] p[2] p[3] p[4]
+	mkpath("perf/PatternFolds/output")
+	display(table_to_pie(t, Val(:alloc); pkg_name = "PatternFolds.jl"))
+	path = joinpath(
+		pwd(), "perf", "PatternFolds", "output", string(p[1], "_v$(p[3][i])", ".png"))
+	@info path
 end
