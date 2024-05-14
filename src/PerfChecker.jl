@@ -54,8 +54,9 @@ export to_table
 export find_by_tags
 export get_versions
 export table_to_pie
-#export checkres_to_pie
+export checkres_to_pie
 export checkres_to_scatterlines
+export saveplot
 
 # SECTION - Includes
 include("versions.jl")

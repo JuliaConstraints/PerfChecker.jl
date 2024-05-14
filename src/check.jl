@@ -104,3 +104,9 @@ function perf_plot end
 function table_to_pie end
 
 function checkres_to_scatterlines end
+
+function checkres_to_pie end
+
+function saveplot end
+
+function checkres_to_boxplots end
