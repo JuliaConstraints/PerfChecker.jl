@@ -1,7 +1,9 @@
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Chairmarks = "0ca39b1e-fe0b-4e98-acfc-b1656634c4de"
 CoverageTools = "c36e975a-824b-4404-a568-ef97ca766997"
 PatternFolds = "c18a7f1d-76ad-4ce4-950d-5419b888513b"
 PerfChecker = "6309bf6b-a531-4b08-891e-8ee981e5c424"
+TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
