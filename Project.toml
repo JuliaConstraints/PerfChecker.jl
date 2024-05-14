@@ -35,4 +35,4 @@ PatternFolds = "c18a7f1d-76ad-4ce4-950d-5419b888513b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "BenchmarkTools", "PatternFolds","Test"]
+test = ["Aqua", "BenchmarkTools", "PatternFolds", "Test"]
