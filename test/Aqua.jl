@@ -10,11 +10,11 @@
 		piracies = (broken = false,)
 	)
 
-	@testset "Ambiguities: PatternFolds" begin
+	@testset "Ambiguities: PerfChecker" begin
 		Aqua.test_ambiguities(PerfChecker)
 	end
 
-	@testset "Piracies: PatternFolds" begin
+	@testset "Piracies: PerfChecker" begin
 		Aqua.test_piracies(PerfChecker;
 		# treat_as_own = [Intervals.Interval]
 		)
