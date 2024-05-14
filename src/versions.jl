@@ -15,15 +15,19 @@ julia> get_pkg_versions("ConstraintLearning")
  v"0.1.2"
 ```
 """
-function get_pkg_versions(name::String, regname::Union{Nothing,Vector{String}} = nothing)::Vector{VersionNumber}
-	regs = Types.Context().registries
-    indexes = isnothing(regname) ? collect(1:length(regs)) : findall(x -> x.name in regname, regs)
+function get_pkg_versions(name::String,
+        regname::Union{Nothing, Vector{String}} = nothing)::Vector{VersionNumber}
+    regs = Types.Context().registries
+    indexes = isnothing(regname) ? collect(1:length(regs)) :
+              findall(x -> x.name in regname, regs)
 
-	versions::Set{String} = Set([])
-	for i in indexes
-		push!(versions, keys(parse(regs[i].in_memory_registry[join([first(name),name,"Versions.toml"], '/')]))...)
-	end
-	return VersionNumber.(versions)
+    versions::Set{String} = Set([])
+    for i in indexes
+        push!(versions,
+            keys(parse(regs[i].in_memory_registry[join(
+                [first(name), name, "Versions.toml"], '/')]))...)
+    end
+    return VersionNumber.(versions)
 end
 
 const VerConfig = Tuple{String, Symbol, Vector{VersionNumber}, Bool}
@@ -73,25 +77,25 @@ function arrange_major(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
 end
 
 function arrange_custom(a::VersionNumber, ::Vector{VersionNumber}, ::Bool)
-	return [a]
+    return [a]
 end
 
 function get_versions(pkgconf::VerConfig, regname::Union{Nothing, Vector{String}} = nothing)
-	versions = get_pkg_versions(pkgconf[1], regname)
+    versions = get_pkg_versions(pkgconf[1], regname)
 
-	s = pkgconf[2]
-	f = if s == :patches
-		arrange_patches
-	elseif s == :breaking
-		arrange_breaking
-	elseif s == :major
-		arrange_major
-	elseif s == :minor
-		arrange_minor
-	elseif s == :custom
-		arrange_custom
-	else
-		error("Unknown option provided $s")
-	end
-	return pkgconf[1], Iterators.flatten(map(x -> f(x, versions, pkgconf[4]), pkgconf[3]))
+    s = pkgconf[2]
+    f = if s == :patches
+        arrange_patches
+    elseif s == :breaking
+        arrange_breaking
+    elseif s == :major
+        arrange_major
+    elseif s == :minor
+        arrange_minor
+    elseif s == :custom
+        arrange_custom
+    else
+        error("Unknown option provided $s")
+    end
+    return pkgconf[1], Iterators.flatten(map(x -> f(x, versions, pkgconf[4]), pkgconf[3]))
 end

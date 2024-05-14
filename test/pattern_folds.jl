@@ -1,8 +1,8 @@
 @testset "PatternFolds.jl" begin
     x = @check :alloc Dict(:targets => ["PatternFolds"], :path => @__DIR__) begin
         using PatternFolds
-        end begin
-        itv = Interval{Open,Closed}(0.0, 1.0)
+    end begin
+        itv = Interval{Open, Closed}(0.0, 1.0)
         i = IntervalsFold(itv, 2.0, 1000)
 
         @info "Checking IntervalsFold" i pattern(i) gap(i) folds(i) size(i) length(i)
@@ -24,11 +24,12 @@
 
     @info x
 
-    t = @check :benchmark Dict(:path => @__DIR__, :evals => 1, :samples => 100, :seconds => 100) begin
+    t = @check :benchmark Dict(
+        :path => @__DIR__, :evals => 1, :samples => 100, :seconds => 100) begin
         using PatternFolds
-        end begin
+    end begin
         # Intervals
-        itv = Interval{Open,Closed}(0.0, 1.0)
+        itv = Interval{Open, Closed}(0.0, 1.0)
         i = IntervalsFold(itv, 2.0, 1000)
 
         unfold(i)
