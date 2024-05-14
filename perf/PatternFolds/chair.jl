@@ -1,12 +1,12 @@
 using PerfChecker, Chairmarks
 import Pkg
-Pkg.status(;extensions=true)
+Pkg.status(; extensions = true)
 
 t = @check :chairmark Dict(:path => @__DIR__, :evals => 1) begin
     using PatternFolds
-    end begin
+end begin
     # Intervals
-    itv = Interval{Open,Closed}(0.0, 1.0)
+    itv = Interval{Open, Closed}(0.0, 1.0)
     i = IntervalsFold(itv, 2.0, 1000)
 
     unfold(i)

@@ -1,12 +1,14 @@
-using BenchmarkTools
-using Distributed
-using PerfChecker
 using Test
 
-import CompatHelperLocal
+@testset "Package tests: PerfChecker" begin
+    include("Aqua.jl")
 
-CompatHelperLocal.@check()
+    @testset "Other Packages" begin
+        using BenchmarkTools
+        using Distributed
+        using PerfChecker
 
-# include("compositional_networks.jl")
-
-include("pattern_folds.jl")
+        # include("compositional_networks.jl")
+        include("pattern_folds.jl")
+    end
+end

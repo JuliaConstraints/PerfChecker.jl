@@ -2,9 +2,9 @@ using PerfChecker, BenchmarkTools
 
 t = @check :benchmark Dict(:path => @__DIR__, :evals => 1, :samples => 100, :seconds => 100) begin
     using PatternFolds
-    end begin
+end begin
     # Intervals
-    itv = Interval{Open,Closed}(0.0, 1.0)
+    itv = Interval{Open, Closed}(0.0, 1.0)
     i = IntervalsFold(itv, 2.0, 1000)
 
     unfold(i)

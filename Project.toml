@@ -4,8 +4,6 @@ authors = ["Azzaare <jf@baffier.fr>"]
 version = "0.2.0"
 
 [deps]
-BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
-Chairmarks = "0ca39b1e-fe0b-4e98-acfc-b1656634c4de"
 CoverageTools = "c36e975a-824b-4404-a568-ef97ca766997"
 CpuId = "adafc99b-e345-5852-983c-f28acb93d879"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
@@ -28,10 +26,13 @@ Chairmarks = "1.2"
 CoverageTools = "1"
 CpuId = "0.3.1"
 TypedTables = "1"
-julia = "1"
+julia = "1.9"
 
 [extras]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+PatternFolds = "c18a7f1d-76ad-4ce4-950d-5419b888513b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["Aqua", "BenchmarkTools", "PatternFolds", "Test"]

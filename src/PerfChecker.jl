@@ -21,8 +21,8 @@ end
 
 struct CheckerResult
     tables::Vector{Table}
-    hwinfo::Union{HwInfo,Nothing}
-    tags::Union{Nothing,Vector{Symbol}}
+    hwinfo::Union{HwInfo, Nothing}
+    tags::Union{Nothing, Vector{Symbol}}
     pkgs::Vector{PackageSpec}
 end
 
@@ -46,7 +46,9 @@ function Base.show(io::IO, v::PerfChecker.CheckerResult)
     println(io, Base.display(v.pkgs))
 end
 
-find_by_tags(tags::Vector{Symbol}, results::CheckerResult; exact_match = true) = findall(x -> exact_match ? (tags == x.tags) : (!isempty(x.tags ∩ tags)), results)
+function find_by_tags(tags::Vector{Symbol}, results::CheckerResult; exact_match = true)
+    findall(x -> exact_match ? (tags == x.tags) : (!isempty(x.tags ∩ tags)), results)
+end
 
 # SECTION - Exports
 export @check
