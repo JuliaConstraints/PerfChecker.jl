@@ -1,18 +1,20 @@
-function PerfChecker.checkres_to_scatterlines(x::Table, ::Val{:benchmark})
-    
+function PerfChecker.checkres_to_scatterlines(x::PerfChecker.CheckerResult, ::Val{:benchmark})
+    println("Hello!")
+    @warn "Here!"
 end
-#=
-function PerfChecker.checkres_to_boxplots(x::CheckerResults, ::Val{:benchmark}; kwarg = :times)
+
+function PerfChecker.checkres_to_boxplots(x::PerfChecker.CheckerResult, ::Val{:benchmark}; kwarg = :times)
 	di = Dict()
 	data = []
-	for i in eachindex(x.tables)
-		j = x.tables[i]
-		p = x.pkgs[i]
-		g = getproperties(j[i], (kwargs,))
-		g = [g[k][1] for k in eachindex(g)]
-		push!((fill(i, length(g)), g))
-	end
+	#for i in eachindex(x.tables)
+		#j = x.tables[i]
+		#p = x.pkgs[i]
+		#g = getproperties(j[i], (kwargs,))
+		#g = [g[k][1] for k in eachindex(g)]
+		#push!((fill(i, length(g)), g))
+	#end
 
+    #=
     w = getproperties(j[1], (:allocs,))
 	versions = Dict()
 	for i in eachindex(x.pkgs)
@@ -35,5 +37,6 @@ function PerfChecker.checkres_to_boxplots(x::CheckerResults, ::Val{:benchmark}; 
 	ax.title = x.pkgs[1].name
 	Legend(f[1,2], ax)
 	return f
+	=#
+	return data
 end
-=#

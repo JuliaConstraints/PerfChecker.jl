@@ -69,6 +69,7 @@ export checkres_to_scatterlines
 export saveplot
 export csv_to_table
 export table_to_csv
+export checkres_to_boxplots
 
 # SECTION - Includes
 include("versions.jl")
