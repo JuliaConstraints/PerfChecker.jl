@@ -27,10 +27,10 @@ MakieExt = "Makie"
 
 [compat]
 BenchmarkTools = "1.5"
-Chairmarks = "1.2"
+Chairmarks = "1"
 CoverageTools = "1"
 CpuId = "0.3.1"
-Makie = "0.20"
+Makie = "0.21"
 TypedTables = "1"
 julia = "1"
 

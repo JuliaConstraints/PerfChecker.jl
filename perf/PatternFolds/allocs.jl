@@ -27,7 +27,7 @@ end begin
 end
 
 @info x
-
+#=
 for (i, t) in enumerate(x.tables)
 	p = d[:pkgs]
 	@info "debug" p[1] p[2] p[3] p[4]
@@ -37,3 +37,5 @@ for (i, t) in enumerate(x.tables)
 		pwd(), "perf", "PatternFolds", "output", string(p[1], "_v$(p[3][i])", ".png"))
 	@info path
 end
+=#
+checkres_to_scatterlines(x, Val(:alloc))
