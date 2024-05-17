@@ -1,6 +1,8 @@
 using PerfChecker, BenchmarkTools, CairoMakie
 
-t = @check :benchmark Dict(:path => @__DIR__, :evals => 1, :samples => 100, :seconds => 100, :tags => [:patterns, :intervals], :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true)) begin
+d = Dict(:path => @__DIR__, :evals => 1, :samples => 100, :seconds => 100, :tags => [:patterns, :intervals], :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true))
+
+t = @check :benchmark d begin
     using PatternFolds
     end begin
     # Intervals
@@ -28,4 +30,4 @@ end
 
 @info t
 
-@info checkres_to_boxplots(t, Val(:benchmark))
+#@info checkres_to_boxplots(t, Val(:benchmark))

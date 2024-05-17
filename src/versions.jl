@@ -72,8 +72,13 @@ function arrange_major(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
     return maxo ? [maximum(p)] : [minimum(p)]
 end
 
-function arrange_custom(a::VersionNumber, ::Vector{VersionNumber}, ::Bool)
-	return [a]
+function arrange_custom(a::VersionNumber, v::Vector{VersionNumber}, ::Bool)
+	return if a in v 
+		[a]
+	else
+		@warn "Version $a not found"
+		return Vector{VersionNumber}()
+	end	
 end
 
 function get_versions(pkgconf::VerConfig, regname::Union{Nothing, Vector{String}} = nothing)
