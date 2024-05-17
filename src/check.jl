@@ -50,23 +50,19 @@ function check_function(x::Symbol, d::Dict, block1, block2)
     t = [tempname() for _ in 1:len]
     cp.(Ref(di[:path]), t)
 
-    procs = remotecall_eval(Main, 1, quote
-        d = $di
-        import Distributed
-        Distributed.addprocs($len; exeflags=["--track-allocation=$(d[:track])", "-t $(d[:threads])"])
-    end)
+    procs = @sync begin
+        fetch.([@async(Worker(;exeflags=["--track-allocation=$(di[:track])", "-t $(di[:threads])", "--project=$(t[i])"])) for i in 1:len])
+    end;
 
     for i in 1:len
-        remotecall_eval(Main, procs[i], quote
+        remote_eval(Main, procs[i], quote
             import Pkg
-            t = $t
-            Pkg.activate(t[$i])
             Pkg.instantiate()
         end)
 
-        remotecall_eval(Main, procs[i], initpkg)
+        remote_eval(Main, procs[i], initpkg)
 
-        remotecall_eval(Main, procs[i], quote
+        remote_eval(Main, procs[i], quote
             d = $di
             pkgs = $pkgs
             if !($i == $len && $devop)
@@ -78,13 +74,10 @@ function check_function(x::Symbol, d::Dict, block1, block2)
             haskey(d, :extra_pkgs) && Pkg.add(d[:extra_pkgs])
         end)
 
-        di[:prep_result] = remotecall_eval(Main, procs[i], g)
-        di[:check_result] = remotecall_eval(Main, procs[i], h)
+        di[:prep_result] = remote_eval_fetch(Main, procs[i], g)
+        di[:check_result] = remote_eval_fetch(Main, procs[i], h)
 
-        remotecall_eval(Main, 1, quote
-            procs = $procs
-            Distributed.rmprocs(procs[$i])
-        end)
+        stop(procs[i])
 
         res = post(di, x)
         push!(results.tables, res |> to_table)
