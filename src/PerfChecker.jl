@@ -6,7 +6,7 @@ using Pkg.Types
 import TOML: parse
 using Profile
 import TypedTables: Table
-import Malt: remote_eval, Worker, remote_eval_fetch, stop, fetch
+import Malt: remote_eval_wait, Worker, remote_eval_fetch, stop, fetch
 import CoverageTools: analyze_malloc_files, find_malloc_files, MallocInfo
 import Base.Sys: CPUinfo, CPU_NAME, cpu_info, WORD_SIZE
 import CpuId: simdbytes, cpucores, cputhreads, cputhreads_per_core

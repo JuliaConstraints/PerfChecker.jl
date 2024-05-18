@@ -55,14 +55,18 @@ function check_function(x::Symbol, d::Dict, block1, block2)
     end;
 
     for i in 1:len
-        remote_eval(Main, procs[i], quote
+        remote_eval_wait(Main, procs[i], quote
             import Pkg
-            Pkg.instantiate()
+            let
+                i = $i
+                @info "Worker No.: $i"
+            end    
+            Pkg.instantiate(;io=stderr)
         end)
 
-        remote_eval(Main, procs[i], initpkg)
+        remote_eval_wait(Main, procs[i], initpkg)
 
-        remote_eval(Main, procs[i], quote
+        remote_eval_wait(Main, procs[i], quote
             d = $di
             pkgs = $pkgs
             if !($i == $len && $devop)
