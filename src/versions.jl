@@ -15,13 +15,17 @@ julia> get_pkg_versions("ConstraintLearning")
  v"0.1.2"
 ```
 """
-function get_pkg_versions(name::String, regname::Union{Nothing,Vector{String}} = nothing)::Vector{VersionNumber}
+function get_pkg_versions(name::String,
+		regname::Union{Nothing, Vector{String}} = nothing)::Vector{VersionNumber}
 	regs = Types.Context().registries
-    indexes = isnothing(regname) ? collect(1:length(regs)) : findall(x -> x.name in regname, regs)
+	indexes = isnothing(regname) ? collect(1:length(regs)) :
+			  findall(x -> x.name in regname, regs)
 
 	versions::Set{String} = Set([])
 	for i in indexes
-		push!(versions, keys(parse(regs[i].in_memory_registry[join([first(name),name,"Versions.toml"], '/')]))...)
+		push!(versions,
+			keys(parse(regs[i].in_memory_registry[join(
+				[first(name), name, "Versions.toml"], '/')]))...)
 	end
 	return VersionNumber.(versions)
 end
@@ -32,53 +36,53 @@ const VerConfig = Tuple{String, Symbol, Vector{VersionNumber}, Bool}
 Outputs the last patch or first patch of a version.
 """
 function arrange_patches(a::VersionNumber, v::Vector{VersionNumber}, ::Bool)
-    a = filter(x -> a.minor == x.minor && a.major == x.major, v)
-    if isempty(a)
-        @warn "No matching version found"
-        return Vector{VersionNumber}()
-    end
-    return a
+	a = filter(x -> a.minor == x.minor && a.major == x.major, v)
+	if isempty(a)
+		@warn "No matching version found"
+		return Vector{VersionNumber}()
+	end
+	return a
 end
 
 function arrange_minor(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
-    p = filter(x -> a.major == x.major && a.minor == x.minor, v)
-    if isempty(p)
-        @warn "No matching version found"
-        return Vector{VersionNumber}()
-    end
-    return maxo ? [maximum(p)] : [minimum(p)]
+	p = filter(x -> a.major == x.major && a.minor == x.minor, v)
+	if isempty(p)
+		@warn "No matching version found"
+		return Vector{VersionNumber}()
+	end
+	return maxo ? [maximum(p)] : [minimum(p)]
 end
 
 """
-Outputs the last breaking or next breaking version. 
+Outputs the last breaking or next breaking version.
 """
 function arrange_breaking(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
-    if a.major == 0
-        return arrange_minor(a, v, maxo)
-    else
-        return arrange_major(a, v, maxo)
-    end
+	if a.major == 0
+		return arrange_minor(a, v, maxo)
+	else
+		return arrange_major(a, v, maxo)
+	end
 end
 
 """
 Outputs the earlier or next major version.
 """
 function arrange_major(a::VersionNumber, v::Vector{VersionNumber}, maxo::Bool)
-    p = filter(x -> a.major == x.major, v)
-    if isempty(p)
-        @warn "No matching version found"
-        return Vector{VersionNumber}()
-    end
-    return maxo ? [maximum(p)] : [minimum(p)]
+	p = filter(x -> a.major == x.major, v)
+	if isempty(p)
+		@warn "No matching version found"
+		return Vector{VersionNumber}()
+	end
+	return maxo ? [maximum(p)] : [minimum(p)]
 end
 
 function arrange_custom(a::VersionNumber, v::Vector{VersionNumber}, ::Bool)
-	return if a in v 
+	return if a in v
 		[a]
 	else
 		@warn "Version $a not found"
 		return Vector{VersionNumber}()
-	end	
+	end
 end
 
 function get_versions(pkgconf::VerConfig, regname::Union{Nothing, Vector{String}} = nothing)

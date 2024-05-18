@@ -13,11 +13,20 @@ function PerfChecker.default_options(::Val{:benchmark})
     )
 end
 
+<<<<<<< HEAD
 PerfChecker.initpkgs(::Val{:benchmark}) = quote using BenchmarkTools end
 
 PerfChecker.check(d::Dict, block::Expr, ::Val{:benchmark}) = quote
     d = $d
     return @benchmark $block samples=d[:samples] seconds=d[:seconds] evals=d[:evals] overhead=d[:overhead] gctrial=d[:gctrial] gcsample=d[:gcsample] time_tolerance=d[:time_tolerance] memory_tolerance=d[:memory_tolerance]
+=======
+function PerfChecker.check(d::Dict, block::Expr, ::Val{:benchmark})
+    quote
+        d = $d
+        using BenchmarkTools
+        return @benchmark $block samples=d[:samples] seconds=d[:seconds] evals=d[:evals] overhead=d[:overhead] gctrial=d[:gctrial] gcsample=d[:gcsample] time_tolerance=d[:time_tolerance] memory_tolerance=d[:memory_tolerance]
+    end
+>>>>>>> dev
 end
 
 PerfChecker.prep(::Dict, block::Expr, ::Val{:benchmark}) = quote
@@ -30,5 +39,6 @@ PerfChecker.post(d::Dict, ::Val{:benchmark}) = d[:check_result]
 function PerfChecker.to_table(bench::BenchmarkTools.Trial)
     ti = bench.times
     l = length(ti)
-    return Table(times=ti, gctimes=bench.gctimes, memory=fill(bench.memory, l), allocs=fill(bench.allocs, l))
+    return Table(times = ti, gctimes = bench.gctimes,
+        memory = fill(bench.memory, l), allocs = fill(bench.allocs, l))
 end

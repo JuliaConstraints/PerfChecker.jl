@@ -9,7 +9,6 @@ function default_options(::Val{:alloc})
 end
 
 function check(d::Dict, block::Expr, ::Val{:alloc})
-
     j = haskey(d, :repeat) && d[:repeat] ? block : nothing
 
     quote
@@ -21,7 +20,8 @@ function check(d::Dict, block::Expr, ::Val{:alloc})
         if isempty(targets)
             targets = Base.loaded_modules_array()
         end
-        return dirname.(filter(!isnothing, pathof.(targets))), dirname.(filter(!isnothing, pathof.(rmstuff)))
+        return dirname.(filter(!isnothing, pathof.(targets))),
+        dirname.(filter(!isnothing, pathof.(rmstuff)))
     end
 end
 
@@ -40,8 +40,9 @@ end
 
 function to_table(myallocs::Vector{MallocInfo})
     b = map(a -> a.bytes, Iterators.reverse(myallocs))
-    r = round.(b / sum(b) * 100; digits=2)
-    f = map(first ∘ splitext ∘ first ∘ splitext, map(a -> a.filename, Iterators.reverse(myallocs)))
+    r = round.(b / sum(b) * 100; digits = 2)
+    f = map(first ∘ splitext ∘ first ∘ splitext,
+        map(a -> a.filename, Iterators.reverse(myallocs)))
     l = map(a -> a.linenumber, Iterators.reverse(myallocs))
-    Table(bytes=b, percentage=r, filenames=f, linenumbers=l)
+    Table(bytes = b, percentage = r, filenames = f, linenumbers = l)
 end

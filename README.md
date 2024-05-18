@@ -4,11 +4,9 @@
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaConstraints.github.io/PerfChecker.jl/dev)
 [![Build Status](https://github.com/JuliaConstraints/PerfChecker.jl/workflows/CI/badge.svg)](https://github.com/JuliaConstraints/PerfChecker.jl/actions)
 [![codecov](https://codecov.io/gh/JuliaConstraints/PerfChecker.jl/branch/main/graph/badge.svg?token=YVJhN4dpBp)](https://codecov.io/gh/JuliaConstraints/PerfChecker.jl)
-[![Code Style: Blue](https://img.shields.io/badge/code%20style-blue-4495d1.svg)](https://github.com/invenia/BlueStyle)
+[![SciML Code Style](https://img.shields.io/static/v1?label=code%20style&message=SciML&color=9558b2&labelColor=389826)](https://github.com/SciML/SciMLStyle)
 [![Chat: Mattermost](https://img.shields.io/badge/chat-mattermost-blueviolet.svg)](https://nohost.iijlab.net/chat/signup_user_complete/?id=nnuc1g14gtrqtnas6thu193xmr)
 [![Website: JuliaConstraints](https://img.shields.io/badge/website-JuliaConstraints-informational.svg)](https://juliaconstraints.github.io/)
-
-
 
 `PerfChecker` is a set of performance checking tools for Julia packages. The ultimate aim is to create an environment where the tool can run similarly to a test environment. By doing so, it would be possible to test the performance of a package `P` in separate Julia instances. This would allow for each version of `P`:
 
@@ -123,7 +121,7 @@ using PerfChecker
 using Test
 
 # Target(s)
-using CompositionalNetworks # lastest release: 0.3.1
+using CompositionalNetworks # latest release: 0.3.1
 
 # Direct dependencies of this script
 using ConstraintDomains
@@ -166,7 +164,7 @@ using PerfChecker
 using BenchmarkTools
 
 # Target(s)
-using CompositionalNetworks # lastest release: 0.3.1
+using CompositionalNetworks # latest release: 0.3.1
 
 # Direct dependencies of this script
 using ConstraintDomains
