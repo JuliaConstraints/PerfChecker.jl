@@ -1,6 +1,8 @@
 using PerfChecker, BenchmarkTools, CairoMakie
 
-d = Dict(:path => @__DIR__, :evals => 1, :samples => 100, :seconds => 100, :tags => [:patterns, :intervals], :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true))
+d = Dict(:path => @__DIR__, :evals => 1, :samples => 100,
+    :seconds => 100, :tags => [:patterns, :intervals],
+    :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true))
 
 t = @check :benchmark d begin
     using PatternFolds

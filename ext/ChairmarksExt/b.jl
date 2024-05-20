@@ -9,7 +9,9 @@ function PerfChecker.default_options(::Val{:chairmark})
     )
 end
 
-PerfChecker.initpkgs(::Val{:chairmark}) = quote using Chairmarks end
+PerfChecker.initpkgs(::Val{:chairmark}) = quote
+    using Chairmarks
+end
 
 function PerfChecker.check(d::Dict, block::Expr, ::Val{:chairmark})
     quote
