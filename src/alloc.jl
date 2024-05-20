@@ -29,7 +29,7 @@ function post(d::Dict, ::Val{:alloc})
     result = d[:check_result]
     files = find_malloc_files(result[1])
     delete_files = find_malloc_files(result[2])
-    myallocs = analyze_malloc_files(files)
+    myallocs = analyze_malloc_files(files; skip_zeros = true)
     if !isempty(myallocs)
         rm.(delete_files)
     else

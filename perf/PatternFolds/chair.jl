@@ -1,8 +1,9 @@
 using PerfChecker, Chairmarks
-import Pkg
-Pkg.status(; extensions = true)
 
-t = @check :chairmark Dict(:path => @__DIR__, :evals => 1) begin
+d = Dict(:path => @__DIR__, :evals => 1, :tags => [:patterns, :intervals],
+    :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true))
+
+t = @check :chairmark d begin
     using PatternFolds
 end begin
     # Intervals

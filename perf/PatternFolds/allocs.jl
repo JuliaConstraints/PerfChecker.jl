@@ -1,4 +1,4 @@
-using PerfChecker
+using PerfChecker, CairoMakie
 
 d = Dict(:targets => ["PatternFolds"], :path => @__DIR__, :tags => [:patterns, :intervals],
     :pkgs => ("PatternFolds", :custom, [v"0.2.3", v"0.2.2"], true))
@@ -27,3 +27,15 @@ end begin
 end
 
 @info x
+
+for (i, t) in enumerate(x.tables)
+    p = d[:pkgs]
+    @info "debug" p[1] p[2] p[3] p[4]
+    mkpath("perf/PatternFolds/output")
+    display(table_to_pie(t, Val(:alloc); pkg_name = "PatternFolds.jl"))
+    path = joinpath(
+        d[:path], "perf", "PatternFolds", "output", string(p[1], "_v$(p[3][i])", ".png"))
+    @info path
+end
+
+# checkres_to_scatterlines(x, Val(:alloc))

@@ -9,10 +9,13 @@ function PerfChecker.default_options(::Val{:chairmark})
     )
 end
 
+PerfChecker.initpkgs(::Val{:chairmark}) = quote
+    using Chairmarks
+end
+
 function PerfChecker.check(d::Dict, block::Expr, ::Val{:chairmark})
     quote
         d = $d
-        using Chairmarks
         return @be $block evals=d[:evals] seconds=d[:seconds] samples=d[:samples] gc=d[:gc]
     end
 end

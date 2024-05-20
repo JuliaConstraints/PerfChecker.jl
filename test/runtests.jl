@@ -5,7 +5,6 @@ using Test
 
     @testset "Other Packages" begin
         using BenchmarkTools
-        using Distributed
         using PerfChecker
 
         # include("compositional_networks.jl")
