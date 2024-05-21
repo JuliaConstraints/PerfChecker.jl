@@ -1,7 +1,7 @@
-using PerfChecker, Chairmarks
+using PerfChecker, Chairmarks, CairoMakie
 
 d = Dict(:path => @__DIR__, :evals => 1, :tags => [:patterns, :intervals],
-    :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true))
+    :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true), :devops => "PatternFolds")
 
 t = @check :chairmark d begin
     using PatternFolds
@@ -30,3 +30,6 @@ end begin
 end
 
 @info t
+checkres_to_boxplots(t, Val(:chairmark))
+c = checkres_to_scatterlines(t, Val(:chairmark))
+save(joinpath(homedir(), "ubac.png"), c)

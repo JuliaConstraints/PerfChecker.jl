@@ -92,6 +92,11 @@ function check_function(x::Symbol, d::Dict, block1, block2)
 		push!(results.tables, res |> to_table)
 		if !(devop && i == len)
 			push!(results.pkgs, pkgs[i])
+		else
+			pkg = d[:devops]
+			p = pkg isa Tuple ? pkg[1] : pkg
+			p = p isa Pkg.PackageSpec ? p.name : p
+			push!(results.pkgs, Pkg.PackageSpec(name = p, version = "dev"))
 		end
 	end
 
