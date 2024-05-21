@@ -1,5 +1,5 @@
 function PerfChecker.checkres_to_scatterlines(
-        x::PerfChecker.CheckerResult, ::Val{:benchmark})
+        x::PerfChecker.CheckerResult, ::Val{:chairmark})
     data = []
     props = TypedTables.columnnames(x.tables[1])
     for i in eachindex(x.tables)
@@ -29,14 +29,15 @@ function PerfChecker.checkres_to_scatterlines(
     ax.xticks = (eachindex(versionnums), string.(versionnums))
     ax.xlabel = "versions"
     ax.ylabel = "ratio"
-    ax.title = "Evolution for $(x.pkgs[1].name) (via BenchmarkTools.jl)"
+    ax.title = "Evolution for $(x.pkgs[1].name) (via Chairmarks.jl)"
     ylims!(; low = 0, high = max)
     axislegend()
     return f
 end
 
 function PerfChecker.checkres_to_boxplots(
-        x::PerfChecker.CheckerResult, ::Val{:benchmark}; kwarg::Symbol = :times)
+        x::PerfChecker.CheckerResult, ::Val{:chairmark}; kwarg::Symbol = :times)
+    di = Dict()
     datax, datay = [], []
 
     for i in eachindex(x.tables)

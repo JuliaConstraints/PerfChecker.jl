@@ -2,7 +2,8 @@ using PerfChecker, BenchmarkTools, CairoMakie
 
 d = Dict(:path => @__DIR__, :evals => 1, :samples => 100,
     :seconds => 100, :tags => [:patterns, :intervals],
-    :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true))
+    :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true),
+    :devops => "PatternFolds")
 
 t = @check :benchmark d begin
     using PatternFolds
@@ -32,4 +33,6 @@ end
 
 @info t
 
-#@info checkres_to_boxplots(t, Val(:benchmark))
+checkres_to_boxplots(t, Val(:benchmark))
+c = checkres_to_scatterlines(t, Val(:benchmark))
+save(joinpath(homedir(), "ubab.png"), c)
