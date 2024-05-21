@@ -17,15 +17,20 @@ function PerfChecker.checkres_to_scatterlines(
     f = Figure()
     ax = f[1,1] = Axis(f)
     colors = make_colors(length(props))
+    max = 2
     for i in eachindex(data[1])
         xs = collect(eachindex(versionnums))
         ys = d[i] ./ r[i]
+        if max < maximum(ys)
+            max = maximum(ys)
+        end
         scatterlines!(xs, ys, label=string(props[i]), color = (colors[i], 0.4))
     end
     ax.xticks = (eachindex(versionnums), string.(versionnums))
     ax.xlabel = "versions"
     ax.ylabel = "ratio"
     ax.title = "Evolution for $(x.pkgs[1].name) (via BenchmarkTools.jl)"
+    ylims!(;low=0,high=max)
     axislegend()
     return f
 end

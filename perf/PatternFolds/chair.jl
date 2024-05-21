@@ -1,7 +1,7 @@
 using PerfChecker, Chairmarks, CairoMakie
 
 d = Dict(:path => @__DIR__, :evals => 1, :tags => [:patterns, :intervals],
-    :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true))
+    :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true), :devops => "PatternFolds")
 
 t = @check :chairmark d begin
     using PatternFolds
