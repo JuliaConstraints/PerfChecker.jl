@@ -1,18 +1,29 @@
-function filename(d::Dict; extension = "")
-	p = d[:pkgs]
-	versions = join(map(x -> "v" * x, p[3]), "-")
-	return join([p[1], versions, extension][1:(end - isempty(extension))], "_")
+get_uuid() = ENV["PERFCHECKER_UUID"]
+
+function flatten_parameters(x::Symbol, d::Dict)
+	pkgs = d[:pkgs]
+	tags = d[:tags]
+	return vcat([x, pkgs[1], pkgs[2]], pkgs[3], [pkgs[4]], tags)
 end
 
-function get_uuid()
-	path = joinpath(Base.Sys.DEPOT_PATH[1], "perfchecker", "uuid")
-	if isfile(path)
-		return read(path, String)
-	else
-		u = UUIDs.uuid4()
-		write(path, u)
-		return u
+function file_uuid(x::Symbol, d::Dict)
+	return uuid5(get_uuid() |> Base.UUID, join(flatten_parameters(x, d), "_"))
+end
+
+function filename(x::Symbol, d::Dict, ext::AbstractString)
+	return "$(file_uuid(x, d)).$ext"
+end
+
+function check_to_metadata(x::Symbol, d::Dict; metadata = "")
+	fp = join(flatten_parameters(x, d), "_")
+	u = get_uuid() |> Base.UUID
+
+	if !isempty(metadata)
+		!isfile(metadata) && mkpath(dirname(metadata))
+		open(metadata, "a") do f
+			write(f, string(join(flatten_parameters(x, d), "_"), ",", u, "\n"))
+		end
 	end
-end
 
-# const UUID =
+	return fp, u
+end

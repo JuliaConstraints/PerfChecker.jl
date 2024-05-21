@@ -10,46 +10,8 @@ import Malt: remote_eval_wait, Worker, remote_eval_fetch, stop, fetch
 import CoverageTools: analyze_malloc_files, find_malloc_files, MallocInfo
 import Base.Sys: CPUinfo, CPU_NAME, cpu_info, WORD_SIZE
 import CpuId: simdbytes, cpucores, cputhreads, cputhreads_per_core
-import UUIDs: uuid4
-
-struct HwInfo
-	cpus::Vector{CPUinfo}
-	machine::String
-	word::Int
-	simdbytes::Int
-	corecount::Tuple{Int, Int, Int}
-end
-
-struct CheckerResult
-	tables::Vector{Table}
-	hwinfo::Union{HwInfo, Nothing}
-	tags::Union{Nothing, Vector{Symbol}}
-	pkgs::Vector{PackageSpec}
-end
-
-function Base.show(io::IO, v::PerfChecker.CheckerResult)
-	println(io, "Tables:")
-	for i in v.tables
-		println(io, '\t', Base.display(i))
-	end
-
-	println(io, "Hardware Info:")
-	println(io, "CPU Information:")
-	println(io, '\t', v.hwinfo.cpus)
-	println(io, "Machine name: ", v.hwinfo.machine)
-	println(io, "Word Size: ", v.hwinfo.word)
-	println(io, "SIMD Bytes: ", v.hwinfo.simdbytes)
-	println(io, "Core count (physical, total and threads per core): ", v.hwinfo.corecount)
-
-	println(io, "Tags used: ", v.tags)
-
-	println(io, "Package versions tested (if provided): ")
-	println(io, Base.display(v.pkgs))
-end
-
-function find_by_tags(tags::Vector{Symbol}, results::CheckerResult; exact_match = true)
-	findall(x -> exact_match ? (tags == x.tags) : (!isempty(x.tags ∩ tags)), results)
-end
+import UUIDs: uuid4, uuid5
+import JSON
 
 function csv_to_table(path)
 	@warn "CSV module not loaded. Please load it before using this function."
@@ -73,6 +35,9 @@ export table_to_csv
 export checkres_to_boxplots
 
 # SECTION - Includes
+include("init.jl")
+include("hwinfo.jl")
+include("checker_results.jl")
 include("utils.jl")
 include("versions.jl")
 include("check.jl")
