@@ -14,11 +14,11 @@ import UUIDs: uuid4, uuid5
 import JSON
 
 function csv_to_table(path)
-	@warn "CSV module not loaded. Please load it before using this function."
+	# @warn "CSV module not loaded. Please load it before using this function."
 end
 
 function table_to_csv(t::Table, path::String)
-	@warn "CSV module not loaded. Please load it before using this function."
+	# @warn "CSV module not loaded. Please load it before using this function."
 end
 
 # SECTION - Exports
@@ -33,6 +33,7 @@ export saveplot
 export csv_to_table
 export table_to_csv
 export checkres_to_boxplots
+export check_to_metadata_csv
 
 # SECTION - Includes
 include("init.jl")

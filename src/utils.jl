@@ -1,29 +1,39 @@
 get_uuid() = ENV["PERFCHECKER_UUID"]
 
-function flatten_parameters(x::Symbol, d::Dict)
-	pkgs = d[:pkgs]
-	tags = d[:tags]
-	return vcat([x, pkgs[1], pkgs[2]], pkgs[3], [pkgs[4]], tags)
+function flatten_parameters(
+		x::Symbol, pkg::AbstractString, version, tags::Vector{Symbol})
+	return join(vcat([x, pkg, string("v", version)], tags), "_")
 end
 
-function file_uuid(x::Symbol, d::Dict)
-	return uuid5(get_uuid() |> Base.UUID, join(flatten_parameters(x, d), "_"))
+function file_uuid(
+		x::Symbol, pkg::AbstractString, version, tags::Vector{Symbol})
+	return uuid5(get_uuid() |> Base.UUID, flatten_parameters(x, pkg, version, tags))
 end
 
-function filename(x::Symbol, d::Dict, ext::AbstractString)
-	return "$(file_uuid(x, d)).$ext"
+function filename(x::Symbol, pkg::AbstractString, version,
+		tags::Vector{Symbol}; ext::AbstractString)
+	return "$(file_uuid(x, pkg, version, tags)).$ext"
 end
 
-function check_to_metadata(x::Symbol, d::Dict; metadata = "")
-	fp = join(flatten_parameters(x, d), "_")
+function check_to_metadata(
+		x::Symbol, pkg::AbstractString, version, tags::Vector{Symbol}; metadata = "")
+	fp = flatten_parameters(x, pkg, version, tags)
 	u = get_uuid() |> Base.UUID
 
 	if !isempty(metadata)
-		!isfile(metadata) && mkpath(dirname(metadata))
-		open(metadata, "a") do f
-			write(f, string(join(flatten_parameters(x, d), "_"), ",", u, "\n"))
+		if !isfile(metadata)
+			mkpath(dirname(metadata))
+			open(metadata, "a") do f
+				write(f, string(flatten_parameters(x, pkg, version, tags), ",", u, "\n"))
+			end
 		end
 	end
 
 	return fp, u
+end
+
+function check_to_metadata_csv(
+		x::Symbol, pkg::AbstractString, version, tags::Vector{Symbol}; metadata = "")
+	@info "should not be here"
+	return nothing
 end
