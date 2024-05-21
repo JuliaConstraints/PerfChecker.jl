@@ -32,4 +32,4 @@ end
 
 @info t
 
-#@info checkres_to_boxplots(t, Val(:benchmark))
+checkres_to_boxplots(t, Val(:benchmark))

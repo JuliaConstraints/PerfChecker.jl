@@ -7,5 +7,6 @@ using PerfChecker
 include("plotutils.jl")
 include("allocs.jl")
 include("bench.jl")
+include("chair.jl")
 
 end

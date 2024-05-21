@@ -1,4 +1,4 @@
-using PerfChecker, Chairmarks
+using PerfChecker, Chairmarks, CairoMakie
 
 d = Dict(:path => @__DIR__, :evals => 1, :tags => [:patterns, :intervals],
     :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true))
@@ -30,3 +30,4 @@ end begin
 end
 
 @info t
+checkres_to_boxplots(t, Val(:chairmark))

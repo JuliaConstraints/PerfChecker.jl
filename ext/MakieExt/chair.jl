@@ -1,11 +1,11 @@
 function PerfChecker.checkres_to_scatterlines(
-        x::PerfChecker.CheckerResult, ::Val{:benchmark})
+        x::PerfChecker.CheckerResult, ::Val{:chairmark})
     println("Hello!")
     @warn "Here!"
 end
 
 function PerfChecker.checkres_to_boxplots(
-        x::PerfChecker.CheckerResult, ::Val{:benchmark}; kwarg::Symbol = :times)
+        x::PerfChecker.CheckerResult, ::Val{:chairmark}; kwarg::Symbol = :times)
     di = Dict()
     datax, datay = [], []
     
