@@ -31,3 +31,5 @@ end
 
 @info t
 checkres_to_boxplots(t, Val(:chairmark))
+c = checkres_to_scatterlines(t, Val(:chairmark))
+save(joinpath(homedir(), "ubac.png"), c)

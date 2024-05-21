@@ -33,3 +33,5 @@ end
 @info t
 
 checkres_to_boxplots(t, Val(:benchmark))
+c = checkres_to_scatterlines(t, Val(:benchmark))
+save(joinpath(homedir(), "ubab.png"), c)
