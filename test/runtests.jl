@@ -5,9 +5,12 @@ using Test
 
     @testset "Other Packages" begin
         using BenchmarkTools
+        using Chairmarks
         using PerfChecker
 
-        # include("compositional_networks.jl")
         include("pattern_folds.jl")
     end
+
+    rm("metadata"; recursive = true)
+    rm("output"; recursive = true)
 end

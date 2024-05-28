@@ -5,8 +5,8 @@
 
 /docs/build/
 
-/test/benchmarks/
-/test/mallocs/
+/test/output/
+/test/metadata/
 
 *~
 *.swp
