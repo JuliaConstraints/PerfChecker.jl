@@ -1,6 +1,17 @@
 using PerfChecker
 
-result = @check :alloc Dict(:targets => ["GLM"], :path => @__DIR__) begin
+d = Dict(:targets => ["GLM"],
+    :path => @__DIR__,
+    :pkgs => ("GLM",
+        :custom,
+        [
+            v"1.3.9", v"1.3.10", v"1.3.11", v"1.4.0",
+            v"1.5.0", v"1.6.0", v"1.7.0", v"1.8.0",
+            v"1.9.0"],
+        true),
+    :tags => [:bernoulli])
+
+x = @check :alloc d begin
     using GLM, Random, StatsModels
 end begin
     n = 2_500_000
@@ -21,4 +32,4 @@ end begin
     glm(pred, resp, Bernoulli())
 end
 
-@info result
+@info x

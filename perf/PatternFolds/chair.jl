@@ -1,9 +1,12 @@
 using PerfChecker, Chairmarks, CairoMakie
 
-d = Dict(:path => @__DIR__, :evals => 1, :tags => [:patterns, :intervals],
-    :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true), :devops => "PatternFolds")
+d = Dict(:path => @__DIR__, :evals => 10, :samples => 1000,
+    :seconds => 100, :tags => [:patterns, :intervals],
+    :pkgs => (
+        "PatternFolds", :custom, [v"0.2.0", v"0.2.1", v"0.2.2", v"0.2.3", v"0.2.4"], true),
+    :devops => "PatternFolds")
 
-t = @check :chairmark d begin
+x = @check :chairmark d begin
     using PatternFolds
 end begin
     # Intervals
@@ -14,11 +17,8 @@ end begin
     collect(i)
     reverse(collect(i))
 
-    # rand(i, 1000)
-
     # Vectors
     vf = make_vector_fold([0, 1], 2, 1000)
-    # @info "Checking VectorFold" vf pattern(vf) gap(vf) folds (vf) length(vf)
 
     unfold(vf)
     collect(vf)
@@ -29,7 +29,14 @@ end begin
     return nothing
 end
 
-@info t
-checkres_to_boxplots(t, Val(:chairmark))
-c = checkres_to_scatterlines(t, Val(:chairmark))
-save(joinpath(homedir(), "ubac.png"), c)
+@info x
+
+mkpath(joinpath(@__DIR__, "visuals"))
+
+c = checkres_to_scatterlines(x, Val(:chairmark))
+save(joinpath(@__DIR__, "visuals", "chair_evolution.png"), c)
+
+for kwarg in [:times, :gctimes, :bytes, :allocs]
+    c2 = checkres_to_boxplots(x, Val(:chairmark); kwarg)
+    save(joinpath(@__DIR__, "visuals", "chair_boxplots_$kwarg.png"), c2)
+end

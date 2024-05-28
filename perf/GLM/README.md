@@ -2,6 +2,8 @@
 
 `GLM.jl` is a Julia library for Generalized Linear Model.
 
+<!-- TODO: update with new interface with new figures -->
+
 ### Getting Started with `PerfChecker.jl`
 Before getting started with any checks, we must ensure that we are evaluating the correct version. Because `PerfChecker.jl` lacks a few features at the time of writing this, this has to be done manually.
 

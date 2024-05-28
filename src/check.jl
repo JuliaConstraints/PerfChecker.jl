@@ -59,37 +59,56 @@ function check_function(x::Symbol, d::Dict, block1, block2)
     end
 
     for i in 1:len
-        remote_eval_wait(Main, procs[i], quote
-            import Pkg
-            let
-                i = $i
-                @info "Worker No.: $i"
+        is_loaded = false
+        if i ≤ length(pkgs)
+            path = joinpath(di[:path], "metadata", "metadata.csv")
+            fp = flatten_parameters(x, pkgs[i].name, pkgs[i].version, d[:tags])
+            u = get_uuid() |> Base.UUID
+            if in_metadata(path, fp, u)
+                is_loaded = true
             end
-            Pkg.instantiate(; io = stderr)
-        end)
+        end
 
-        remote_eval_wait(Main, procs[i], initpkg)
-
-        remote_eval_wait(Main, procs[i],
-            quote
-                d = $di
-                pkgs = $pkgs
-                if !($i == $len && $devop)
-                    pkgs != [Pkg.PackageSpec()] && Pkg.add(getindex(pkgs, $i))
-                else
-                    pkg = d[:devops]
-                    pkg isa Tuple ? Pkg.develop(pkg[1]; pkg[2]...) : Pkg.develop(pkg)
+        if !is_loaded
+            remote_eval_wait(Main, procs[i], quote
+                import Pkg
+                let
+                    i = $i
+                    @info "Worker No.: $i"
                 end
-                haskey(d, :extra_pkgs) && Pkg.add(d[:extra_pkgs])
+                Pkg.instantiate(; io = stderr)
             end)
 
-        di[:prep_result] = remote_eval_fetch(Main, procs[i], g)
-        di[:check_result] = remote_eval_fetch(Main, procs[i], h)
+            remote_eval_wait(Main, procs[i], initpkg)
 
-        stop(procs[i])
+            remote_eval_wait(Main, procs[i],
+                quote
+                    d = $di
+                    pkgs = $pkgs
+                    if !($i == $len && $devop)
+                        pkgs != [Pkg.PackageSpec()] && Pkg.add(getindex(pkgs, $i))
+                    else
+                        pkg = d[:devops]
+                        pkg isa Tuple ? Pkg.develop(pkg[1]; pkg[2]...) : Pkg.develop(pkg)
+                    end
+                    haskey(d, :extra_pkgs) && Pkg.add(d[:extra_pkgs])
+                end)
 
-        res = post(di, x)
-        push!(results.tables, res |> to_table)
+            di[:prep_result] = remote_eval_fetch(Main, procs[i], g)
+            di[:check_result] = remote_eval_fetch(Main, procs[i], h)
+
+            stop(procs[i])
+        end
+
+        res = if is_loaded
+            fp = flatten_parameters(x, pkgs[i].name, pkgs[i].version, d[:tags])
+            u = uuid5(get_uuid() |> Base.UUID, fp)
+            path = joinpath(di[:path], "output", string(u)) * ".csv"
+            csv_to_table(path)
+        else
+            post(di, x) |> to_table
+        end
+        push!(results.tables, res)
         if !(devop && i == len)
             push!(results.pkgs, pkgs[i])
         else
@@ -98,6 +117,24 @@ function check_function(x::Symbol, d::Dict, block1, block2)
             p = p isa Pkg.PackageSpec ? p.name : p
             push!(results.pkgs, Pkg.PackageSpec(name = p, version = "dev"))
         end
+    end
+
+    for (k, t) in enumerate(results.tables)
+        tags = results.tags
+        ps = results.pkgs[k]
+        pkg = ps.name
+        v = ps.version
+        (isnothing(pkg) || v == "dev") && continue
+        name = filename(x, pkg, v, tags; ext = "csv")
+        path = joinpath(d[:path], "output", name)
+        metadata = joinpath(d[:path], "metadata", "metadata.csv")
+        fp = flatten_parameters(x, pkg, v, tags)
+        u = get_uuid() |> Base.UUID
+        if in_metadata(metadata, fp, u)
+            continue
+        end
+        table_to_csv(t, path)
+        check_to_metadata_csv(x, pkg, v, tags; metadata)
     end
 
     return results
