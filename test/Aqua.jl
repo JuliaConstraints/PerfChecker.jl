@@ -23,7 +23,7 @@
     @testset "Dependencies compatibility (no extras)" begin
         Aqua.test_deps_compat(PerfChecker;
             check_extras = false,
-            ignore = [:Distributed, :Pkg, :Profile, :TOML]
+            ignore = [:Pkg, :Profile, :TOML, :UUIDs]
         )
     end
 end

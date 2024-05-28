@@ -17,7 +17,7 @@ julia> get_pkg_versions("ConstraintLearning")
 """
 function get_pkg_versions(name::String,
         regname::Union{Nothing, Vector{String}} = nothing)::Vector{VersionNumber}
-    regs = Types.Context().registries
+    regs = Context().registries
     indexes = isnothing(regname) ? collect(1:length(regs)) :
               findall(x -> x.name in regname, regs)
 
