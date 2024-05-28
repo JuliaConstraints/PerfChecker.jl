@@ -25,7 +25,7 @@ function check_to_metadata(
         f || mkpath(dirname(metadata))
         if !f || !in_metadata(metadata, fp, u)
             open(metadata, "a") do f
-                @info "Writing metada" metadata
+                @info "Writing metadata" metadata
                 write(f, string(fp, ",", u, "\n"))
             end
         end
