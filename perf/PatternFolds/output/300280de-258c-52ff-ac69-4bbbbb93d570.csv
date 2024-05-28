@@ -1,5 +1,5 @@
 bytes,percentage,filenames,linenumbers
-16128,97.49,/home/baffier/.julia/packages/PatternFolds/3DAei/src/vector.jl,87
-320,1.93,/home/baffier/.julia/packages/PatternFolds/3DAei/src/vector.jl,19
+16128,98.44,/home/baffier/.julia/packages/PatternFolds/3DAei/src/vector.jl,87
+160,0.98,/home/baffier/.julia/packages/PatternFolds/3DAei/src/vector.jl,19
 48,0.29,/home/baffier/.julia/packages/PatternFolds/3DAei/src/intervals.jl,32
 48,0.29,/home/baffier/.julia/packages/PatternFolds/3DAei/src/common.jl,100

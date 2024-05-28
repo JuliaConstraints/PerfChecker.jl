@@ -1,7 +1,8 @@
-using PerfChecker, Chairmarks, CairoMakie
+using PerfChecker, Chairmarks
 
 d = Dict(:path => @__DIR__, :evals => 1, :tags => [:patterns, :intervals],
-    :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3"], true), :devops => "PatternFolds")
+    :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3", v"0.2.4"], true),
+    :devops => "PatternFolds")
 
 t = @check :chairmark d begin
     using PatternFolds
@@ -14,11 +15,8 @@ end begin
     collect(i)
     reverse(collect(i))
 
-    # rand(i, 1000)
-
     # Vectors
     vf = make_vector_fold([0, 1], 2, 1000)
-    # @info "Checking VectorFold" vf pattern(vf) gap(vf) folds (vf) length(vf)
 
     unfold(vf)
     collect(vf)
@@ -30,6 +28,3 @@ end begin
 end
 
 @info t
-checkres_to_boxplots(t, Val(:chairmark))
-c = checkres_to_scatterlines(t, Val(:chairmark))
-save(joinpath(homedir(), "ubac.png"), c)

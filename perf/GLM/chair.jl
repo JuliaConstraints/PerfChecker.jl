@@ -1,4 +1,4 @@
-using PerfChecker, BenchmarkTools
+using PerfChecker, Chairmarks
 
 d = Dict(:targets => ["GLM"],
     :path => @__DIR__, :evals => 1, :samples => 100, :seconds => 100,
@@ -11,7 +11,7 @@ d = Dict(:targets => ["GLM"],
         true),
     :tags => [:bernouilli])
 
-x = @check :benchmark d begin
+x = @check :chairmark d begin
     using GLM, Random, StatsModels
 end begin
     n = 2_500_000

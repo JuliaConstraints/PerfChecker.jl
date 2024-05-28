@@ -124,7 +124,7 @@ function check_function(x::Symbol, d::Dict, block1, block2)
         ps = results.pkgs[k]
         pkg = ps.name
         v = ps.version
-        isnothing(pkg) && continue
+        (isnothing(pkg) || v == "dev") && continue
         name = filename(x, pkg, v, tags; ext = "csv")
         path = joinpath(d[:path], "output", name)
         metadata = joinpath(d[:path], "metadata", "metadata.csv")
