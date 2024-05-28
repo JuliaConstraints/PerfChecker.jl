@@ -9,7 +9,7 @@ d = Dict(:targets => ["GLM"],
             v"1.5.0", v"1.6.0", v"1.7.0", v"1.8.0",
             v"1.9.0"],
         true),
-    :tags => [:bernouilli])
+    :tags => [:bernoulli])
 
 x = @check :alloc d begin
     using GLM, Random, StatsModels
