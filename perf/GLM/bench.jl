@@ -1,4 +1,4 @@
-using PerfChecker, BenchmarkTools
+using PerfChecker, BenchmarkTools, CairoMakie
 
 d = Dict(:targets => ["GLM"],
     :path => @__DIR__, :evals => 1, :samples => 100, :seconds => 100,
@@ -33,3 +33,13 @@ end begin
 end
 
 @info x
+
+mkpath(joinpath(@__DIR__, "visuals"))
+
+c = checkres_to_scatterlines(x, Val(:benchmark))
+save(joinpath(@__DIR__, "visuals", "bench_evolution.png"), c)
+
+for kwarg in [:times, :gctimes, :memory, :allocs]
+    c2 = checkres_to_boxplots(x, Val(:benchmark); kwarg)
+    save(joinpath(@__DIR__, "visuals", "bench_boxplots_$kwarg.png"), c2)
+end

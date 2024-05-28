@@ -21,6 +21,10 @@ function PerfChecker.table_to_pie(x::Table, ::Val{:alloc}; pkg_name = "")
 end
 
 function PerfChecker.checkres_to_pie(x::PerfChecker.CheckerResult, ::Val{:alloc})
+    name(i) = x.pkgs[i].name * "_v" * string(x.pkgs[i].version)
+    return map(
+        i -> (name(i) => table_to_pie(x.tables[i], Val(:alloc), pkg_name = name(i))),
+        eachindex(x.tables))
 end
 
 function PerfChecker.checkres_to_scatterlines(

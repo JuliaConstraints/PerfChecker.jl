@@ -1,10 +1,12 @@
-using PerfChecker, Chairmarks
+using PerfChecker, Chairmarks, CairoMakie
 
-d = Dict(:path => @__DIR__, :evals => 1, :tags => [:patterns, :intervals],
-    :pkgs => ("PatternFolds", :custom, [v"0.2.2", v"0.2.3", v"0.2.4"], true),
+d = Dict(:path => @__DIR__, :evals => 10, :samples => 1000,
+    :seconds => 100, :tags => [:patterns, :intervals],
+    :pkgs => (
+        "PatternFolds", :custom, [v"0.2.0", v"0.2.1", v"0.2.2", v"0.2.3", v"0.2.4"], true),
     :devops => "PatternFolds")
 
-t = @check :chairmark d begin
+x = @check :chairmark d begin
     using PatternFolds
 end begin
     # Intervals
@@ -27,4 +29,14 @@ end begin
     return nothing
 end
 
-@info t
+@info x
+
+mkpath(joinpath(@__DIR__, "visuals"))
+
+c = checkres_to_scatterlines(x, Val(:chairmark))
+save(joinpath(@__DIR__, "visuals", "chair_evolution.png"), c)
+
+for kwarg in [:times, :gctimes, :bytes, :allocs]
+    c2 = checkres_to_boxplots(x, Val(:chairmark); kwarg)
+    save(joinpath(@__DIR__, "visuals", "chair_boxplots_$kwarg.png"), c2)
+end
