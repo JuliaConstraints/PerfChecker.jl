@@ -1,12 +1,12 @@
 *.jl.*.cov
 *.jl.cov
-*.jl.mem
+*.jl.*.mem
 *Manifest.toml
 
 /docs/build/
 
-/test/benchmarks/
-/test/mallocs/
+/test/output/
+/test/metadata/
 
 *~
 *.swp

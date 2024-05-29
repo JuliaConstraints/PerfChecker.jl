@@ -1,8 +1,0 @@
-[deps]
-BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
-CompatHelperLocal = "5224ae11-6099-4aaa-941d-3aab004bd678"
-ConstraintDomains = "5800fd60-8556-4464-8d61-84ebf7a0bedb"
-PatternFolds = "c18a7f1d-76ad-4ce4-950d-5419b888513b"
-Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
-Profile = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

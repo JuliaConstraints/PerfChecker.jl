@@ -1,14 +1,7 @@
-```@meta
-CurrentModule = PerfChecker
-```
+# PerfChecker.jl
 
-# PerfChecker
-
-Documentation for [PerfChecker](https://github.com/JuliaConstraints/PerfChecker.jl).
-
-```@index
-```
+Documentation for `PerfChecker.jl`.
 
 ```@autodocs
-Modules = [PerfChecker]
+Modules=[PerfChecker]
 ```

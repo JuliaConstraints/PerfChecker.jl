@@ -1,0 +1,5 @@
+bytes,percentage,filenames,linenumbers
+80160,83.17,/home/baffier/.julia/packages/PatternFolds/ChWCd/src/vector.jl,19
+16128,16.73,/home/baffier/.julia/packages/PatternFolds/ChWCd/src/vector.jl,84
+48,0.05,/home/baffier/.julia/packages/PatternFolds/ChWCd/src/intervals.jl,32
+48,0.05,/home/baffier/.julia/packages/PatternFolds/ChWCd/src/common.jl,100

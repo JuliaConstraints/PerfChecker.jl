@@ -1,11 +1,16 @@
-using BenchmarkTools
-using PerfChecker
 using Test
 
-import CompatHelperLocal
+@testset "Package tests: PerfChecker" begin
+    include("Aqua.jl")
 
-CompatHelperLocal.@check()
+    @testset "Other Packages" begin
+        using BenchmarkTools
+        using Chairmarks
+        using PerfChecker
 
-# include("compositional_networks.jl")
+        include("pattern_folds.jl")
+    end
 
-include("pattern_folds.jl")
+    rm("test/metadata"; recursive = true, force = true)
+    rm("test/output"; recursive = true, force = true)
+end

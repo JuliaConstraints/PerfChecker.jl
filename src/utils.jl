@@ -1,65 +1,44 @@
-function oid2string(path::String)
-    id = LibGit2.head_oid(LibGit2.GitRepo(path))
-    return prod(i -> string(i; base=16, pad=2), id.val)
+get_uuid() = ENV["PERFCHECKER_UUID"]
+
+function flatten_parameters(
+        x::Symbol, pkg::AbstractString, version, tags::Vector{Symbol})
+    return join(vcat([x, pkg, string("v", version)], tags), "_")
 end
 
-function oid2string(paths::Vector{String})
-    function get_oid(path)
-        oid = ""
-        try
-            oid = "-" * oid2string(path)
-        catch _
-            @warn "The target $path is not a git repository. Commit id for this target will be ignored to name the output."
+function file_uuid(
+        x::Symbol, pkg::AbstractString, version, tags::Vector{Symbol})
+    return uuid5(get_uuid() |> Base.UUID, flatten_parameters(x, pkg, version, tags))
+end
+
+function filename(x::Symbol, pkg::AbstractString, version,
+        tags::Vector{Symbol}; ext::AbstractString)
+    return "$(file_uuid(x, pkg, version, tags)).$ext"
+end
+
+function check_to_metadata(
+        x::Symbol, pkg::AbstractString, version, tags::Vector{Symbol}; metadata = "")
+    fp = flatten_parameters(x, pkg, version, tags)
+    u = get_uuid() |> Base.UUID
+
+    if !isempty(metadata)
+        f = isfile(metadata)
+        f || mkpath(dirname(metadata))
+        if !f || !in_metadata(metadata, fp, u)
+            open(metadata, "a") do f
+                @info "Writing metadata" metadata
+                write(f, string(fp, ",", u, "\n"))
+            end
         end
-        return oid
     end
 
-    return prod(get_oid, paths)
+    return fp, u
 end
 
-version2string() = string(Pkg.project().version)
-
-function version2string(paths::Vector{String})
-    function get_version(path)
-        Pkg.activate(path)
-        v = version2string()
-        return if isnothing(v)
-            @warn "The target $path is not a project folder. Versioning for this target will be ignored to name the output."
-            ""
-        else
-            "-" * v
+function in_metadata(metadata, fp, u)
+    isfile(metadata) && for l in eachline(metadata)
+        if l == string(fp, ",", u)
+            return true
         end
     end
-
-    save_path = dirname(Pkg.project().path)
-    output = prod(get_version, paths)
-    Pkg.activate(save_path)
-
-    return output
-end
-
-@static if VERSION < v"1.7"
-    Base.joinpath(x) = joinpath(x...)
-end
-
-
-function smart_paths(paths)
-    splitted_paths = map(splitpath ∘ normpath, paths)
-
-    @info "debug" paths splitted_paths
-    common = paths |> first |> dirname |> splitpath
-    for path in splitted_paths
-        to_pop = length(common)
-        for name in Iterators.zip(common, path)
-            name[1] == name[2] || break
-            to_pop -= 1
-        end
-        foreach(_ -> pop!(common), 1:to_pop)
-    end
-
-    for path in splitted_paths
-        foreach(_ -> popfirst!(path), 1:length(common))
-    end
-
-    return joinpath(common...), map(joinpath, splitted_paths)
+    return false
 end
