@@ -1,23 +1,28 @@
 function PerfChecker.table_to_pie(x::Table, ::Val{:alloc}; pkg_name = "")
-    data = x.bytes
-    paths = smart_paths(x.filenames)[2] .* " — line " .* string.(x.linenumbers)
-    percentage = data .* 100 ./ sum(data)
-    colors = make_colors(length(percentage))
-    str = isempty(pkg_name) ? "" : " for $pkg_name"
-    f, ax, _ = pie(
-        data;
-        axis = (autolimitaspect = 1,),
-        color = colors,
-        inner_radius = 2,
-        radius = 4,
-        strokecolor = :white,
-        strokewidth = 5
-    )
-    ax.title = "Mallocs$str"
-    hidedecorations!(ax)
-    hidespines!(ax)
-    Legend(f[1, 2], [PolyElement(color = c) for c in colors], paths)
-    return f
+    if !isempty(x.filenames)
+        data = x.bytes
+        paths = smart_paths(x.filenames)[2] .* " — line " .* string.(x.linenumbers)
+        percentage = data .* 100 ./ sum(data)
+        colors = make_colors(length(percentage))
+        str = isempty(pkg_name) ? "" : " for $pkg_name"
+        f, ax, _ = pie(
+            data;
+            axis = (autolimitaspect = 1,),
+            color = colors,
+            inner_radius = 2,
+            radius = 4,
+            strokecolor = :white,
+            strokewidth = 5
+        )
+        ax.title = "Mallocs$str"
+        hidedecorations!(ax)
+        hidespines!(ax)
+        Legend(f[1, 2], [PolyElement(color = c) for c in colors], paths)
+        return f
+    else
+        @error "No allocations so can't plot!"
+        return nothing
+    end
 end
 
 function PerfChecker.checkres_to_pie(x::PerfChecker.CheckerResult, ::Val{:alloc})
@@ -34,16 +39,20 @@ function PerfChecker.checkres_to_scatterlines(
         j = x.tables[i]
         p = x.pkgs[i]
         u = unique(j.filenames)
-        paths = smart_paths(u)[2]
-        for k in eachindex(u)
-            if haskey(di, paths[k])
-                push!(di[paths[k]], (sum(j.bytes[j.filenames .== u[k]]), p.version))
-            else
-                di[paths[k]] = [(sum(j.bytes[j.filenames .== u[k]]), p.version)]
+        if !isempty(u)
+            paths = smart_paths(u)[2]
+            for k in eachindex(u)
+                if haskey(di, paths[k])
+                    push!(di[paths[k]], (sum(j.bytes[j.filenames .== u[k]]), p.version))
+                else
+                    di[paths[k]] = [(sum(j.bytes[j.filenames .== u[k]]), p.version)]
+                end
             end
+        else
+            @error "No allocations so can't plot!"
+            return nothing
         end
     end
-
     versions = Dict()
     for i in eachindex(x.pkgs)
         versions[x.pkgs[i].version] = i
