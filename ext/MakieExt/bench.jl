@@ -18,13 +18,15 @@ function PerfChecker.checkres_to_scatterlines(
     ax = f[1, 1] = Axis(f)
     colors = make_colors(length(props))
     max = 2
+    diff = 0.0
     for i in eachindex(data[1])
-        xs = collect(eachindex(versionnums))
-        ys = d[i] ./ r[i]
+        xs = collect(eachindex(versionnums)) .+ diff
+        ys = d[i] ./ r[i] .+ 2/length(xs)
         if max < maximum(ys)
             max = maximum(ys)
         end
         scatterlines!(xs, ys, label = string(props[i]), color = (colors[i], 0.4))
+        diff += 0.1/length(xs)
     end
     ax.xticks = (eachindex(versionnums), string.(versionnums))
     ax.xlabel = "versions"
