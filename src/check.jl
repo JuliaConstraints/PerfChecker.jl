@@ -60,15 +60,18 @@ function check_function(x::Symbol, d::Dict, block1, block2)
 
     for i in 1:len
         is_loaded = false
-        di[:current_spec] = pkgs[i]
-        di[:current_version] = pkgs[i].version
         if i ≤ length(pkgs)
+            di[:current_spec] = pkgs[i]
+            di[:current_version] = pkgs[i].version
             path = joinpath(di[:path], "metadata", "metadata.csv")
             fp = flatten_parameters(x, pkgs[i].name, pkgs[i].version, d[:tags])
             u = get_uuid() |> Base.UUID
             if in_metadata(path, fp, u)
                 is_loaded = true
             end
+        else
+            di[:current_spec] = di[:devops]
+            di[:current_version] = "dev"
         end
 
         if !is_loaded

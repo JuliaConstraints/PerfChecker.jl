@@ -11,6 +11,6 @@ using Test
         include("pattern_folds.jl")
     end
 
-    rm("test/metadata"; recursive = true, force = true)
-    rm("test/output"; recursive = true, force = true)
+    rm("metadata"; recursive = true, force = true)
+    rm("output"; recursive = true, force = true)
 end

@@ -30,7 +30,7 @@ function PerfChecker.checkres_to_scatterlines(
         end
         scatterlines!(xs, ys, label = string(props[i]), color = (colors[i], 0.4))
     end
-    ax.yscale = log2
+    ax.yscale = Makie.pseudolog10
     ax.xticks = (eachindex(versionnums), string.(versionnums))
     ax.xlabel = "versions"
     ax.ylabel = "ratio"
