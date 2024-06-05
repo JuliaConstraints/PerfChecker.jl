@@ -10,6 +10,9 @@ function PerfChecker.checkres_to_scatterlines(
     end
 
     d = [[data[i][j] for i in eachindex(data)] for j in eachindex(data[1])]
+
+    v = map(y -> filter(x -> x > 0, y), d)
+
     r = minimum.(d)
 
     versionnums = [x.pkgs[i].version for i in eachindex(x.pkgs)]
@@ -21,19 +24,21 @@ function PerfChecker.checkres_to_scatterlines(
     diff = 0.0
     for i in eachindex(data[1])
         xs = collect(eachindex(versionnums)) .+ diff
-        ys = d[i] ./ r[i] .+ 2/length(xs)
-        if max < maximum(ys)
-            max = maximum(ys)
+        ys = [isempty(v[i]) ? 0 : d[i][j] / r[i] for j in eachindex(d[i])]
+        t = maximum(ys)
+        if max < ϵ(t)
+            max = ϵ(t)
         end
         scatterlines!(xs, ys, label = string(props[i]), color = (colors[i], 0.4))
-        diff += 0.1/length(xs)
+        diff += 0.1 / length(xs)
     end
+    ax.yscale = Makie.pseudolog10
     ax.xticks = (eachindex(versionnums), string.(versionnums))
     ax.xlabel = "versions"
     ax.ylabel = "ratio"
     ax.title = "Evolution for $(x.pkgs[1].name) (via BenchmarkTools.jl)"
-    ylims!(; low = 0, high = max)
-    axislegend()
+    ylims!(; high = max)
+    f[1, 2] = Legend(f, ax)
     return f
 end
 
@@ -57,6 +62,6 @@ function PerfChecker.checkres_to_boxplots(
     ax.ylabel = string(kwarg)
     boxplot!(datax, datay, label = string(kwarg))
     ax.title = x.pkgs[1].name
-    axislegend()
+    f[1, 2] = Legend(f, ax)
     return f
 end

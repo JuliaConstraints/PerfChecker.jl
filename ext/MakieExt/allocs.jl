@@ -61,6 +61,7 @@ function PerfChecker.checkres_to_scatterlines(
     versionnums = [x.pkgs[i].version for i in eachindex(x.pkgs)]
     f = Figure()
     ax = Axis(f[1, 1])
+    ax.yscale = Makie.pseudolog10
     ax.xticks = (eachindex(versionnums), string.(versionnums))
     ax.xlabel = "versions"
     ax.ylabel = "bytes"
