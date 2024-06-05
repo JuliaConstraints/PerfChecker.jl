@@ -9,8 +9,6 @@ makedocs(;
     sitename = "PerfChecker.jl",
     format = DocumenterVitepress.MarkdownVitepress(
         repo = "https://github.com/JuliaConstraints/PerfChecker.jl",
-        devurl = "dev",
-        deploy_url = "JuliaConstraints.github.io/PerfChecker.jl"
     ),
     pages = [
         "Home" => "index.md"
