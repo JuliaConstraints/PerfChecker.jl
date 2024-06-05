@@ -22,3 +22,6 @@ function smart_paths(paths)
 
     return joinpath(common...), map(joinpath, split_paths)
 end
+
+# Fix the maximum limit in plot by some epsilon for log scale plots
+ϵ(x; adjust = 0.1 * log(2)) = x * exp(adjust)
