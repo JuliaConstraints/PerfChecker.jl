@@ -21,7 +21,12 @@ function PerfChecker.checkres_to_scatterlines(
     ax = f[1, 1] = Axis(f)
     colors = make_colors(length(props))
     max = 2
-    diff = 0
+
+    lx = length(versionnums)
+    ly = length(data[1])
+    step = 0.02 * (lx - 1)
+    diff = (1 - ly) * step / 2.0
+
     for i in eachindex(data[1])
         xs = collect(eachindex(versionnums)) .+ diff
         ys = [isempty(v[i]) ? 0 : d[i][j] / r[i] for j in eachindex(d[i])]
@@ -29,15 +34,16 @@ function PerfChecker.checkres_to_scatterlines(
         if max < ϵ(t)
             max = ϵ(t)
         end
-        diff += 0.1 / length(xs)
-        scatterlines!(xs, ys, label = string(props[i]), color = (colors[i], 0.4))
+        scatterlines!(
+            xs, ys; label = string(props[i]), color = (colors[i], 1.0), linewidth = 0.5)
+        diff += step
     end
     ax.yscale = Makie.pseudolog10
     ax.xticks = (eachindex(versionnums), string.(versionnums))
     ax.xlabel = "versions"
     ax.ylabel = "ratio"
     ax.title = "Evolution for $(x.pkgs[1].name) (via Chairmarks.jl)"
-    ylims!(; high = max)
+    # ylims!(; high = max)
     f[1, 2] = Legend(f, ax)
     return f
 end
