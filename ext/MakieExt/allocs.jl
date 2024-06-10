@@ -73,16 +73,12 @@ function PerfChecker.checkres_to_scatterlines(
     step = 0.02 * (lx - 1)
     diff = (1 - ly) * step / 2.0
 
-    @info "Plotting allocations" lx ly step diff
-
     for (keys, values) in di
-        xs = [values[i][1] for i in eachindex(values)] .+ diff
-        ys = [versions[values[i][2]] for i in eachindex(values)]
-        scatterlines!(f[1, 1], ys, xs, label = keys, color = (colors[i], 0.6))
+        ys = [values[i][1] for i in eachindex(values)]
+        xs = [versions[values[i][2]] for i in eachindex(values)] .+ diff
+        scatterlines!(f[1, 1], xs, ys, label = keys, color = (colors[i], 1.0))
         i += 1
         diff += step
-
-        @info "Plotting allocations" xs ys
     end
     ax.title = x.pkgs[1].name
     Legend(f[1, 2], ax)

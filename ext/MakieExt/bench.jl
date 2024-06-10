@@ -43,7 +43,6 @@ function PerfChecker.checkres_to_scatterlines(
     ax.xlabel = "versions"
     ax.ylabel = "ratio"
     ax.title = "Evolution for $(x.pkgs[1].name) (via BenchmarkTools.jl)"
-    # ylims!(; high = max)
     f[1, 2] = Legend(f, ax)
     return f
 end
