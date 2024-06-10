@@ -1,7 +1,7 @@
 name = "PerfChecker"
 uuid = "6309bf6b-a531-4b08-891e-8ee981e5c424"
 authors = ["Azzaare <jf@baffier.fr>"]
-version = "0.2.0"
+version = "0.2.1"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
