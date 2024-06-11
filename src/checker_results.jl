@@ -25,6 +25,13 @@ function Base.show(io::IO, v::PerfChecker.CheckerResult)
     println(io, Base.display(v.pkgs))
 end
 
+"""
+    Usage:
+    (Assuming you ran the 'Basic Example')
+    ```
+    julia> find_by_tags([:example, :nice, :great], res)
+    ```
+"""
 function find_by_tags(tags::Vector{Symbol}, results::CheckerResult; exact_match = true)
     findall(x -> exact_match ? (tags == x.tags) : (!isempty(x.tags ∩ tags)), results)
 end
