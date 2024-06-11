@@ -145,6 +145,18 @@ function check_function(x::Symbol, d::Dict, block1, block2)
     return results
 end
 
+"""
+    General usage:
+    ```
+    @check :name_of_backend config_dictionary begin
+        # the prelimnary code
+    end begin
+        # the actual code you want to do perf testing for
+    end
+
+    Outputs a `CheckerResult` which can be used with other functions.  
+    ```
+"""
 macro check(x, d, block1, block2)
     block1, block2 = Expr(:quote, block1), Expr(:quote, block2)
     quote
@@ -158,12 +170,34 @@ function perf_table end
 
 function perf_plot end
 
+"""
+    General Usage:
+    Takes a table generated via the check macro as input, and creates a pie plot. 
+"""
 function table_to_pie end
 
+"""
+    General Usage:
+    Takes the output of a check macro as input, and creates a scatterlines plot. 
+"""
 function checkres_to_scatterlines end
 
+"""
+    General Usage:
+    Takes the output of a check macro as input, and creates a pie plot. Uses `table_to_pie` internally. 
+"""
 function checkres_to_pie end
 
 function saveplot end
 
+"""
+    General Usage:
+    Takes the output of a check macro, and creates a boxplot. 
+"""
 function checkres_to_boxplots end
+
+"""
+    General Usage:
+    Returns a table from the output of the results of respective backends 
+"""
+function to_table end
