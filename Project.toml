@@ -1,7 +1,7 @@
 name = "PerfChecker"
 uuid = "6309bf6b-a531-4b08-891e-8ee981e5c424"
 authors = ["Azzaare <jf@baffier.fr>"]
-version = "0.2.1"
+version = "0.2.2"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
@@ -29,21 +29,23 @@ MakieExt = "Makie"
 BenchmarkTools = "1"
 CSV = "0.10"
 Chairmarks = "1"
-CoverageTools = "1.3.1"
+CoverageTools = "1"
 CpuId = "0.3"
+Intervals = "1"
 JSON = "0.21"
 Makie = "0.21"
 Malt = "1"
 TOML = "1"
 TypedTables = "1"
-julia = "1.9"
+julia = "1.10"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Chairmarks = "0ca39b1e-fe0b-4e98-acfc-b1656634c4de"
+Intervals = "d8418881-c3e1-53bb-8760-2df7ec849ed5"
 PatternFolds = "c18a7f1d-76ad-4ce4-950d-5419b888513b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "BenchmarkTools", "Chairmarks", "PatternFolds", "Test"]
+test = ["Aqua", "BenchmarkTools", "Chairmarks", "Intervals", "PatternFolds", "Test"]
