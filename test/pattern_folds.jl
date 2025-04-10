@@ -5,6 +5,7 @@
 
     x = @check :alloc d begin
         using PatternFolds
+        using Intervals
     end begin
         itv = Interval{Open, Closed}(0.0, 1.0)
         i = IntervalsFold(itv, 2.0, 1000)
@@ -36,6 +37,7 @@
 
     x2 = @check :benchmark d2 begin
         using PatternFolds
+        using Intervals
     end begin
         # Intervals
         itv = Interval{Open, Closed}(0.0, 1.0)
@@ -70,6 +72,7 @@
 
     x3 = @check :chairmark d3 begin
         using PatternFolds
+        using Intervals
     end begin
         # Intervals
         itv = Interval{Open, Closed}(0.0, 1.0)
