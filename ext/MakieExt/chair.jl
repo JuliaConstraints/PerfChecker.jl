@@ -43,6 +43,7 @@ function PerfChecker.checkres_to_scatterlines(
     ax.xlabel = "versions"
     ax.ylabel = "ratio"
     ax.title = "Evolution for $(x.pkgs[1].name) (via Chairmarks.jl)"
+    ax.xticklabelrotation = 45.0
     f[1, 2] = Legend(f, ax)
     return f
 end
@@ -68,6 +69,7 @@ function PerfChecker.checkres_to_boxplots(
     ax.ylabel = string(kwarg)
     boxplot!(datax, datay, label = string(kwarg))
     ax.title = x.pkgs[1].name
+    ax.xticklabelrotation = 45.0
     f[1, 2] = Legend(f, ax)
     return f
 end
