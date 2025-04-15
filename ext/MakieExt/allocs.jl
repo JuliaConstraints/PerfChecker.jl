@@ -81,6 +81,7 @@ function PerfChecker.checkres_to_scatterlines(
         diff += step
     end
     ax.title = x.pkgs[1].name
+    ax.xticklabelrotation = 45.0
     Legend(f[1, 2], ax)
     return f
 end
