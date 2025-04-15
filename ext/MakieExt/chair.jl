@@ -18,6 +18,10 @@ function PerfChecker.checkres_to_scatterlines(
     versionnums = [x.pkgs[i].version for i in eachindex(x.pkgs)]
 
     f = Figure()
+    if iszero(data)
+        return f
+    end
+
     ax = f[1, 1] = Axis(f)
     colors = make_colors(length(props))
     max = 2
