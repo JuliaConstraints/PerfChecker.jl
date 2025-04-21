@@ -45,7 +45,9 @@ function PerfChecker.checkres_to_scatterlines(
                 if haskey(di, paths[k])
                     push!(di[paths[k]], (sum(j.bytes[j.filenames .== u[k]]), p.version))
                 else
-                    di[paths[k]] = [(sum(j.bytes[j.filenames .== u[k]]), p.version)]
+                    di[paths[k]] = Vector{Tuple{Int64, Union{String, VersionNumber}}}()
+                    push!(di[paths[k]], (
+                        sum(j.bytes[j.filenames .== u[k]]), p.version))
                 end
             end
         else

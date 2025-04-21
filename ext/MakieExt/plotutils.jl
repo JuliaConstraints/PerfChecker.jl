@@ -16,8 +16,10 @@ function smart_paths(paths)
         foreach(_ -> pop!(common), 1:to_pop)
     end
 
+    @info split_paths common
     for path in split_paths
         foreach(_ -> popfirst!(path), 1:length(common))
+        @info path
     end
 
     return joinpath(common...), map(joinpath, split_paths)
