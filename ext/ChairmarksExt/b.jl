@@ -33,5 +33,6 @@ function PerfChecker.to_table(chair::Chairmarks.Benchmark)
     gctimes = [chair.samples[i].gc_fraction for i in 1:l]
     bytes = [chair.samples[i].bytes for i in 1:l]
     allocs = [chair.samples[i].allocs for i in 1:l]
-    return Table(times = times, gctimes = gctimes, bytes = bytes, allocs = allocs)
+    return Table(
+        times = times, gctimes = gctimes, bytes_or_memory = bytes, bytes = bytes, allocs = allocs)
 end

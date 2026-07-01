@@ -35,5 +35,6 @@ function PerfChecker.to_table(bench::BenchmarkTools.Trial)
     ti = bench.times
     l = length(ti)
     return Table(times = ti, gctimes = bench.gctimes,
+        bytes_or_memory = fill(bench.memory, l),
         memory = fill(bench.memory, l), allocs = fill(bench.allocs, l))
 end

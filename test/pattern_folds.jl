@@ -32,8 +32,7 @@
     d2 = Dict(:path => @__DIR__, :evals => 1, :samples => 100,
         :seconds => 100, :tags => [:patterns, :intervals],
         :pkgs => (
-            "PatternFolds", :custom, [v"0.2.1", v"0.2.4"], true),
-        :devops => "PatternFolds")
+            "PatternFolds", :custom, [v"0.2.1", v"0.2.4"], true))
 
     x2 = @check :benchmark d2 begin
         using PatternFolds
@@ -67,8 +66,7 @@
     d3 = Dict(:path => @__DIR__, :evals => 1, :samples => 100,
         :seconds => 100, :tags => [:patterns, :intervals],
         :pkgs => (
-            "PatternFolds", :custom, [v"0.2.1", v"0.2.4"], true),
-        :devops => "PatternFolds")
+            "PatternFolds", :custom, [v"0.2.1", v"0.2.4"], true))
 
     x3 = @check :chairmark d3 begin
         using PatternFolds

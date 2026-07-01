@@ -1,12 +1,13 @@
 name = "PerfChecker"
 uuid = "6309bf6b-a531-4b08-891e-8ee981e5c424"
-authors = ["Azzaare <jf@baffier.fr>"]
 version = "0.2.4"
+authors = ["Azzaare <jf@baffier.fr>"]
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CoverageTools = "c36e975a-824b-4404-a568-ef97ca766997"
 CpuId = "adafc99b-e345-5852-983c-f28acb93d879"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 Malt = "36869731-bdee-424d-aa32-cab38c994e3b"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
@@ -31,6 +32,7 @@ CSV = "0.10"
 Chairmarks = "1"
 CoverageTools = "1"
 CpuId = "0.3"
+Dates = "1.11.0"
 Intervals = "1"
 JSON = "0.21"
 Makie = "0.21, 0.22"
