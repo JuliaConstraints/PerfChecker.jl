@@ -53,11 +53,20 @@ artifacts can use it to remove files that are flushed only when a worker exits.
 """
 cleanup(d, v) = nothing
 
+"""
+    stop_before_post(::Val{backend}) -> Bool
+
+Backend hook for measurements whose artifacts are flushed when the worker
+process exits.
+"""
+stop_before_post(v) = false
+
 initpkgs(x::Symbol) = initpkgs(Val(x))
 prep(d::Dict, b::Expr, v::Symbol) = prep(d, b, Val(v))
 check(d::Dict, b::Expr, v::Symbol) = check(d, b, Val(v))
 post(d::Dict, v::Symbol) = post(d, Val(v))
 cleanup(d::Dict, v::Symbol) = cleanup(d, Val(v))
+stop_before_post(v::Symbol) = stop_before_post(Val(v))
 
 function default_options(d::Dict, v::Symbol)
     di = default_options(Val(v))
@@ -184,6 +193,7 @@ function check_function(x::Symbol, d::Dict, block1, block2)
                 run_options[:prep_result] = remote_eval_fetch(Main, procs[i], g)
                 run_options[:check_result] = remote_eval_fetch(Main, procs[i], h)
                 push!(cleanup_options, run_options)
+                stop_before_post(x) && safe_stop(procs[i])
                 res = post(run_options, x) |> to_table
             else
                 res = csv_to_table(cached_path)

@@ -28,6 +28,8 @@
     end
 
     @info x
+    @test length(x.tables) == 2
+    @test all(t -> length(t) > 0, x.tables)
 
     d2 = Dict(:path => @__DIR__, :evals => 1, :samples => 100,
         :seconds => 100, :tags => [:patterns, :intervals],

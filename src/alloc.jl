@@ -8,6 +8,8 @@ function default_options(::Val{:alloc})
     return Dict(:threads => 1, :targets => [], :track => "user", :repeat => true)
 end
 
+stop_before_post(::Val{:alloc}) = true
+
 function check(d::Dict, block::Expr, ::Val{:alloc})
     j = haskey(d, :repeat) && d[:repeat] ? block : nothing
 
@@ -32,9 +34,12 @@ function post(d::Dict, ::Val{:alloc})
     files = find_malloc_files(result[1])
     delete_files = find_malloc_files(result[2])
     try
+        if isempty(files)
+            throw(ErrorException("No allocation files found in $(d[:targets])"))
+        end
         myallocs = analyze_malloc_files(files; skip_zeros = true)
         if isempty(myallocs)
-            @error "No allocation files found in $(d[:targets])"
+            @warn "Allocation files do not contain non-zero allocation entries" targets = d[:targets]
         end
         return myallocs
     finally
