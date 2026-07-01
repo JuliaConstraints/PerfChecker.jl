@@ -1,38 +1,40 @@
 # PerfChecker.jl
 
 PerfChecker runs performance checks for Julia packages in isolated Julia
-processes. The public entry point is `@check`; it accepts a backend symbol, a
-configuration `Dict`, a preparation block, and the block to measure.
+processes. The public entry point is `@check`; new code should prefer
+`PerfConfig`, while the older dictionary form remains supported.
 
 ```julia
 using PerfChecker, BenchmarkTools
 
-config = Dict(
-    :path => @__DIR__,
-    :tags => [:smoke],
-    :samples => 10,
-    :evals => 1,
+config = PerfConfig(
+    :benchmark;
+    path = @__DIR__,
+    tags = [:smoke],
+    samples = 10,
+    evals = 1,
 )
 
-result = @check :benchmark config begin
+result = @check config begin
     x = collect(1:100)
 end begin
     sum(x)
 end
 ```
 
-The `Dict` interface is intentionally kept for compatibility, but PerfChecker
-normalizes it internally before running. Missing required options such as
+The `Dict` interface is intentionally kept for compatibility, but both public
+forms are normalized internally before running. Missing required options such as
 `:path`, invalid tags, invalid thread counts, and malformed package-version
 selectors fail before workers are launched.
 
 ## Multi-version Checks
 
 ```julia
-config = Dict(
-    :path => @__DIR__,
-    :tags => [:release_comparison],
-    :pkgs => ("Example", :custom, [v"1.0.0", v"1.1.0"], true),
+config = PerfConfig(
+    :benchmark;
+    path = @__DIR__,
+    tags = [:release_comparison],
+    pkgs = ("Example", :custom, [v"1.0.0", v"1.1.0"], true),
 )
 ```
 
@@ -46,12 +48,25 @@ removes the target package from the copied environment before `Pkg.add` or
 `Pkg.develop`, which avoids stale UUID/source state from previous runs.
 
 ```julia
-config = Dict(
-    :path => @__DIR__,
-    :pkgs => ("Example", :custom, [v"1.0.0"], true),
-    :devops => "Example",
+config = PerfConfig(
+    :benchmark;
+    path = @__DIR__,
+    pkgs = ("Example", :custom, [v"1.0.0"], true),
+    devops = "Example",
 )
 ```
+
+## REPL and Pluto Setup
+
+Generate a small Julia-native performance workspace with:
+
+```julia
+perf_setup()
+```
+
+The generated Pluto dashboard activates the surrounding Julia project and
+starts with `run_check = false`, so opening it in Pluto does not immediately
+launch performance workers.
 
 ## CI
 

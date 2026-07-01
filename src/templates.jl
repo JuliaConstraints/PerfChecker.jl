@@ -1,3 +1,4 @@
+const DEFAULT_TEMPLATE_KINDS = (:benchmark, :chairmark, :alloc, :pluto)
 const TEMPLATE_KINDS = (:benchmark, :chairmark, :alloc, :pluto)
 
 function _template_filename(kind::Symbol)
@@ -67,18 +68,52 @@ summary_table(result)
 
     kind === :pluto && return """
 ### A Pluto.jl notebook ###
-# Open with Pluto.jl, then run benchmark scripts from this project or load
-# stored CSV files with csv_to_table.
+# v1.0.0
 
+# This dashboard intentionally uses the surrounding Julia project instead of
+# embedding a notebook-specific package environment.
+
+# ╔═╡ 2d1f2ad8-b86a-4a14-a4a1-7656b3797f58
 begin
+    import Pkg
+    project_path = dirname(@__DIR__)
+    Pkg.activate(project_path)
+    Pkg.instantiate()
+
     using PerfChecker
 end
 
-result = nothing
+# ╔═╡ 31f575d1-d1f2-4ac3-a492-4e91f22f3385
+run_check = false
 
-begin
-    result === nothing ? nothing : summary_table(result)
+# ╔═╡ 102521ea-6249-46c4-810d-2f4cb2cbd7f4
+config = PerfConfig(:benchmark;
+    path = project_path,
+    tags = [:pluto],
+    samples = 10,
+    evals = 1,
+)
+
+# ╔═╡ 19898c08-010b-419a-b6aa-00e1e6c1cf51
+result = if run_check
+    @check config begin
+        nothing
+    end begin
+        sum(1:1_000)
+    end
+else
+    nothing
 end
+
+# ╔═╡ fddfef1d-8d73-4e28-a975-405dcf70a293
+summary = result === nothing ? nothing : summary_table(result)
+
+# ╔═╡ Cell order:
+# ╠═2d1f2ad8-b86a-4a14-a4a1-7656b3797f58
+# ╠═31f575d1-d1f2-4ac3-a492-4e91f22f3385
+# ╠═102521ea-6249-46c4-810d-2f4cb2cbd7f4
+# ╠═19898c08-010b-419a-b6aa-00e1e6c1cf51
+# ╠═fddfef1d-8d73-4e28-a975-405dcf70a293
 """
 
     throw(ArgumentError("unknown template kind $kind; expected one of $(TEMPLATE_KINDS)"))
@@ -115,9 +150,11 @@ Create a small Julia-native performance workspace.
 
 This writes benchmark, chairmark, allocation, and Pluto dashboard starter files
 by default. It intentionally does not create a `Perf.toml`; options stay in
-Julia code through `PerfConfig`.
+Julia code through `PerfConfig`. The Pluto dashboard activates the surrounding
+Julia project so it can be used as a controlled project-local view over stored
+or newly run checks.
 """
-function perf_setup(; dir = "perf", kinds = TEMPLATE_KINDS, force::Bool = false)
+function perf_setup(; dir = "perf", kinds = DEFAULT_TEMPLATE_KINDS, force::Bool = false)
     mkpath(dir)
     return [write_template(kind; path = joinpath(dir, _template_filename(kind)), force)
             for kind in kinds]
