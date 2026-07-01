@@ -39,6 +39,7 @@ function result_uuid(config::CheckConfig, pkg::AbstractString, version, block1, 
             config.config_hash,
             repr(block1),
             repr(block2),
+            string(Base.VERSION),
             hardware_id(hwinfo)
         ]), "|")
     return stable_uuid(seed)
@@ -132,10 +133,15 @@ function check_to_metadata(
 end
 
 function in_metadata(metadata, fp, u)
-    isfile(metadata) && for l in eachline(metadata)
-        if l == string(fp, ",", u)
-            return true
+    isfile(metadata) || return false
+    found = false
+    open(metadata, "r") do io
+        for l in eachline(io)
+            if l == string(fp, ",", u)
+                found = true
+                break
+            end
         end
     end
-    return false
+    return found
 end

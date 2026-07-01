@@ -7,7 +7,7 @@ struct HwInfo
 end
 function HwInfo()
     cc = (cpucores(), cputhreads(), cputhreads_per_core())
-    new(cpu_info(), CPU_NAME, WORD_SIZE, simdbytes(), cc)
+    return HwInfo(cpu_info(), CPU_NAME, WORD_SIZE, simdbytes(), cc)
 end
 
 # Function to convert HwInfo to a dictionary for JSON serialization

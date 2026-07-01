@@ -72,6 +72,70 @@ using Test
             end
         end
 
+        @testset "Cache identity" begin
+            mktempdir() do dir
+                cfg = PerfChecker.normalize_config(:benchmark,
+                    Dict(:path => dir, :tags => [:cache], :threads => 1, :samples => 1))
+                block1 = :(using Random)
+                block2 = :(sum(1:10))
+                hwinfo = PerfChecker.HwInfo()
+                pkg = "Example"
+                version = v"1.2.3"
+
+                run = PerfChecker.run_metadata(cfg, pkg, version, block1, block2, hwinfo)
+                out = PerfChecker.output_path(cfg.path, run.result_uuid)
+                PerfChecker.table_to_csv(
+                    PerfChecker.Table(times = [1.0], gctimes = [0.0],
+                        bytes_or_memory = [0], memory = [0], allocs = [0]),
+                    out)
+                PerfChecker.write_run_metadata(PerfChecker.metadata_path(cfg.path), run)
+
+                @test PerfChecker.metadata_has_result(
+                    PerfChecker.metadata_path(cfg.path), run.result_uuid)
+                @test PerfChecker.cached_output_path(cfg, pkg, version, block1, block2,
+                    hwinfo) == out
+
+                tag_cfg = PerfChecker.normalize_config(:benchmark,
+                    Dict(:path => dir, :tags => [:other], :threads => 1, :samples => 1))
+                opt_cfg = PerfChecker.normalize_config(:benchmark,
+                    Dict(:path => dir, :tags => [:cache], :threads => 1, :samples => 2))
+                other_hw = PerfChecker.HwInfo(
+                    hwinfo.cpus, "other-machine", hwinfo.word, hwinfo.simdbytes,
+                    hwinfo.corecount)
+
+                @test isnothing(PerfChecker.cached_output_path(
+                    tag_cfg, pkg, version, block1, block2, hwinfo))
+                @test isnothing(PerfChecker.cached_output_path(
+                    opt_cfg, pkg, version, block1, block2, hwinfo))
+                @test isnothing(PerfChecker.cached_output_path(
+                    cfg, pkg, version, block1, :(sum(1:11)), hwinfo))
+                @test isnothing(PerfChecker.cached_output_path(
+                    cfg, pkg, version, block1, block2, other_hw))
+            end
+        end
+
+        @testset "Legacy cache metadata" begin
+            mktempdir() do dir
+                cfg = PerfChecker.normalize_config(:benchmark,
+                    Dict(:path => dir, :tags => [:legacy], :threads => 1))
+                pkg = "Example"
+                version = v"1.2.3"
+                legacy_uuid = PerfChecker.file_uuid(cfg.backend, pkg, version, cfg.tags)
+                legacy_out = PerfChecker.output_path(cfg.path, legacy_uuid)
+                PerfChecker.table_to_csv(
+                    PerfChecker.Table(times = [1.0], gctimes = [0.0],
+                        bytes_or_memory = [0], memory = [0], allocs = [0]),
+                    legacy_out)
+                PerfChecker.check_to_metadata_csv(
+                    cfg.backend, pkg, version, cfg.tags;
+                    metadata = PerfChecker.metadata_path(cfg.path))
+
+                @test PerfChecker.cached_output_path(
+                    cfg, pkg, version, :(nothing), :(nothing), PerfChecker.HwInfo()) ==
+                      legacy_out
+            end
+        end
+
         include("pattern_folds.jl")
 
         @test isempty(PerfChecker.find_malloc_files([joinpath(dirname(@__DIR__), "src")]))
