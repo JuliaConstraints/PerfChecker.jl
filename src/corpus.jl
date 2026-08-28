@@ -29,7 +29,7 @@ end
 function read_property_corpus(path::AbstractString)
     source = abspath(String(path))
     isfile(source) || throw(ArgumentError("property corpus does not exist: $source"))
-    payload = JSON.parsefile(source)
+    payload = JSON.parsefile(source; use_mmap = false)
     get(payload, "schema_version", nothing) == "perfchecker-property-corpus/1" ||
         throw(ArgumentError("unsupported property corpus schema in $source"))
     get(payload, "count", -1) == length(get(payload, "cases", Any[])) ||

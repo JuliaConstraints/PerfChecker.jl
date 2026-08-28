@@ -11,6 +11,7 @@ import Malt: remote_eval_wait, Worker, remote_eval_fetch, stop, fetch
 import Pkg
 import Pkg.Types: PackageSpec, Context
 import Profile
+import SHA
 import TOML: parse
 import TestItems: @testitem
 import TypedTables: Table
@@ -21,14 +22,23 @@ export @check
 export FeatureSpec
 export FeatureVariant
 export FeatureRun
+export ExternalCommandSpec
+export BundleComparison
 export PackageSuite
 export PlannedFeatureRun
 export SoftwareSuite
 export SoftwareSuiteResult
+export RunBundle
 export SuiteJob
 export SuitePlan
 export VersionWindow
 export check_to_metadata_csv
+export bundle_passed
+export bundle_dict
+export comparison_dict
+export comparison_passed
+export compare_bundles
+export external_command_dict
 export checkres_to_boxplots
 export checkres_to_pie
 export checkres_to_scatterlines
@@ -47,6 +57,10 @@ export PerfConfig
 export perf_setup
 export register_oxygen_routes!
 export read_property_corpus
+export read_provider_result
+export read_run_bundle
+export list_run_bundles
+export run_external_command
 export run_suite
 export run_suite_file
 export saveplot
@@ -63,6 +77,10 @@ export table_to_csv
 export table_to_pie
 export to_table
 export write_suite_json
+export write_run_bundle
+export write_comparison_json
+export write_comparison_markdown
+export write_suite_bundle
 export write_suite_junit
 export write_suite_markdown
 export write_suite_notebook
@@ -85,5 +103,7 @@ include("corpus.jl")
 include("check.jl")
 include("alloc.jl")
 include("suites.jl")
+include("protocol.jl")
+include("compare.jl")
 
 end

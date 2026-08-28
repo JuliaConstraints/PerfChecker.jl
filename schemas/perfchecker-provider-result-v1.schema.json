@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://juliaconstraints.github.io/PerfChecker.jl/schemas/perfchecker-provider-result-v1.schema.json",
+  "title": "PerfChecker external provider result v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "suite",
+    "case_id",
+    "runtime",
+    "measurement_definitions",
+    "observations"
+  ],
+  "properties": {
+    "schema_version": {"const": "perfchecker-provider-result/1"},
+    "suite": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "minLength": 1},
+    "state": {"enum": ["complete", "failed", "partial"]},
+    "runtime": {
+      "type": "object",
+      "required": ["language"],
+      "properties": {
+        "language": {"type": "string", "minLength": 1},
+        "version": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "measurement_definitions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/measurement_definition"}
+    },
+    "observations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/observation"}
+    },
+    "diagnostics": {"type": "array", "items": {"type": "object"}},
+    "artifacts": {"type": "array", "items": {"type": "object"}},
+    "environment": {"type": "object"},
+    "collector_capabilities": {"type": "array", "items": {"type": "string"}},
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "measurement_definition": {
+      "type": "object",
+      "required": ["id", "metric", "unit"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "metric": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]*\\.[A-Za-z0-9_.-]+$"},
+        "unit": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": true
+    },
+    "observation": {
+      "type": "object",
+      "required": ["metric", "value", "unit", "measurement_definition"],
+      "properties": {
+        "metric": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]*\\.[A-Za-z0-9_.-]+$"},
+        "value": {"type": "number"},
+        "unit": {"type": "string", "minLength": 1},
+        "measurement_definition": {"type": "string", "minLength": 1},
+        "aggregation": {"type": "string"},
+        "scope": {"type": "string"},
+        "attributes": {"type": "object"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

@@ -29,9 +29,12 @@ result = run_suite(suite; profile = :ci)
 write_suite_reports(result, "perf/results/ci")
 ```
 
-The shared plan, asynchronous-job, result, property-corpus, JSON, Markdown, and
-JUnit grammars are consumed by the optional Oxygen, Pluto, Makie, DrWatson, and
-Supposition integrations. `action.yml` and `bin/perfchecker-suite.jl` provide
+The shared plan, asynchronous-job, result, property-corpus, JSON, Markdown,
+JUnit, and portable run-bundle grammars are consumed by the optional Oxygen,
+Pluto, Makie, DrWatson, and Supposition integrations. External command
+providers can emit the same observations from Python, Rust, R, or a mixed
+stack without loading PerfChecker in the measured process. `action.yml`,
+`bin/perfchecker-suite.jl`, and `bin/perfchecker-provider.jl` provide
 the same workflow to CI without putting those controller dependencies inside
 the measured workers. See the software-suite documentation for version windows,
 dependency pins, and multi-package examples.

@@ -67,12 +67,17 @@ version = "0.2.0"
         @test Set(summary.status) == Set(["pass", "unavailable"])
 
         reports = write_suite_reports(result, joinpath(dir, "reports"))
-        @test length(reports) == 3
-        @test all(isfile, reports)
-        parsed = JSON.parsefile(joinpath(dir, "reports", "suite-result.json"))
+        @test length(reports) == 4
+        @test all(ispath, reports)
+        parsed = JSON.parsefile(joinpath(dir, "reports", "suite-result.json");
+            use_mmap = false)
         @test parsed["schema_version"] == "perfchecker-suite-result/1"
         @test parsed["passed"]
         @test occursin("<testsuite", read(joinpath(dir, "reports", "suite-junit.xml"), String))
+        bundle_path = only(filter(isdir, reports))
+        bundle = read_run_bundle(bundle_path)
+        @test bundle_passed(bundle)
+        @test !isempty(bundle.observations)
 
         notebook = write_suite_notebook(joinpath(dir, "dashboard.jl"))
         @test isfile(notebook)
@@ -156,6 +161,46 @@ end
             @test status_response.status == 200
             status_body = JSON.parse(String(status_response.body))
             @test status_body["status"] == "complete"
+            Oxygen.resetstate()
+
+            register_oxygen_routes!(bundle; prefix = "/test/perfchecker/bundle")
+            bundle_response = Oxygen.internalrequest(
+                HTTP.Request("GET", "/test/perfchecker/bundle/observations"))
+            @test bundle_response.status == 200
+            @test length(JSON.parse(String(bundle_response.body))) ==
+                  length(bundle.observations)
+            Oxygen.resetstate()
+
+            store = joinpath(dir, "reports", "bundles")
+            register_oxygen_routes!(store; prefix = "/test/perfchecker/store")
+            page_response = Oxygen.internalrequest(
+                HTTP.Request("GET", "/test/perfchecker/store/"))
+            @test page_response.status == 200
+            @test occursin("Portable performance evidence", String(page_response.body))
+            store_response = Oxygen.internalrequest(
+                HTTP.Request("GET", "/test/perfchecker/store/runs"))
+            @test store_response.status == 200
+            @test only(JSON.parse(String(store_response.body)))["run_id"] ==
+                  bundle.manifest["run_id"]
+            @test !haskey(only(JSON.parse(String(store_response.body))), "bundle_path")
+            Oxygen.resetstate()
+
+            ingest_store = joinpath(dir, "ingested-bundles")
+            register_oxygen_routes!(ingest_store;
+                prefix = "/test/perfchecker/ingest", allow_ingest = true)
+            provider_payload = Dict(
+                "schema_version" => "perfchecker-provider-result/1",
+                "suite" => "mixed", "case_id" => "external",
+                "runtime" => Dict("language" => "python"),
+                "measurement_definitions" => [Dict("id" => "custom.work/v1",
+                    "metric" => "custom.work", "unit" => "1")],
+                "observations" => [Dict("metric" => "custom.work", "value" => 1,
+                    "unit" => "1", "measurement_definition" => "custom.work/v1")])
+            ingest_response = Oxygen.internalrequest(HTTP.Request("POST",
+                "/test/perfchecker/ingest/ingest", ["Content-Type" => "application/json"],
+                JSON.json(provider_payload)))
+            @test ingest_response.status == 200
+            @test length(list_run_bundles(ingest_store)) == 1
             Oxygen.resetstate()
         end
 

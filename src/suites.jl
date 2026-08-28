@@ -614,7 +614,7 @@ function write_suite_junit(result::SoftwareSuiteResult, path::AbstractString)
 end
 
 function write_suite_reports(result::SoftwareSuiteResult, directory::AbstractString;
-        formats = (:json, :markdown, :junit))
+        formats = (:json, :markdown, :junit, :bundle))
     mkpath(directory)
     paths = String[]
     :json in formats && push!(paths,
@@ -623,6 +623,8 @@ function write_suite_reports(result::SoftwareSuiteResult, directory::AbstractStr
         write_suite_markdown(result, joinpath(directory, "suite-report.md")))
     :junit in formats && push!(paths,
         write_suite_junit(result, joinpath(directory, "suite-junit.xml")))
+    :bundle in formats && push!(paths,
+        write_suite_bundle(result, joinpath(directory, "bundles")))
     return paths
 end
 

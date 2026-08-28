@@ -80,8 +80,9 @@ The serializable dictionaries use explicit schema identifiers:
 - `perfchecker-suite-job/1` for asynchronous state;
 - `perfchecker-suite-result/1` for completed measurements.
 
-`write_suite_json`, `write_suite_markdown` and `write_suite_junit` produce
-machine-readable output, a developer report and a CI test report. Oxygen can
+`write_suite_json`, `write_suite_markdown`, `write_suite_junit` and
+`write_suite_bundle` produce machine-readable output, a developer report, a CI
+test report and a portable evidence bundle. Oxygen can
 submit and inspect `SuiteJob`s; Pluto and Makie launch the same jobs instead of
 executing timed code in their own process. DrWatson can parameterize and cache
 whole suite runs.
@@ -121,6 +122,100 @@ in the controller and stores it using the
 `perfchecker-property-corpus/1` grammar. `write_property_corpus` offers the same
 boundary for PropCheck or custom fuzzers. Neither generator belongs in the
 measurement worker unless the feature being measured explicitly depends on it.
+
+## Portable bundles and non-Julia providers
+
+Every suite report now includes an atomic `perfchecker-run-bundle/1` directory:
+
+```text
+run-<id>/
+  manifest.json
+  measurement-definitions.json
+  observations.jsonl
+  diagnostics.jsonl
+  artifacts.json
+  artifacts/
+```
+
+The normative manifest and provider contracts are shipped in
+`schemas/perfchecker-run-bundle-v1.schema.json` and
+`schemas/perfchecker-provider-result-v1.schema.json`.
+
+The adapter preserves backend-specific units and definitions. BenchmarkTools
+nanoseconds are therefore never compared implicitly with Chairmarks seconds,
+and `run_id`, `attempt_id`, and `reuse_key` have separate meanings. Failed and
+unsupported cases are diagnostics rather than fake numeric measurements.
+
+Other languages do not load PerfChecker. A provider runs as an ordinary child
+process, receives `PERFCHECKER_OUTPUT` and `PERFCHECKER_CASE_ID`, then writes a
+`perfchecker-provider-result/1` JSON document. The controller validates it and
+turns it into the same bundle:
+
+```julia
+spec = ExternalCommandSpec(:python_http, "python",
+    ["python", "perf/http_provider.py"];
+    directory = pwd(), timeout_seconds = 120)
+bundle = run_external_command(spec; bundle_root = "perf/results/external")
+```
+
+The equivalent CLI keeps shell parsing outside PerfChecker:
+
+```sh
+julia --project path/to/PerfChecker/bin/perfchecker-provider.jl \
+  --id=python_http --language=python --reports=perf/results/external -- \
+  python perf/http_provider.py
+```
+
+`examples/providers/python_json_provider.py` is a dependency-free executable
+example that reports timing and an application payload count.
+
+Application-level network observations use the `network.io.payload` metric and
+must declare `capture_layer=application` plus an explicit `direction`. They are
+semantic payload counts, not process or wire traffic. Invalid or ambiguous
+network records are rejected. PerfChecker never substitutes a host-wide network
+interface delta for package traffic.
+
+Oxygen can expose a single bundle or browse a bundle directory. Store ingestion
+is disabled by default and must be enabled explicitly with `allow_ingest=true`.
+This lets Julia and non-Julia providers share one read model without adding
+Oxygen, JSON rendering, or PerfChecker itself to measured processes.
+The bundle-store route also serves a dependency-free responsive web dashboard
+at its prefix root; it reads the same `/runs` resource used by other clients.
+
+## Definition-aware comparisons
+
+`compare_bundles` joins observations only on their exact comparison key and
+measurement-definition version. Runtime-language, operating-system,
+architecture, unit, definition, missing-data, and minimum-sample mismatches are
+reported instead of silently converted. A comparison without a regression
+policy remains diagnostic for comparable observations. Failed input runs,
+missing or incompatible evidence, and insufficient samples still fail the
+comparison; numeric regressions are gated only for metric namespaces that
+receive an explicit relative limit:
+
+```julia
+comparison = compare_bundles(baseline, candidate;
+    relative_limits = Dict(
+        "julia.wall.time" => 0.05,
+        "julia.alloc.bytes" => 0.02,
+    ),
+    min_samples = 10,
+)
+comparison_passed(comparison)
+```
+
+The command-line reporter writes JSON and Markdown and exits nonzero on an
+invalid comparison or an explicitly gated regression:
+
+```sh
+julia --project path/to/PerfChecker/bin/perfchecker-compare.jl \
+  --baseline=perf/baseline/run-... --candidate=perf/candidate/run-... \
+  --limit=julia.wall.time=0.05 --min-samples=10
+```
+
+These first gates use medians and deterministic thresholds. They do not claim a
+confidence level or statistical power; public noise-sensitive gates still need
+the paired reliability experiments described in the architecture roadmap.
 
 ## JuliaCon 2026 extension candidates
 

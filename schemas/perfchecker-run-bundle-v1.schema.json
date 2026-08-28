@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://juliaconstraints.github.io/PerfChecker.jl/schemas/perfchecker-run-bundle-v1.schema.json",
+  "title": "PerfChecker run bundle manifest v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "attempt_id",
+    "reuse_key",
+    "evidence",
+    "state",
+    "suite",
+    "runtime",
+    "environment",
+    "collector_capabilities",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {"const": "perfchecker-run-bundle/1"},
+    "run_id": {"type": "string", "format": "uuid"},
+    "attempt_id": {"type": "string", "format": "uuid"},
+    "reuse_key": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "evidence": {"enum": ["fresh", "reused"]},
+    "state": {"enum": ["complete", "failed", "partial"]},
+    "suite": {"type": "string", "minLength": 1},
+    "profile": {"type": "string"},
+    "started_at": {"type": "string"},
+    "finished_at": {"type": "string"},
+    "runtime": {
+      "type": "object",
+      "required": ["language"],
+      "properties": {"language": {"type": "string", "minLength": 1}},
+      "additionalProperties": true
+    },
+    "environment": {"type": "object"},
+    "collector_capabilities": {"type": "array", "items": {"type": "string"}},
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}

@@ -216,7 +216,7 @@ job_result = job === nothing ? nothing : wait_suite(job; strict = false)
 
 # ╔═╡ fa2e2a77-d688-43fd-bc2a-d85732c0318e
 report = job_result !== nothing ? suite_dict(job_result) :
-         isfile(result_path) ? JSON.parsefile(result_path) : Dict(
+         isfile(result_path) ? JSON.parsefile(result_path; use_mmap = false) : Dict(
     "status" => "missing",
     "message" => suite_path === nothing ?
         "Run the suite before opening the dashboard." :
