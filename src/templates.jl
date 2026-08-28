@@ -161,19 +161,26 @@ function perf_setup(; dir = "perf", kinds = DEFAULT_TEMPLATE_KINDS, force::Bool 
 end
 
 """
-    write_suite_notebook(path; result_path="results/suite-result.json", force=false)
+    write_suite_notebook(path; result_path="results/suite-result.json",
+                         suite_path=nothing, factory=:build_suite,
+                         profile=:quick, force=false)
 
-Create a Pluto notebook that reads the common JSON suite report. The notebook
-is deliberately read-only: expensive checks stay in scripts or CI, while Pluto
-uses exactly the same result grammar as Oxygen and other reporters.
+Create a Pluto notebook over the common suite grammar. With `suite_path`, the
+notebook can start the same asynchronous `SuiteJob` used by Oxygen; otherwise
+it is a read-only report viewer. Timed work always remains inside isolated Malt
+workers.
 """
 function write_suite_notebook(path::AbstractString;
-        result_path::AbstractString = "results/suite-result.json", force::Bool = false)
+        result_path::AbstractString = "results/suite-result.json", suite_path = nothing,
+        factory::Symbol = :build_suite, profile::Symbol = :quick, force::Bool = false)
     target = String(path)
     isfile(target) && !force &&
         throw(ArgumentError("$target already exists; pass force=true to overwrite it"))
     mkpath(dirname(target))
     result_literal = repr(String(result_path))
+    suite_literal = suite_path === nothing ? "nothing" : repr(String(suite_path))
+    profile_literal = repr(profile)
+    factory_literal = repr(factory)
     body = """
 ### A Pluto.jl notebook ###
 # v1.0.0
@@ -186,31 +193,37 @@ begin
     using PerfChecker
 end
 
-@testitem "Performance templates" tags=[:unit, :templates] begin
-    using PerfChecker
-
-    mktempdir() do dir
-        paths = perf_setup(; dir = joinpath(dir, "perf"), kinds = (:benchmark, :pluto))
-        @test length(paths) == 2
-        @test all(isfile, paths)
-        @test occursin("PerfConfig(:benchmark", read(paths[1], String))
-        @test occursin("Pluto.jl", read(paths[2], String))
-        @test_throws ArgumentError write_template(:benchmark; path = paths[1])
-        @test write_template(:benchmark; path = paths[1], force = true) == paths[1]
-        @test_throws ArgumentError write_template(:unknown; path = joinpath(dir, "x.jl"))
-    end
-end
-
 # ╔═╡ 4531fb5a-74fd-45b7-867a-94447193d561
 result_path = normpath(joinpath(@__DIR__, $result_literal))
 
+# ╔═╡ 648fe579-9d73-42cd-a738-24e81381ce3c
+suite_path = $suite_literal
+
+# ╔═╡ 97a4d99b-afc1-4c64-8d58-0dbe9e02fe25
+run_suite_now = false
+
+# ╔═╡ 32a629a1-e320-4025-b47a-f131149ddc1e
+job = if run_suite_now && suite_path !== nothing
+    definition = normpath(joinpath(@__DIR__, suite_path))
+    launch_suite(load_software_suite(definition; factory = $factory_literal);
+        profile = $profile_literal)
+else
+    nothing
+end
+
+# ╔═╡ e65d45fb-3452-42b7-919e-f999f0dc3ccc
+job_result = job === nothing ? nothing : wait_suite(job; strict = false)
+
 # ╔═╡ fa2e2a77-d688-43fd-bc2a-d85732c0318e
-suite = isfile(result_path) ? JSON.parsefile(result_path) : Dict(
+report = job_result !== nothing ? suite_dict(job_result) :
+         isfile(result_path) ? JSON.parsefile(result_path) : Dict(
     "status" => "missing",
-    "message" => "Run perf/run.jl before opening the dashboard.")
+    "message" => suite_path === nothing ?
+        "Run the suite before opening the dashboard." :
+        "Set run_suite_now=true to start isolated workers.")
 
 # ╔═╡ cfdc9952-89e9-40fc-a656-bf0519ef0484
-runs = get(suite, "runs", Any[])
+runs = get(report, "runs", Any[])
 
 # ╔═╡ 7700c6fd-0cd1-4829-b0e4-f867ab48b94e
 passed = count(run -> get(run, "status", "") == "pass", runs)
@@ -227,6 +240,10 @@ runs
 # ╔═╡ Cell order:
 # ╠═41dbb952-51ff-4edb-bb60-5b75a58da62d
 # ╠═4531fb5a-74fd-45b7-867a-94447193d561
+# ╠═648fe579-9d73-42cd-a738-24e81381ce3c
+# ╠═97a4d99b-afc1-4c64-8d58-0dbe9e02fe25
+# ╠═32a629a1-e320-4025-b47a-f131149ddc1e
+# ╠═e65d45fb-3452-42b7-919e-f999f0dc3ccc
 # ╠═fa2e2a77-d688-43fd-bc2a-d85732c0318e
 # ╠═cfdc9952-89e9-40fc-a656-bf0519ef0484
 # ╠═7700c6fd-0cd1-4829-b0e4-f867ab48b94e

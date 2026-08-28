@@ -37,14 +37,18 @@ export drwatson_parameters
 export drwatson_produce_or_load
 export drwatson_savename
 export find_by_tags
+export freeze_supposition_corpus
 export get_versions
 export launch_pluto_dashboard
 export launch_suite
+export load_software_suite
 export plan_suite
 export PerfConfig
 export perf_setup
 export register_oxygen_routes!
+export read_property_corpus
 export run_suite
+export run_suite_file
 export saveplot
 export serve_suite
 export summary_table
@@ -64,6 +68,7 @@ export write_suite_markdown
 export write_suite_notebook
 export write_suite_reports
 export write_template
+export write_property_corpus
 export wait_suite
 
 # SECTION - Includes
@@ -76,6 +81,7 @@ include("utils.jl")
 include("csv.jl")
 include("versions.jl")
 include("templates.jl")
+include("corpus.jl")
 include("check.jl")
 include("alloc.jl")
 include("suites.jl")

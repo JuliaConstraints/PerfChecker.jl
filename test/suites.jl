@@ -7,6 +7,7 @@
     using Oxygen
     using PerfChecker
     using Pluto
+    using Supposition
     import Pkg
 
     mktempdir() do dir
@@ -75,7 +76,46 @@ version = "0.2.0"
 
         notebook = write_suite_notebook(joinpath(dir, "dashboard.jl"))
         @test isfile(notebook)
-        @test occursin("suite-result.json", read(notebook, String))
+        notebook_source = read(notebook, String)
+        @test occursin("suite-result.json", notebook_source)
+        @test !occursin("@testitem", notebook_source)
+
+        launcher = write_suite_notebook(joinpath(dir, "launcher.jl");
+            suite_path = "suite.jl", factory = :example_suite)
+        launcher_source = read(launcher, String)
+        @test occursin("launch_suite", launcher_source)
+        @test occursin("example_suite", launcher_source)
+
+        definition = joinpath(dir, "suite-definition.jl")
+        write(definition, """
+using PerfChecker
+function build_suite()
+    feature = FeatureSpec(:loaded; entrypoint = $(repr(always_case)))
+    package = PackageSuite("Example"; environment = $(repr(dir)),
+        source = $(repr(dir)), versions = VersionNumber[v\"0.2.0\"],
+        include_dev = false, features = [feature])
+    SoftwareSuite(:loaded, [package])
+end
+""")
+        loaded = load_software_suite(definition)
+        @test loaded.id === :loaded
+        loaded_result = run_suite_file(definition; profile = :historical,
+            reports = joinpath(dir, "loaded-reports"), executor = fake_runner)
+        @test suite_passed(loaded_result)
+        @test isfile(joinpath(dir, "loaded-reports", "suite-result.json"))
+
+        corpus_path = write_property_corpus(joinpath(dir, "corpus.json"),
+            Any[Dict("value" => 1), Dict("value" => 2)]; metadata = Dict(:seed => 7))
+        corpus = read_property_corpus(corpus_path)
+        @test corpus["count"] == 2
+        @test corpus["metadata"]["seed"] == 7
+        @test_throws ArgumentError write_property_corpus(corpus_path, Any[])
+
+        generated_path = freeze_supposition_corpus(joinpath(dir, "generated.json"),
+            Supposition.Data.Integers(0, 10); count = 4)
+        generated = read_property_corpus(generated_path)
+        @test generated["producer"] == "Supposition.jl"
+        @test length(generated["cases"]) == 4
 
         @testset "DrWatson extension" begin
             parameters = drwatson_parameters(plan)
@@ -124,6 +164,11 @@ version = "0.2.0"
 
             figure = suite_dashboard(result)
             @test figure isa Makie.Figure
+            figure_from_job = suite_dashboard(launch_suite(plan; executor = fake_runner))
+            @test figure_from_job isa Makie.Figure
+            figure_from_suite = suite_dashboard(software; profile = :historical,
+                version_provider = provider, executor = fake_runner)
+            @test figure_from_suite isa Makie.Figure
         end
     end
 end

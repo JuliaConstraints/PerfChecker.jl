@@ -82,6 +82,10 @@ For feature-level, multi-version and multi-package checks, see
 interfaces in the controller process: isolated Malt workers load only the
 benchmark backend, the package under test and its explicitly pinned peers.
 
+PerfChecker also ships `action.yml` and `bin/perfchecker-suite.jl` so the same
+suite factory and report grammar can be used in GitHub Actions or another CI
+without duplicating orchestration code.
+
 ```@autodocs
 Modules=[PerfChecker]
 ```

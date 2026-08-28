@@ -57,6 +57,11 @@ Built-in profiles are:
 - `:historical`: every known release selected by each package;
 - `:release`: every released version, without an untagged development tree.
 
+The quick profile does not query registries when a development source is
+present. Existing release results are resolved from the cache before worker
+environments are copied or Malt processes are started, so cached historical
+campaigns do not create measurement workers.
+
 Every feature script defines `perf_setup` and `perf_workload`. It is ordinary
 Julia and remains independent of PerfChecker:
 
@@ -81,6 +86,21 @@ submit and inspect `SuiteJob`s; Pluto and Makie launch the same jobs instead of
 executing timed code in their own process. DrWatson can parameterize and cache
 whole suite runs.
 
+Any suite file defining a zero-argument factory can be run without a
+project-specific wrapper:
+
+```sh
+julia --project=perf path/to/PerfChecker/bin/perfchecker-suite.jl \
+  --suite=perf/suite.jl --factory=build_suite --profile=ci \
+  --reports=perf/results/ci
+```
+
+The repository also ships a composite GitHub Action. A consuming workflow only
+needs to check out its package and any sibling development packages expected by
+the suite, then invoke `JuliaConstraints/PerfChecker.jl@main` with `project`,
+`suite`, `factory`, `profile`, and `reports`. It publishes the JSON, Markdown,
+and JUnit reports even when a performance run fails.
+
 ## Property-generated workloads
 
 Property-based testing is useful for discovering feature fixtures, but random
@@ -91,13 +111,16 @@ workflow is:
 2. persist the minimal corpus and seed;
 3. benchmark that fixed corpus in isolated Malt workers.
 
-[Supposition.jl](https://github.com/Seelengrab/Supposition.jl) is the preferred
-future optional bridge because it supports deterministic replay, integrated
-shrinking, composable generators, stateful tests and Julia's test-set API.
+[Supposition.jl](https://github.com/Seelengrab/Supposition.jl) is the optional
+bridge because it supports deterministic replay, integrated shrinking,
+composable generators, stateful tests and Julia's test-set API.
 [PropCheck.jl](https://seelengrab.github.io/PropCheck.jl/) remains usable as an
 external corpus producer, but shipping two overlapping required integrations
-would add little value. Neither belongs in the measurement worker unless the
-feature being measured explicitly depends on it.
+would add little value. `freeze_supposition_corpus` generates a finite corpus
+in the controller and stores it using the
+`perfchecker-property-corpus/1` grammar. `write_property_corpus` offers the same
+boundary for PropCheck or custom fuzzers. Neither generator belongs in the
+measurement worker unless the feature being measured explicitly depends on it.
 
 ## JuliaCon 2026 extension candidates
 

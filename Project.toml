@@ -24,6 +24,7 @@ DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Oxygen = "df9a0d86-3283-4920-82dc-4555fc0d1d8b"
 Pluto = "c3e4b0f8-55cb-11ea-2926-15256bba5781"
+Supposition = "5a0628fe-1738-4658-9b6d-0b7605a9755b"
 
 [extensions]
 BenchmarkToolsExt = "BenchmarkTools"
@@ -32,6 +33,7 @@ DrWatsonExt = "DrWatson"
 MakieExt = "Makie"
 OxygenExt = "Oxygen"
 PlutoExt = "Pluto"
+SuppositionExt = "Supposition"
 
 [compat]
 BenchmarkTools = "1"
@@ -47,6 +49,7 @@ Makie = "0.21, 0.22, 0.23, 0.24"
 Malt = "1"
 Oxygen = "1"
 Pluto = "0.20, 1"
+Supposition = "0.3"
 TOML = "1"
 TestItems = "1"
 TypedTables = "1"
@@ -63,8 +66,9 @@ Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Oxygen = "df9a0d86-3283-4920-82dc-4555fc0d1d8b"
 PatternFolds = "c18a7f1d-76ad-4ce4-950d-5419b888513b"
 Pluto = "c3e4b0f8-55cb-11ea-2926-15256bba5781"
+Supposition = "5a0628fe-1738-4658-9b6d-0b7605a9755b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestItemRunner = "f8b46487-2199-4994-9208-9a1283c18c0a"
 
 [targets]
-test = ["Aqua", "BenchmarkTools", "Chairmarks", "DrWatson", "HTTP", "Intervals", "Makie", "Oxygen", "PatternFolds", "Pluto", "Test", "TestItemRunner"]
+test = ["Aqua", "BenchmarkTools", "Chairmarks", "DrWatson", "HTTP", "Intervals", "Makie", "Oxygen", "PatternFolds", "Pluto", "Supposition", "Test", "TestItemRunner"]

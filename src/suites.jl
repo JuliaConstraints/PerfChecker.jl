@@ -196,7 +196,8 @@ function suite_targets(package::PackageSuite, profile::Symbol;
         version_provider = get_pkg_versions)
     profile in (:quick, :ci, :historical, :release) ||
         throw(ArgumentError("unknown suite profile $profile"))
-    declared = _declared_versions(package, version_provider)
+    declared = profile === :quick && package.include_dev ? VersionNumber[] :
+               _declared_versions(package, version_provider)
     releases = if profile === :quick
         package.include_dev ? VersionNumber[] :
         (isempty(declared) ? declared : [last(declared)])
@@ -355,8 +356,26 @@ function _default_suite_executor(planned::PlannedFeatureRun, config, setup, work
     return check_function(config, setup, workload)
 end
 
+function _ensure_suite_backends(plan::SuitePlan)
+    backends = Set(run.feature.backend
+    for run in plan.runs
+    if run.planned_status === :ready)
+    for backend in backends
+        try
+            backend === :benchmark && Core.eval(Main, :(import BenchmarkTools))
+            backend === :chairmark && Core.eval(Main, :(import Chairmarks))
+        catch error
+            throw(ArgumentError(
+                "suite backend $backend must be installed in the controller environment: " *
+                sprint(showerror, error)))
+        end
+    end
+    return nothing
+end
+
 function _execute_suite_plan(plan::SuitePlan; executor = _default_suite_executor,
         overrides::AbstractDict = Dict{Symbol, Any}())
+    executor === _default_suite_executor && _ensure_suite_backends(plan)
     started = string(Dates.now(Dates.UTC))
     runs = FeatureRun[]
     for planned in plan.runs
@@ -368,7 +387,7 @@ function _execute_suite_plan(plan::SuitePlan; executor = _default_suite_executor
         try
             config = _run_config(planned, overrides)
             setup, workload = _feature_blocks(planned)
-            result = executor(planned, config, setup, workload)
+            result = Base.invokelatest(executor, planned, config, setup, workload)
             push!(runs, FeatureRun(planned, :pass, time() - before, result, ""))
         catch error
             status = _unavailable_exception(error) ? :unavailable : :error
@@ -441,6 +460,51 @@ end
 function run_suite(suite::SoftwareSuite; profile::Symbol = :quick,
         version_provider = get_pkg_versions, kwargs...)
     return run_suite(plan_suite(suite; profile, version_provider); kwargs...)
+end
+
+"""
+    load_software_suite(path; factory=:build_suite) -> SoftwareSuite
+
+Load an ordinary Julia suite definition in an isolated controller module. The
+file must define the selected zero-argument factory or bind `suite` to a
+`SoftwareSuite`.
+Only the controller evaluates this file; measured Malt workers still load just
+their backend, package, and feature entrypoint.
+"""
+function load_software_suite(path::AbstractString; factory::Symbol = :build_suite)
+    definition = abspath(String(path))
+    isfile(definition) ||
+        throw(ArgumentError("suite definition does not exist: $definition"))
+    owner = Module(gensym(:PerfCheckerSuiteDefinition), true, true)
+    Core.eval(owner, :(eval(expression) = Core.eval($owner, expression)))
+    Core.eval(owner, :(include(source) = Base.include($owner, source)))
+    Base.include(owner, definition)
+    value = if isdefined(owner, factory)
+        factory_function = Base.invokelatest(getfield, owner, factory)
+        Base.invokelatest(factory_function)
+    elseif isdefined(owner, :suite)
+        Base.invokelatest(getfield, owner, :suite)
+    else
+        throw(ArgumentError(
+            "suite definition must define $(factory)() or a suite binding: $definition"))
+    end
+    value isa SoftwareSuite || throw(ArgumentError(
+        "suite definition returned $(typeof(value)); expected SoftwareSuite"))
+    return value
+end
+
+"""
+    run_suite_file(path; profile=:quick, reports=nothing,
+                   factory=:build_suite, kwargs...)
+
+Load and execute a suite definition. When `reports` is a path, write the JSON,
+Markdown, and JUnit representations consumed by CI and user interfaces.
+"""
+function run_suite_file(path::AbstractString; profile::Symbol = :quick,
+        reports = nothing, factory::Symbol = :build_suite, kwargs...)
+    result = run_suite(load_software_suite(path; factory); profile, kwargs...)
+    reports === nothing || write_suite_reports(result, String(reports))
+    return result
 end
 
 suite_passed(result::SoftwareSuiteResult) = !any(run -> run.status === :error, result.runs)

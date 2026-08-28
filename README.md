@@ -13,6 +13,29 @@
 - The use of the latest compatible versions of Julia and other dependencies of P
 - Independence of compatibility requirements of `PerfChecker.jl` from the environment used during performance checks.
 
+## Feature and software suites
+
+PerfChecker can now define performance contracts per feature, map different
+workloads to old API ranges, and combine direct dependencies into one software
+surface. Each feature/version pair runs in a fresh Malt worker that does not
+load PerfChecker or its UI dependencies.
+
+```julia
+feature = FeatureSpec(:parse_file; entrypoint = "perf/features/parse_file.jl")
+package = PackageSuite("MyParser"; source = pwd(), environment = "perf/runner",
+    versions = :all, features = [feature])
+suite = SoftwareSuite(:my_software, [package])
+result = run_suite(suite; profile = :ci)
+write_suite_reports(result, "perf/results/ci")
+```
+
+The shared plan, asynchronous-job, result, property-corpus, JSON, Markdown, and
+JUnit grammars are consumed by the optional Oxygen, Pluto, Makie, DrWatson, and
+Supposition integrations. `action.yml` and `bin/perfchecker-suite.jl` provide
+the same workflow to CI without putting those controller dependencies inside
+the measured workers. See the software-suite documentation for version windows,
+dependency pins, and multi-package examples.
+
 ## Google Summer of Code (2023)
 
 `JuliaConstraints`, including `PerfChecker.jl`, is participating in Google Summer of Code (GSoC) through the Julia language umbrella and is looking for contributors. Complete lists of projects:

@@ -35,3 +35,13 @@ function PerfChecker.suite_dashboard(result::PerfChecker.SoftwareSuiteResult)
     axis.xticklabelrotation = pi / 4
     return figure
 end
+
+function PerfChecker.suite_dashboard(job::PerfChecker.SuiteJob; strict::Bool = true)
+    return PerfChecker.suite_dashboard(PerfChecker.wait_suite(job; strict))
+end
+
+function PerfChecker.suite_dashboard(suite::PerfChecker.SoftwareSuite;
+        profile::Symbol = :quick, strict::Bool = true, kwargs...)
+    job = PerfChecker.launch_suite(suite; profile, kwargs...)
+    return PerfChecker.suite_dashboard(job; strict)
+end

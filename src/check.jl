@@ -130,13 +130,21 @@ function check_function(x::Symbol, d::Dict, block1, block2)
     targets = run_targets(config)
     len = length(targets)
 
-    temp_roots = [mktempdir() for _ in 1:len]
-    worker_envs = [joinpath(root, "environment") for root in temp_roots]
-    cp.(Ref(config.path), worker_envs)
+    cached_paths = [!target.is_dev && !isnothing(target.spec.name) ?
+                    cached_output_path(
+                        config, target.spec.name, target.spec.version, block1, block2, hwinfo) :
+                    nothing for target in targets]
+    worker_indices = findall(isnothing, cached_paths)
+    temp_roots = Dict(index => mktempdir() for index in worker_indices)
+    worker_envs = Dict(index => joinpath(temp_roots[index], "environment")
+    for index in worker_indices)
+    for index in worker_indices
+        cp(config.path, worker_envs[index])
+    end
     procs = Any[nothing for _ in 1:len]
     cleanup_options = Dict{Symbol, Any}[]
     try
-        @sync for i in 1:len
+        @sync for i in worker_indices
             @async procs[i] = Worker(;
                 exeflags = ["--track-allocation=$(config.track)",
                 "-t $(config.threads)", "--project=$(worker_envs[i])"])
@@ -148,12 +156,7 @@ function check_function(x::Symbol, d::Dict, block1, block2)
             run_options[:current_spec] = target.spec
             run_options[:current_version] = target.spec.version
 
-            cached_path = if !target.is_dev && !isnothing(target.spec.name)
-                cached_output_path(
-                    config, target.spec.name, target.spec.version, block1, block2, hwinfo)
-            else
-                nothing
-            end
+            cached_path = cached_paths[i]
 
             if cached_path === nothing
                 quiet = get(di, :quiet, false)
@@ -238,7 +241,7 @@ function check_function(x::Symbol, d::Dict, block1, block2)
         foreach(safe_stop, filter(!isnothing, procs))
         safe_cleanup(di, x)
         foreach(options -> safe_cleanup(options, x), cleanup_options)
-        foreach(root -> rm(root; recursive = true, force = true), temp_roots)
+        foreach(root -> rm(root; recursive = true, force = true), values(temp_roots))
     end
 
     return results
