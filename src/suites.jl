@@ -154,6 +154,12 @@ struct SuitePlan
     runs::Vector{PlannedFeatureRun}
 end
 
+function planned_run_id(run::PlannedFeatureRun)
+    identity = (run.suite, run.package_suite.id, run.feature.id,
+        run.target.label, run.comparison_key)
+    return _content_digest(identity)[1:20]
+end
+
 function _project_version(package::PackageSuite)
     candidates = String[]
     package.source === nothing ||
@@ -248,19 +254,38 @@ function plan_suite(suite::SoftwareSuite; profile::Symbol = :quick,
 end
 
 function suite_plan_dict(plan::SuitePlan)
-    return Dict{String, Any}(
+    payload = Dict{String, Any}(
         "schema_version" => "perfchecker-suite-plan/1",
         "suite" => string(plan.suite.id),
         "description" => plan.suite.description,
         "profile" => string(plan.profile),
         "runs" => [Dict{String, Any}(
+             "id" => planned_run_id(run),
              "package" => run.package_suite.package,
+             "package_id" => string(run.package_suite.id),
              "feature" => string(run.feature.id),
+             "description" => run.feature.description,
+             "backend" => string(run.feature.backend),
              "version" => run.target.label,
              "target_kind" => string(run.target.kind),
              "comparison_key" => run.comparison_key,
              "status" => string(run.planned_status),
              "reason" => run.reason) for run in plan.runs])
+    payload["plan_revision"] = _content_digest(payload)
+    return payload
+end
+
+"Return a validated, explicitly ordered subset of a server-produced plan."
+function select_suite_plan(plan::SuitePlan, run_ids::AbstractVector{<:AbstractString})
+    requested = String.(run_ids)
+    length(unique(requested)) == length(requested) ||
+        throw(ArgumentError("selected run identifiers must be unique"))
+    available = Dict(planned_run_id(run) => run for run in plan.runs)
+    unknown = setdiff(requested, collect(keys(available)))
+    isempty(unknown) || throw(ArgumentError(
+        "unknown selected run identifiers: $(join(unknown, ", "))"))
+    selected = PlannedFeatureRun[available[id] for id in requested]
+    return SuitePlan(plan.suite, plan.profile, selected)
 end
 
 struct FeatureRun
@@ -614,7 +639,10 @@ function write_suite_junit(result::SoftwareSuiteResult, path::AbstractString)
 end
 
 function write_suite_reports(result::SoftwareSuiteResult, directory::AbstractString;
-        formats = (:json, :markdown, :junit, :bundle))
+        formats = (:json, :markdown, :junit, :bundle, :version_series,
+            :version_comparison_json, :version_comparison_markdown),
+        relative_limits::AbstractDict = Dict{String, Float64}(),
+        min_samples::Integer = 1)
     mkpath(directory)
     paths = String[]
     :json in formats && push!(paths,
@@ -623,8 +651,29 @@ function write_suite_reports(result::SoftwareSuiteResult, directory::AbstractStr
         write_suite_markdown(result, joinpath(directory, "suite-report.md")))
     :junit in formats && push!(paths,
         write_suite_junit(result, joinpath(directory, "suite-junit.xml")))
-    :bundle in formats && push!(paths,
-        write_suite_bundle(result, joinpath(directory, "bundles")))
+    protocol_formats = (:bundle, :version_series, :version_comparison_json,
+        :version_comparison_markdown)
+    bundle = any(format -> format in formats, protocol_formats) ?
+             _suite_run_bundle(result) : nothing
+    if :bundle in formats
+        bundle_path = joinpath(abspath(String(directory)), "bundles",
+            "run-$(bundle.manifest["run_id"])")
+        push!(paths, write_run_bundle(bundle, bundle_path))
+    end
+    if any(format -> format in formats,
+            (:version_series, :version_comparison_json,
+                :version_comparison_markdown))
+        comparison = compare_suite_versions(bundle; relative_limits, min_samples)
+        :version_series in formats && push!(paths,
+            write_version_series_json(comparison,
+                joinpath(directory, "version-series.json")))
+        :version_comparison_json in formats && push!(paths,
+            write_version_comparison_json(comparison,
+                joinpath(directory, "version-comparison.json")))
+        :version_comparison_markdown in formats && push!(paths,
+            write_version_comparison_markdown(comparison,
+                joinpath(directory, "version-comparison.md")))
+    end
     return paths
 end
 
@@ -633,5 +682,7 @@ function drwatson_savename end
 function drwatson_produce_or_load end
 function register_oxygen_routes! end
 function serve_suite end
+function studio_token_authenticator end
+function run_studio_agent end
 function launch_pluto_dashboard end
 function suite_dashboard end

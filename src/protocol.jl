@@ -180,7 +180,8 @@ function _result_protocol_records(result::SoftwareSuiteResult, run_id::String,
     diagnostics = Dict{String, Any}[]
     for run in result.runs
         planned = run.planned
-        case_id = "$(planned.package_suite.id)/$(planned.feature.id)@$(planned.target.label)"
+        case_id = "$(planned.suite)/$(planned.package_suite.id)/$(planned.feature.id)"
+        target_id = planned.target.label
         if run.status !== :pass
             rule = run.status === :unavailable ? "feature.unavailable" : "feature.failed"
             severity = run.status === :unavailable ? "info" : "error"
@@ -189,6 +190,7 @@ function _result_protocol_records(result::SoftwareSuiteResult, run_id::String,
                 "run_id" => run_id,
                 "attempt_id" => attempt_id,
                 "case_id" => case_id,
+                "target_id" => target_id,
                 "rule_id" => rule,
                 "severity" => severity,
                 "message" => run.message,
@@ -225,6 +227,7 @@ function _result_protocol_records(result::SoftwareSuiteResult, run_id::String,
                         "run_id" => run_id,
                         "attempt_id" => attempt_id,
                         "case_id" => case_id,
+                        "target_id" => target_id,
                         "metric" => _metric_name(definition_id),
                         "value" => value,
                         "unit" => unit,
@@ -262,6 +265,7 @@ function _suite_run_bundle(result::SoftwareSuiteResult; run_id = uuid4(),
         "state" => suite_passed(result) ? "complete" : "failed",
         "suite" => string(result.plan.suite.id),
         "profile" => string(result.plan.profile),
+        "plan" => suite_plan_dict(result.plan),
         "started_at" => result.started_at,
         "finished_at" => result.finished_at,
         "runtime" => Dict(
@@ -347,11 +351,17 @@ function read_run_bundle(directory::AbstractString)
         Dict{String, Any}.(artifacts))
 end
 
-function list_run_bundles(root::AbstractString)
+function list_run_bundles(root::AbstractString; recursive::Bool = false)
     directory = abspath(String(root))
     isdir(directory) || return Dict{String, Any}[]
     manifests = Dict{String, Any}[]
-    for entry in sort!(readdir(directory; join = true))
+    entries = if recursive
+        sort!([walk_root for (walk_root, _, files) in walkdir(directory)
+               if "manifest.json" in files])
+    else
+        sort!(readdir(directory; join = true))
+    end
+    for entry in entries
         isdir(entry) || continue
         manifest_path = joinpath(entry, "manifest.json")
         isfile(manifest_path) || continue
@@ -381,7 +391,7 @@ function _validate_provider_definition(definition)
 end
 
 function _validate_provider_observation(observation, definitions, run_id, attempt_id,
-        case_id)
+        case_id, target_id)
     observation isa AbstractDict || throw(ArgumentError("provider observation must be an object"))
     metric = get(observation, "metric", nothing)
     metric isa AbstractString && occursin('.', metric) ||
@@ -414,6 +424,7 @@ function _validate_provider_observation(observation, definitions, run_id, attemp
     normalized["run_id"] = run_id
     normalized["attempt_id"] = attempt_id
     normalized["case_id"] = string(get(normalized, "case_id", case_id))
+    normalized["target_id"] = string(get(normalized, "target_id", target_id))
     normalized["aggregation"] = get(normalized, "aggregation", "sample")
     normalized["scope"] = get(normalized, "scope", "workload")
     normalized["attributes"] = Dict{String, Any}(
@@ -432,8 +443,9 @@ function _provider_result(payload::AbstractDict)
     run_id = string(get(payload, "run_id", uuid4()))
     attempt_id = string(get(payload, "attempt_id", uuid4()))
     case_id = string(get(payload, "case_id", "external"))
+    target_id = string(get(payload, "target_id", case_id))
     observations = [_validate_provider_observation(observation, definition_index,
-                        run_id, attempt_id, case_id)
+                        run_id, attempt_id, case_id, target_id)
                     for observation in get(payload, "observations", Any[])]
     diagnostics = Dict{String, Any}[
         Dict{String, Any}(string(key) => item for (key, item) in pairs(diagnostic))
@@ -443,6 +455,7 @@ function _provider_result(payload::AbstractDict)
         diagnostic["run_id"] = run_id
         diagnostic["attempt_id"] = attempt_id
         diagnostic["case_id"] = get(diagnostic, "case_id", case_id)
+        diagnostic["target_id"] = get(diagnostic, "target_id", target_id)
     end
     artifacts = Dict{String, Any}[
         Dict{String, Any}(string(key) => item for (key, item) in pairs(artifact))

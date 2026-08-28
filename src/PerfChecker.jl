@@ -6,6 +6,7 @@ import CoverageTools: analyze_malloc_files, find_malloc_files, MallocInfo
 import CpuId: simdbytes, cpucores, cputhreads, cputhreads_per_core
 import CSV
 import Dates
+import Downloads
 import JSON
 import Malt: remote_eval_wait, Worker, remote_eval_fetch, stop, fetch
 import Pkg
@@ -24,6 +25,7 @@ export FeatureVariant
 export FeatureRun
 export ExternalCommandSpec
 export BundleComparison
+export VersionComparison
 export PackageSuite
 export PlannedFeatureRun
 export SoftwareSuite
@@ -38,6 +40,7 @@ export bundle_dict
 export comparison_dict
 export comparison_passed
 export compare_bundles
+export compare_suite_versions
 export external_command_dict
 export checkres_to_boxplots
 export checkres_to_pie
@@ -53,6 +56,7 @@ export launch_pluto_dashboard
 export launch_suite
 export load_software_suite
 export plan_suite
+export planned_run_id
 export PerfConfig
 export perf_setup
 export register_oxygen_routes!
@@ -63,8 +67,11 @@ export list_run_bundles
 export run_external_command
 export run_suite
 export run_suite_file
+export run_studio_agent
 export saveplot
 export serve_suite
+export select_suite_plan
+export studio_token_authenticator
 export summary_table
 export suite_dashboard
 export suite_dict
@@ -73,6 +80,7 @@ export suite_job_dict
 export suite_passed
 export suite_plan_dict
 export suite_summary
+export suite_version_series
 export table_to_csv
 export table_to_pie
 export to_table
@@ -80,6 +88,11 @@ export write_suite_json
 export write_run_bundle
 export write_comparison_json
 export write_comparison_markdown
+export write_version_comparison_json
+export write_version_comparison_markdown
+export write_version_series_json
+export version_comparison_dict
+export version_comparison_passed
 export write_suite_bundle
 export write_suite_junit
 export write_suite_markdown
@@ -105,5 +118,6 @@ include("alloc.jl")
 include("suites.jl")
 include("protocol.jl")
 include("compare.jl")
+include("version_compare.jl")
 
 end

@@ -30,7 +30,7 @@ write_suite_reports(result, "perf/results/ci")
 ```
 
 The shared plan, asynchronous-job, result, property-corpus, JSON, Markdown,
-JUnit, and portable run-bundle grammars are consumed by the optional Oxygen,
+JUnit, version-series/comparison, and portable run-bundle grammars are consumed by the optional Oxygen,
 Pluto, Makie, DrWatson, and Supposition integrations. External command
 providers can emit the same observations from Python, Rust, R, or a mixed
 stack without loading PerfChecker in the measured process. `action.yml`,
@@ -38,6 +38,12 @@ stack without loading PerfChecker in the measured process. `action.yml`,
 the same workflow to CI without putting those controller dependencies inside
 the measured workers. See the software-suite documentation for version windows,
 dependency pins, and multi-package examples.
+
+The Oxygen extension includes a responsive Performance Studio for selecting,
+reordering, configuring, and launching feature/version runs, then exploring
+their historical curves and regressions. It supports a loopback controller or
+an authenticated hosted controller with pull-based local/remote agents; the
+measured Malt workers remain free of PerfChecker and UI dependencies.
 
 ## Google Summer of Code (2023)
 

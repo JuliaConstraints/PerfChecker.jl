@@ -20,10 +20,11 @@ function _observation_groups(bundle::RunBundle)
     groups = Dict{String, Vector{Dict{String, Any}}}()
     for observation in bundle.observations
         case_id = String(get(observation, "case_id", "unknown"))
+        target_id = String(get(observation, "target_id", "unknown"))
         comparison_key = get(observation, "comparison_key", nothing)
         comparison_key === nothing &&
             (comparison_key = get(observation, "measurement_definition", "unknown"))
-        join_key = "$case_id::$(String(comparison_key))"
+        join_key = "$case_id::$target_id::$(String(comparison_key))"
         push!(get!(groups, join_key, Dict{String, Any}[]), observation)
     end
     return groups
@@ -81,6 +82,7 @@ function compare_bundles(baseline::RunBundle, candidate::RunBundle;
         unit = String(get(template, "unit", "unknown"))
         record = Dict{String, Any}(
             "case_id" => String(get(template, "case_id", "unknown")),
+            "target_id" => String(get(template, "target_id", "unknown")),
             "comparison_key" => String(get(template, "comparison_key", definition_id)),
             "metric" => metric,
             "measurement_definition" => definition_id,

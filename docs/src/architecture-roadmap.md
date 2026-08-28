@@ -533,9 +533,11 @@ cannot safely compare.
 
 ## Oxygen service and polyglot boundary
 
-The first Oxygen service should be read-mostly: ingest completed bundles, list
-runs, compare them, stream progress, and serve artifacts/reports. Job execution
-comes later through a queue and isolated agents.
+The first Oxygen service keeps result ingestion and browsing separate from
+execution. A local Studio now proves the job contract with a bounded in-memory
+queue, and authenticated pull agents prove remote execution without sending
+source code through the control plane. Durable multi-replica scheduling,
+leases/timeouts, quotas, retention, and tenant storage remain service-layer work.
 
 Candidate v1 endpoints:
 
@@ -545,7 +547,8 @@ Candidate v1 endpoints:
 - `GET /v1/runs/{id}/events` (SSE);
 - `GET /v1/runs/{id}/artifacts/{artifact_id}`;
 - `POST /v1/comparisons`;
-- `POST /v1/jobs` only after an isolated runner/queue exists.
+- `POST /v1/jobs` with server-generated plan revisions and allowlisted overrides;
+- `POST /v1/agents/claim`, `/heartbeat`, and `/complete` for pull agents.
 
 Oxygen can publish OpenAPI documentation, but OpenAPI describes the control
 plane rather than the full high-volume artifact format. JSON Schema versions

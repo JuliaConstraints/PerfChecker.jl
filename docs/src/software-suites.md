@@ -182,6 +182,47 @@ Oxygen, JSON rendering, or PerfChecker itself to measured processes.
 The bundle-store route also serves a dependency-free responsive web dashboard
 at its prefix root; it reads the same `/runs` resource used by other clients.
 
+`write_suite_reports` additionally writes `version-series.json`,
+`version-comparison.json`, and `version-comparison.md`. Series are grouped by
+package, feature, comparison key, metric, definition, and unit. PerfChecker
+compares adjacent compatible releases and then the development checkout against
+the latest compatible release. The plan is embedded in the bundle, so an
+unavailable, failed, or unexpectedly missing target is visible and cannot be
+silently bridged by a comparison.
+
+## Oxygen Performance Studio
+
+Registering a `SoftwareSuite` serves a dynamic Studio at the route prefix. It
+generates the authoritative plan, lets a developer filter and reorder run cards,
+configures allowlisted measurement parameters and regression limits, and starts
+a bounded queue. Drag-and-drop is optional: every action is also available by
+buttons and keyboard. The layout remains usable on narrow and coarse-pointer
+devices.
+
+```julia
+using Oxygen, PerfChecker
+
+serve_suite(suite; profile = :ci, reports_root = "perf/results/studio")
+```
+
+Each selected run still starts a fresh Malt worker. Oxygen, PerfChecker, and UI
+libraries stay in the controller. A job becomes `complete` only after its bundle
+and comparison reports have been written atomically. Completed evidence is
+durable; the current lightweight controller queue is process-local.
+
+For a hosted controller, `serve_suite` refuses a non-loopback host unless both
+`allow_remote_control=true` and an `authenticator` are supplied. The included
+`studio_token_authenticator` maps SHA-256 token digests to user identities. A
+custom bearer/OIDC validator and `authorizer` callback can integrate an existing
+identity system. The default roles are `admin`, `runner`, and `agent`; TLS and
+token issuance remain deployment responsibilities.
+
+Jobs may target `local`, `agent:any`, or `agent:<id>`. A pull-based agent calls
+`run_studio_agent`, verifies that its locally generated suite-plan revision and
+run IDs match the server lease, executes through the normal isolated runner,
+and uploads the portable bundle. The server never transmits source expressions
+or shell commands to the agent.
+
 ## Definition-aware comparisons
 
 `compare_bundles` joins observations only on their exact comparison key and
