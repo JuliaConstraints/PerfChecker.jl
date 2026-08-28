@@ -25,3 +25,16 @@ function check_to_metadata_csv(
         x::Symbol, pkg::AbstractString, version, tags::Vector{Symbol}; metadata = "")
     check_to_metadata(x, pkg, version, tags; metadata)
 end
+
+@testitem "CSV round trip" tags=[:unit, :reporting] begin
+    using PerfChecker
+
+    mktempdir() do dir
+        path = joinpath(dir, "nested", "result.csv")
+        original = PerfChecker.Table(times = [1.0, 2.0], allocs = [1, 2])
+        table_to_csv(original, path)
+        restored = csv_to_table(path)
+        @test restored.times == original.times
+        @test restored.allocs == original.allocs
+    end
+end

@@ -129,6 +129,7 @@ struct CheckConfig
     extra_pkgs::Any
     targets::Vector{String}
     repeat::Bool
+    include_current::Bool
     config_hash::String
 end
 
@@ -208,6 +209,9 @@ function normalize_config(backend::Symbol, config::Dict)
     extra_pkgs = get(options, :extra_pkgs, nothing)
     targets = normalize_strings(get(options, :targets, String[]), :targets)
     repeat = Bool(get(options, :repeat, true))
+    include_current = Bool(get(options, :include_current, true))
+    !include_current && packages === nothing && devops === nothing &&
+        throw(ArgumentError(":include_current=false requires :pkgs or :devops"))
     option_pairs = sort!(collect(pairs(options)); by = p -> string(first(p)))
     option_fingerprint = join(map(p -> string(first(p), "=", repr(last(p))), option_pairs), "|")
     config_hash = stable_uuid_string(
@@ -215,7 +219,7 @@ function normalize_config(backend::Symbol, config::Dict)
 
     return CheckConfig(
         backend, options, path, tags, Int(threads), track, packages, devops,
-        extra_pkgs, targets, repeat, config_hash)
+        extra_pkgs, targets, repeat, include_current, config_hash)
 end
 
 normalize_config(config::PerfConfig) = normalize_config(config.backend, to_dict(config))
@@ -235,6 +239,7 @@ function legacy_options(config::CheckConfig)
     options[:track] = config.track
     options[:targets] = config.targets
     options[:repeat] = config.repeat
+    options[:include_current] = config.include_current
     config.packages === nothing ||
         (options[:pkgs] = (
             config.packages.name,
@@ -245,4 +250,24 @@ function legacy_options(config::CheckConfig)
     config.extra_pkgs === nothing || (options[:extra_pkgs] = config.extra_pkgs)
     options[:config_hash] = config.config_hash
     return options
+end
+
+@testitem "Configuration contracts" tags=[:unit, :config] begin
+    using PerfChecker
+
+    cfg = PerfChecker.normalize_config(:benchmark,
+        Dict(:path => @__DIR__, :tags => [:unit], :threads => 1))
+    @test cfg.backend == :benchmark
+    @test cfg.tags == [:unit]
+    @test cfg.threads == 1
+    @test cfg.path == abspath(@__DIR__)
+    @test_throws ArgumentError PerfChecker.normalize_config(:benchmark, Dict())
+
+    public_cfg = PerfConfig(:benchmark; path = @__DIR__, tags = [:ux], samples = 1)
+    @test Dict(public_cfg)[:samples] == 1
+    @test PerfChecker.normalize_config(public_cfg).backend == :benchmark
+    @test_throws ArgumentError PerfChecker.normalize_config(:alloc, public_cfg)
+    @test_throws ArgumentError PerfConfig(:benchmark, Dict("path" => @__DIR__))
+    @test_throws ArgumentError PerfChecker.normalize_config(:benchmark,
+        Dict(:path => @__DIR__, :include_current => false))
 end

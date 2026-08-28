@@ -119,11 +119,22 @@ function get_versions(pkgconf::VerConfig, regname::Union{Nothing, Vector{String}
     else
         error("Unknown option provided $s")
     end
-    return pkgconf[1], collect(Iterators.flatten(map(x -> f(x, versions, pkgconf[4]), pkgconf[3])))
+    return pkgconf[1],
+    collect(Iterators.flatten(map(x -> f(x, versions, pkgconf[4]), pkgconf[3])))
 end
 
 function get_versions(pkgconf::PackageVersionSpec,
         regname::Union{Nothing, Vector{String}} = nothing)
     return get_versions(
         (pkgconf.name, pkgconf.selector, pkgconf.versions, pkgconf.prefer_latest), regname)
+end
+
+@testitem "Version selection" tags=[:unit, :versions] begin
+    import PerfChecker
+
+    _, versions = PerfChecker.get_versions(
+        ("PatternFolds", :custom, [v"0.2.1", v"0.2.4"], true))
+    @test versions == [v"0.2.1", v"0.2.4"]
+    @test PerfChecker.arrange_patches(v"1.2.3",
+        [v"1.2.1", v"1.2.3", v"1.3.0"], false) == [v"1.2.1", v"1.2.3"]
 end

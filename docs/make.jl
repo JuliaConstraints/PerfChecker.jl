@@ -11,7 +11,9 @@ makedocs(;
         repo = "https://github.com/JuliaConstraints/PerfChecker.jl",
     ),
     pages = [
-        "Home" => "index.md"
+        "Home" => "index.md",
+        "Software suites" => "software-suites.md",
+        "Architecture roadmap" => "architecture-roadmap.md"
     ],
     warnonly = true
 )

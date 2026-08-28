@@ -12,26 +12,59 @@ import Pkg
 import Pkg.Types: PackageSpec, Context
 import Profile
 import TOML: parse
+import TestItems: @testitem
 import TypedTables: Table
 import UUIDs: UUID, uuid4, uuid5
 
 # SECTION - Exports
 export @check
+export FeatureSpec
+export FeatureVariant
+export FeatureRun
+export PackageSuite
+export PlannedFeatureRun
+export SoftwareSuite
+export SoftwareSuiteResult
+export SuiteJob
+export SuitePlan
+export VersionWindow
 export check_to_metadata_csv
 export checkres_to_boxplots
 export checkres_to_pie
 export checkres_to_scatterlines
 export csv_to_table
+export drwatson_parameters
+export drwatson_produce_or_load
+export drwatson_savename
 export find_by_tags
 export get_versions
+export launch_pluto_dashboard
+export launch_suite
+export plan_suite
 export PerfConfig
 export perf_setup
+export register_oxygen_routes!
+export run_suite
 export saveplot
+export serve_suite
 export summary_table
+export suite_dashboard
+export suite_dict
+export suite_job_status
+export suite_job_dict
+export suite_passed
+export suite_plan_dict
+export suite_summary
 export table_to_csv
 export table_to_pie
 export to_table
+export write_suite_json
+export write_suite_junit
+export write_suite_markdown
+export write_suite_notebook
+export write_suite_reports
 export write_template
+export wait_suite
 
 # SECTION - Includes
 include("init.jl")
@@ -45,5 +78,6 @@ include("versions.jl")
 include("templates.jl")
 include("check.jl")
 include("alloc.jl")
+include("suites.jl")
 
 end

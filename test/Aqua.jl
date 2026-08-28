@@ -1,4 +1,4 @@
-@testset "Aqua.jl" begin
+@testitem "Aqua.jl" tags=[:quality] begin
     import Aqua
     import PerfChecker
 

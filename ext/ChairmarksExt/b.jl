@@ -15,7 +15,6 @@ end
 
 function PerfChecker.check(d::Dict, block::Expr, ::Val{:chairmark})
     quote
-        d = $d
         return @be $block evals=d[:evals] seconds=d[:seconds] samples=d[:samples] gc=d[:gc]
     end
 end

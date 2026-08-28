@@ -77,6 +77,11 @@ test environment:
 julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
 ```
 
+For feature-level, multi-version and multi-package checks, see
+[Software suites](software-suites.md). A suite keeps PerfChecker and its user
+interfaces in the controller process: isolated Malt workers load only the
+benchmark backend, the package under test and its explicitly pinned peers.
+
 ```@autodocs
 Modules=[PerfChecker]
 ```

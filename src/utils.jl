@@ -31,7 +31,8 @@ end
 
 function result_uuid(config::CheckConfig, pkg::AbstractString, version, block1, block2,
         hwinfo::HwInfo)
-    seed = join(string.([
+    seed = join(
+        string.([
             config.backend,
             pkg,
             version,
@@ -41,7 +42,8 @@ function result_uuid(config::CheckConfig, pkg::AbstractString, version, block1, 
             repr(block2),
             string(Base.VERSION),
             hardware_id(hwinfo)
-        ]), "|")
+        ]),
+        "|")
     return stable_uuid(seed)
 end
 
@@ -95,7 +97,8 @@ function metadata_has_result(metadata::AbstractString, result::UUID)
     end
 end
 
-function cached_output_path(config::CheckConfig, pkg::AbstractString, version, block1, block2,
+function cached_output_path(
+        config::CheckConfig, pkg::AbstractString, version, block1, block2,
         hwinfo::HwInfo)
     metadata = metadata_path(config.path)
     u = result_uuid(config, pkg, version, block1, block2, hwinfo)
@@ -144,4 +147,31 @@ function in_metadata(metadata, fp, u)
         end
     end
     return found
+end
+
+@testitem "Cache identity" tags=[:unit, :cache] begin
+    using PerfChecker
+
+    mktempdir() do dir
+        cfg = PerfChecker.normalize_config(:benchmark,
+            Dict(:path => dir, :tags => [:cache], :threads => 1, :samples => 1))
+        block1 = :(using Random)
+        block2 = :(sum(1:10))
+        hardware = PerfChecker.HwInfo()
+        run = PerfChecker.run_metadata(cfg, "Example", v"1.2.3", block1, block2, hardware)
+        output = PerfChecker.output_path(cfg.path, run.result_uuid)
+        PerfChecker.table_to_csv(
+            PerfChecker.Table(times = [1.0], gctimes = [0.0],
+                bytes_or_memory = [0], memory = [0], allocs = [0]), output)
+        PerfChecker.write_run_metadata(PerfChecker.metadata_path(cfg.path), run)
+
+        @test PerfChecker.metadata_has_result(PerfChecker.metadata_path(cfg.path),
+            run.result_uuid)
+        @test PerfChecker.cached_output_path(
+            cfg, "Example", v"1.2.3", block1, block2, hardware) == output
+        changed = PerfChecker.normalize_config(:benchmark,
+            Dict(:path => dir, :tags => [:cache], :threads => 1, :samples => 2))
+        @test isnothing(PerfChecker.cached_output_path(
+            changed, "Example", v"1.2.3", block1, block2, hardware))
+    end
 end

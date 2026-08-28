@@ -19,7 +19,6 @@ end
 
 function PerfChecker.check(d::Dict, block::Expr, ::Val{:benchmark})
     quote
-        d = $d
         return @benchmark $block samples=d[:samples] seconds=d[:seconds] evals=d[:evals] overhead=d[:overhead] gctrial=d[:gctrial] gcsample=d[:gcsample] time_tolerance=d[:time_tolerance] memory_tolerance=d[:memory_tolerance]
     end
 end

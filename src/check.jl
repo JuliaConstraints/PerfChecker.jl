@@ -75,7 +75,7 @@ end
 
 function run_targets(config::CheckConfig)
     pkgs = if config.packages === nothing
-        PackageSpec[PackageSpec()]
+        config.include_current ? PackageSpec[PackageSpec()] : PackageSpec[]
     else
         [PackageSpec(name = config.packages.name, version = i)
          for i in get_versions(config.packages)[2]]
@@ -130,17 +130,18 @@ function check_function(x::Symbol, d::Dict, block1, block2)
     targets = run_targets(config)
     len = length(targets)
 
-    t = [tempname() for _ in 1:len]
-    cp.(Ref(config.path), t)
-
-    procs = @sync begin
-        fetch.([@async(Worker(;
-                    exeflags = ["--track-allocation=$(config.track)",
-                        "-t $(config.threads)", "--project=$(t[i])"])) for i in 1:len])
-    end
-
+    temp_roots = [mktempdir() for _ in 1:len]
+    worker_envs = [joinpath(root, "environment") for root in temp_roots]
+    cp.(Ref(config.path), worker_envs)
+    procs = Any[nothing for _ in 1:len]
     cleanup_options = Dict{Symbol, Any}[]
     try
+        @sync for i in 1:len
+            @async procs[i] = Worker(;
+                exeflags = ["--track-allocation=$(config.track)",
+                "-t $(config.threads)", "--project=$(worker_envs[i])"])
+        end
+
         for i in 1:len
             target = targets[i]
             run_options = copy(di)
@@ -155,14 +156,19 @@ function check_function(x::Symbol, d::Dict, block1, block2)
             end
 
             if cached_path === nothing
-                remote_eval_wait(Main, procs[i], quote
-                    import Pkg
-                    let
-                        i = $i
-                        @info "Worker No.: $i"
-                    end
-                    Pkg.instantiate(; io = stderr)
-                end)
+                quiet = get(di, :quiet, false)
+                remote_eval_wait(Main,
+                    procs[i],
+                    quote
+                        import Pkg
+                        ENV["JULIA_PKG_PRECOMPILE_AUTO"] = "0"
+                        $quiet && (Pkg.UPDATED_REGISTRY_THIS_SESSION[] = true)
+                        let
+                            i = $i
+                            $quiet || @info "Worker No.: $i"
+                        end
+                        Pkg.instantiate(; io = $quiet ? devnull : stderr)
+                    end)
 
                 remote_eval_wait(Main, procs[i], initpkg)
 
@@ -172,22 +178,32 @@ function check_function(x::Symbol, d::Dict, block1, block2)
                         is_dev = $(target.is_dev)
                         target_spec = $(target.spec)
                         target_label = $(target.label)
+                        pkg_io = get(d, :quiet, false) ? devnull : stderr
                         if is_dev
                             pkg = d[:devops]
                             try
-                                Pkg.rm(target_label)
+                                Pkg.rm(target_label; io = pkg_io)
                             catch
                             end
-                            pkg isa Tuple ? Pkg.develop(pkg[1]; pkg[2]...) :
-                            Pkg.develop(pkg)
+                            pkg isa Tuple ? Pkg.develop(pkg[1]; pkg[2]..., io = pkg_io) :
+                            Pkg.develop(pkg; io = pkg_io)
                         elseif !isnothing(target_spec.name)
                             try
-                                Pkg.rm(target_spec.name)
+                                Pkg.rm(target_spec.name; io = pkg_io)
                             catch
                             end
-                            Pkg.add(target_spec)
+                            Pkg.add(target_spec; io = pkg_io)
                         end
-                        haskey(d, :extra_pkgs) && Pkg.add(d[:extra_pkgs])
+                        if haskey(d, :extra_pkgs)
+                            extras = d[:extra_pkgs]
+                            extras = extras isa AbstractVector ? extras : [extras]
+                            specs = [spec isa NamedTuple ? Pkg.PackageSpec(; spec...) :
+                                     spec
+                                     for spec in extras]
+                            Pkg.add(specs; io = pkg_io)
+                        end
+                        haskey(d, :extra_devops) &&
+                            Pkg.develop(d[:extra_devops]; io = pkg_io)
                     end)
 
                 run_options[:prep_result] = remote_eval_fetch(Main, procs[i], g)
@@ -219,9 +235,10 @@ function check_function(x::Symbol, d::Dict, block1, block2)
             write_run_metadata(metadata, run)
         end
     finally
-        foreach(safe_stop, procs)
+        foreach(safe_stop, filter(!isnothing, procs))
         safe_cleanup(di, x)
         foreach(options -> safe_cleanup(options, x), cleanup_options)
+        foreach(root -> rm(root; recursive = true, force = true), temp_roots)
     end
 
     return results
@@ -364,3 +381,65 @@ Convert a backend-specific raw result into a table stored by PerfChecker.
 Backends should extend this method for their raw result types.
 """
 function to_table end
+
+@testitem "Check API" tags=[:unit, :api] begin
+    using PerfChecker
+
+    config = PerfConfig(:benchmark; path = @__DIR__, samples = 1)
+    @test (@macroexpand @check config begin
+        nothing
+    end begin
+        nothing
+    end) isa Expr
+    normalized = PerfChecker.normalize_config(config)
+    @test length(PerfChecker.run_targets(normalized)) == 1
+end
+
+@testitem "Malt worker version scope" tags=[:integration, :workers] begin
+    using BenchmarkTools
+    using Chairmarks
+    using PerfChecker
+    import Pkg
+
+    worker_env = pkgdir(PerfChecker)
+    chair = PerfConfig(:chairmark; path = worker_env, samples = 1,
+        evals = 1, seconds = 0.01)
+    chair_result = PerfChecker.check_function(
+        chair, :(nothing), :(haskey(d, :current_version)))
+    @test length(chair_result.tables) == 1
+
+    benchmark = PerfConfig(:benchmark; path = worker_env, samples = 1,
+        evals = 1, seconds = 0.01)
+    benchmark_result = PerfChecker.check_function(
+        benchmark, :(nothing), :(haskey(d, :current_version)))
+    @test length(benchmark_result.tables) == 1
+
+    mktempdir() do dir
+        runner = joinpath(dir, "runner")
+        source = joinpath(dir, "PerfCheckerWorkerFixture")
+        mkpath(runner)
+        mkpath(joinpath(source, "src"))
+        write(joinpath(runner, "Project.toml"), """
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+""")
+        write(joinpath(source, "Project.toml"), """
+name = "PerfCheckerWorkerFixture"
+uuid = "8402b14d-c534-4a2b-88cc-18076cd850d7"
+version = "0.1.0"
+""")
+        write(joinpath(source, "src", "PerfCheckerWorkerFixture.jl"), """
+module PerfCheckerWorkerFixture
+answer() = 42
+end
+""")
+
+        development = PerfConfig(:benchmark; path = runner,
+            devops = Pkg.PackageSpec(name = "PerfCheckerWorkerFixture", path = source),
+            include_current = false, quiet = true, samples = 1, evals = 1,
+            seconds = 0.01)
+        development_result = PerfChecker.check_function(development,
+            :(using PerfCheckerWorkerFixture), :(PerfCheckerWorkerFixture.answer()))
+        @test length(development_result.tables) == 1
+    end
+end

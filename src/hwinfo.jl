@@ -46,7 +46,9 @@ function load_hwinfo_from_json(filepath::String)
         error("File $filepath does not exist.")
     end
 
-    data = JSON.parsefile(filepath)
+    data = open(filepath, "r") do io
+        JSON.parse(io)
+    end
 
     cpus = [dict_to_cpuinfo(cpu) for cpu in data["cpus"]]
 
@@ -57,4 +59,23 @@ function load_hwinfo_from_json(filepath::String)
         data["simdbytes"],
         (data["corecount"][1], data["corecount"][2], data["corecount"][3])
     )
+end
+
+@testitem "Hardware identity" tags=[:unit, :hardware] begin
+    import PerfChecker
+
+    info = PerfChecker.HwInfo()
+    as_dict = PerfChecker.hwinfo_to_dict(info)
+    @test as_dict["machine"] == info.machine
+    @test as_dict["corecount"] == info.corecount
+    mktempdir() do dir
+        id = PerfChecker.uuid4()
+        path = joinpath(dir, "$(id).json")
+        PerfChecker.write_hwinfo_to_json(info, id; path = dir)
+        restored = PerfChecker.load_hwinfo_from_json(path)
+        @test restored.machine == info.machine
+        @test restored.word == info.word
+        @test restored.corecount == info.corecount
+        rm(path; force = true)
+    end
 end

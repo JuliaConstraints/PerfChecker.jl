@@ -74,3 +74,18 @@ function summary_table(result::CheckerResult)
         min_allocs,
         max_allocs)
 end
+
+@testitem "Summary tables" tags=[:unit, :reporting] begin
+    using PerfChecker
+    import Pkg
+
+    result = PerfChecker.CheckerResult(
+        [PerfChecker.Table(times = [3.0, 1.0], bytes_or_memory = [20, 10],
+            allocs = [2, 1])], nothing, [:unit],
+        [Pkg.Types.PackageSpec(name = "Example", version = v"1.2.3")])
+    summary = summary_table(result)
+    @test summary.package[1] == "Example"
+    @test summary.version[1] == "1.2.3"
+    @test summary.min_time[1] == 1.0
+    @test summary.max_memory[1] == 20.0
+end

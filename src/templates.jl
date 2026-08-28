@@ -159,3 +159,83 @@ function perf_setup(; dir = "perf", kinds = DEFAULT_TEMPLATE_KINDS, force::Bool 
     return [write_template(kind; path = joinpath(dir, _template_filename(kind)), force)
             for kind in kinds]
 end
+
+"""
+    write_suite_notebook(path; result_path="results/suite-result.json", force=false)
+
+Create a Pluto notebook that reads the common JSON suite report. The notebook
+is deliberately read-only: expensive checks stay in scripts or CI, while Pluto
+uses exactly the same result grammar as Oxygen and other reporters.
+"""
+function write_suite_notebook(path::AbstractString;
+        result_path::AbstractString = "results/suite-result.json", force::Bool = false)
+    target = String(path)
+    isfile(target) && !force &&
+        throw(ArgumentError("$target already exists; pass force=true to overwrite it"))
+    mkpath(dirname(target))
+    result_literal = repr(String(result_path))
+    body = """
+### A Pluto.jl notebook ###
+# v1.0.0
+
+# ╔═╡ 41dbb952-51ff-4edb-bb60-5b75a58da62d
+begin
+    import Pkg
+    Pkg.activate(dirname(@__DIR__))
+    using JSON
+    using PerfChecker
+end
+
+@testitem "Performance templates" tags=[:unit, :templates] begin
+    using PerfChecker
+
+    mktempdir() do dir
+        paths = perf_setup(; dir = joinpath(dir, "perf"), kinds = (:benchmark, :pluto))
+        @test length(paths) == 2
+        @test all(isfile, paths)
+        @test occursin("PerfConfig(:benchmark", read(paths[1], String))
+        @test occursin("Pluto.jl", read(paths[2], String))
+        @test_throws ArgumentError write_template(:benchmark; path = paths[1])
+        @test write_template(:benchmark; path = paths[1], force = true) == paths[1]
+        @test_throws ArgumentError write_template(:unknown; path = joinpath(dir, "x.jl"))
+    end
+end
+
+# ╔═╡ 4531fb5a-74fd-45b7-867a-94447193d561
+result_path = normpath(joinpath(@__DIR__, $result_literal))
+
+# ╔═╡ fa2e2a77-d688-43fd-bc2a-d85732c0318e
+suite = isfile(result_path) ? JSON.parsefile(result_path) : Dict(
+    "status" => "missing",
+    "message" => "Run perf/run.jl before opening the dashboard.")
+
+# ╔═╡ cfdc9952-89e9-40fc-a656-bf0519ef0484
+runs = get(suite, "runs", Any[])
+
+# ╔═╡ 7700c6fd-0cd1-4829-b0e4-f867ab48b94e
+passed = count(run -> get(run, "status", "") == "pass", runs)
+
+# ╔═╡ 9da214fd-b605-4867-969b-57e608ba4285
+unavailable = count(run -> get(run, "status", "") == "unavailable", runs)
+
+# ╔═╡ 12574c2d-f627-4a88-8980-1811bf738a5b
+failed = count(run -> get(run, "status", "") == "error", runs)
+
+# ╔═╡ 94b9447f-b5cb-46ef-a211-17bb5a091c11
+runs
+
+# ╔═╡ Cell order:
+# ╠═41dbb952-51ff-4edb-bb60-5b75a58da62d
+# ╠═4531fb5a-74fd-45b7-867a-94447193d561
+# ╠═fa2e2a77-d688-43fd-bc2a-d85732c0318e
+# ╠═cfdc9952-89e9-40fc-a656-bf0519ef0484
+# ╠═7700c6fd-0cd1-4829-b0e4-f867ab48b94e
+# ╠═9da214fd-b605-4867-969b-57e608ba4285
+# ╠═12574c2d-f627-4a88-8980-1811bf738a5b
+# ╠═94b9447f-b5cb-46ef-a211-17bb5a091c11
+"""
+    open(target, "w") do io
+        write(io, body)
+    end
+    return target
+end

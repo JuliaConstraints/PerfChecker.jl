@@ -1,4 +1,10 @@
-@testset "PatternFolds.jl" begin
+@testitem "PatternFolds.jl" tags=[:integration, :historical] begin
+    using BenchmarkTools
+    using Chairmarks
+    using Intervals
+    using PatternFolds
+    using PerfChecker
+
     d = Dict(
         :targets => ["PatternFolds"], :path => @__DIR__, :tags => [:patterns, :intervals],
         :pkgs => ("PatternFolds", :custom, [v"0.2.1", v"0.2.4"], true))

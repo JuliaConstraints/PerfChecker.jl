@@ -93,3 +93,16 @@ function to_table(myallocs::Vector{MallocInfo})
     l = map(a -> a.linenumber, Iterators.reverse(myallocs))
     Table(bytes = b, percentage = r, filename = f, line = l, filenames = f, linenumbers = l)
 end
+
+@testitem "Allocation artifacts" tags=[:unit, :allocations] begin
+    import PerfChecker
+
+    mktempdir() do dir
+        memfile = joinpath(dir, "dummy.jl.123.mem")
+        write(memfile, "1 1\n")
+        @test isfile(memfile)
+        PerfChecker.rm_malloc_files([dir])
+        @test !isfile(memfile)
+    end
+    @test isempty(PerfChecker.find_malloc_files([joinpath(pkgdir(PerfChecker), "src")]))
+end
