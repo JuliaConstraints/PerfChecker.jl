@@ -39,4 +39,27 @@ function PerfChecker.drwatson_produce_or_load(producer::Function,
     end
 end
 
+function PerfChecker.drwatson_run_suite(suite::PerfChecker.SoftwareSuite;
+        profile::Symbol = :quick, directory::AbstractString = "",
+        force::Bool = false, tag::Bool = true, version_provider = PerfChecker.get_pkg_versions,
+        executor = PerfChecker._default_suite_executor, overrides = Dict{Symbol, Any}(),
+        relative_limits = Dict{String, Float64}(), min_samples::Integer = 1)
+    plan = PerfChecker.plan_suite(suite; profile, version_provider)
+    revision = PerfChecker.suite_plan_dict(plan)["plan_revision"]
+    root = isempty(directory) ? DrWatson.datadir("perfchecker", string(suite.id)) :
+           abspath(String(directory))
+    parameters = Dict("suite" => string(suite.id), "profile" => string(profile),
+        "plan_revision" => revision)
+    return PerfChecker.drwatson_produce_or_load(parameters; directory = root,
+        force, tag) do _
+        result = PerfChecker.run_suite(plan; executor, overrides, strict = false)
+        reports = joinpath(root, "reports-$revision")
+        paths = PerfChecker.write_suite_reports(result, reports;
+            relative_limits, min_samples)
+        Dict("passed" => PerfChecker.suite_passed(result),
+            "reports" => reports, "artifacts" => paths,
+            "finished_at" => result.finished_at)
+    end
+end
+
 end

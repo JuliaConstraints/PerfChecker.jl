@@ -260,17 +260,17 @@ function suite_plan_dict(plan::SuitePlan)
         "description" => plan.suite.description,
         "profile" => string(plan.profile),
         "runs" => [Dict{String, Any}(
-             "id" => planned_run_id(run),
-             "package" => run.package_suite.package,
-             "package_id" => string(run.package_suite.id),
-             "feature" => string(run.feature.id),
-             "description" => run.feature.description,
-             "backend" => string(run.feature.backend),
-             "version" => run.target.label,
-             "target_kind" => string(run.target.kind),
-             "comparison_key" => run.comparison_key,
-             "status" => string(run.planned_status),
-             "reason" => run.reason) for run in plan.runs])
+                       "id" => planned_run_id(run),
+                       "package" => run.package_suite.package,
+                       "package_id" => string(run.package_suite.id),
+                       "feature" => string(run.feature.id),
+                       "description" => run.feature.description,
+                       "backend" => string(run.feature.backend),
+                       "version" => run.target.label,
+                       "target_kind" => string(run.target.kind),
+                       "comparison_key" => run.comparison_key,
+                       "status" => string(run.planned_status),
+                       "reason" => run.reason) for run in plan.runs])
     payload["plan_revision"] = _content_digest(payload)
     return payload
 end
@@ -319,18 +319,52 @@ mutable struct SuiteJob
     status::Base.RefValue{Symbol}
     result::Base.RefValue{Any}
     error::Base.RefValue{Any}
+    progress::Base.RefValue{Dict{String, Any}}
+    cancelled::Base.RefValue{Bool}
+end
+
+function _suite_progress(plan::SuitePlan, runs::Vector{FeatureRun};
+        state::Symbol = :running, current = nothing)
+    total = length(plan.runs)
+    completed = length(runs)
+    counts = Dict(status => count(run -> run.status === status, runs)
+    for status in (:pass, :unavailable, :error))
+    current_payload = current === nothing ? nothing :
+                      Dict{String, Any}(
+        "id" => planned_run_id(current),
+        "package" => current.package_suite.package,
+        "feature" => string(current.feature.id),
+        "backend" => string(current.feature.backend),
+        "version" => current.target.label)
+    return Dict{String, Any}(
+        "state" => string(state), "total" => total, "completed" => completed,
+        "remaining" => max(total - completed, 0),
+        "fraction" => total == 0 ? 1.0 : completed / total,
+        "percent" => total == 0 ? 100.0 : 100 * completed / total,
+        "passed" => counts[:pass], "unavailable" => counts[:unavailable],
+        "failed" => counts[:error], "current_run" => current_payload)
+end
+
+function _notify_suite_progress(callback, payload)
+    try
+        callback(payload)
+    catch error
+        @warn "PerfChecker progress callback failed" exception=(error,
+            catch_backtrace())
+    end
+    return payload
 end
 
 function _feature_blocks(planned::PlannedFeatureRun)
     entrypoint = (planned.variant::FeatureVariant).entrypoint
+    state_name = Symbol("_perfchecker_feature_state_", planned_run_id(planned))
     setup = quote
         include($entrypoint)
         isdefined(Main, :perf_workload) ||
             error("feature entrypoint must define perf_workload(state)")
-        global _perfchecker_feature_state = isdefined(Main, :perf_setup) ? perf_setup() :
-                                            nothing
+        const $state_name = isdefined(Main, :perf_setup) ? perf_setup() : nothing
     end
-    workload = :(perf_workload(_perfchecker_feature_state))
+    workload = Expr(:call, :perf_workload, state_name)
     return setup, workload
 end
 
@@ -399,46 +433,98 @@ function _ensure_suite_backends(plan::SuitePlan)
 end
 
 function _execute_suite_plan(plan::SuitePlan; executor = _default_suite_executor,
-        overrides::AbstractDict = Dict{Symbol, Any}())
+        overrides::AbstractDict = Dict{Symbol, Any}(),
+        progress_callback = _ -> nothing)
     executor === _default_suite_executor && _ensure_suite_backends(plan)
     started = string(Dates.now(Dates.UTC))
     runs = FeatureRun[]
-    for planned in plan.runs
-        if planned.planned_status === :unavailable
-            push!(runs, FeatureRun(planned, :unavailable, 0.0, nothing, planned.reason))
-            continue
+    prepared = Dict{Tuple{Symbol, String}, String}()
+    preparation_errors = Dict{Tuple{Symbol, String}, Any}()
+    preparation_roots = String[]
+    _notify_suite_progress(progress_callback,
+        _suite_progress(plan, runs; state = :running))
+    try
+        for planned in plan.runs
+            _notify_suite_progress(progress_callback,
+                _suite_progress(plan, runs; state = :running, current = planned))
+            if planned.planned_status === :unavailable
+                push!(runs,
+                    FeatureRun(planned, :unavailable, 0.0, nothing, planned.reason))
+                _notify_suite_progress(progress_callback,
+                    _suite_progress(plan, runs; state = :running))
+                continue
+            end
+            before = time()
+            try
+                config = _run_config(planned, overrides)
+                if executor === _default_suite_executor
+                    key = (planned.package_suite.id, planned.target.label)
+                    haskey(preparation_errors, key) && throw(preparation_errors[key])
+                    environment = get(prepared, key, nothing)
+                    if environment === nothing
+                        root, environment = try
+                            _prepare_check_environment(config)
+                        catch error
+                            preparation_errors[key] = error
+                            rethrow()
+                        end
+                        push!(preparation_roots, root)
+                        prepared[key] = environment
+                    end
+                    config.options[:prepared_environment] = environment
+                end
+                setup, workload = _feature_blocks(planned)
+                result = Base.invokelatest(executor, planned, config, setup, workload)
+                push!(runs, FeatureRun(planned, :pass, time() - before, result, ""))
+            catch error
+                status = _unavailable_exception(error) ? :unavailable : :error
+                message = sprint(showerror, error, catch_backtrace())
+                push!(runs, FeatureRun(planned, status, time() - before, nothing, message))
+            end
+            _notify_suite_progress(progress_callback,
+                _suite_progress(plan, runs; state = :running))
         end
-        before = time()
-        try
-            config = _run_config(planned, overrides)
-            setup, workload = _feature_blocks(planned)
-            result = Base.invokelatest(executor, planned, config, setup, workload)
-            push!(runs, FeatureRun(planned, :pass, time() - before, result, ""))
-        catch error
-            status = _unavailable_exception(error) ? :unavailable : :error
-            message = sprint(showerror, error, catch_backtrace())
-            push!(runs, FeatureRun(planned, status, time() - before, nothing, message))
-        end
+    finally
+        foreach(root -> rm(root; recursive = true, force = true), preparation_roots)
     end
-    return SoftwareSuiteResult(plan, started, string(Dates.now(Dates.UTC)), runs)
+    result = SoftwareSuiteResult(plan, started, string(Dates.now(Dates.UTC)), runs)
+    final_state = suite_passed(result) ? :complete : :failed
+    _notify_suite_progress(progress_callback,
+        _suite_progress(plan, runs; state = final_state))
+    return result
 end
 
 function launch_suite(plan::SuitePlan;
-        overrides::AbstractDict = Dict{Symbol, Any}(), executor = _default_suite_executor)
+        overrides::AbstractDict = Dict{Symbol, Any}(), executor = _default_suite_executor,
+        progress_callback = _ -> nothing)
     status = Ref(:queued)
     result = Ref{Any}(nothing)
     captured_error = Ref{Any}(nothing)
+    progress = Ref(_suite_progress(plan, FeatureRun[]; state = :queued))
+    cancelled = Ref(false)
+    update_progress = payload -> begin
+        progress[] = payload
+        _notify_suite_progress(progress_callback, payload)
+    end
     task = @async begin
         status[] = :running
         try
-            result[] = _execute_suite_plan(plan; overrides, executor)
+            result[] = _execute_suite_plan(plan; overrides, executor,
+                progress_callback = update_progress)
             status[] = :complete
         catch error
-            captured_error[] = (error, catch_backtrace())
-            status[] = :failed
+            if cancelled[] || error isa InterruptException
+                status[] = :cancelled
+                progress[]["state"] = "cancelled"
+            else
+                captured_error[] = (error, catch_backtrace())
+                status[] = :failed
+                progress[]["state"] = "failed"
+            end
         end
     end
-    return SuiteJob(uuid4(), plan, task, status, result, captured_error)
+    return SuiteJob(uuid4(), plan, task, status, result, captured_error, progress,
+        cancelled)
 end
 
 function launch_suite(suite::SoftwareSuite; profile::Symbol = :quick,
@@ -447,6 +533,16 @@ function launch_suite(suite::SoftwareSuite; profile::Symbol = :quick,
 end
 
 suite_job_status(job::SuiteJob) = job.status[]
+suite_job_progress(job::SuiteJob) = copy(job.progress[])
+
+function cancel_suite!(job::SuiteJob)
+    istaskdone(job.task) && return false
+    job.cancelled[] = true
+    job.status[] = :cancelling
+    job.progress[]["state"] = "cancelling"
+    schedule(job.task, InterruptException(); error = true)
+    return true
+end
 
 function suite_job_dict(job::SuiteJob)
     payload = Dict{String, Any}(
@@ -454,7 +550,8 @@ function suite_job_dict(job::SuiteJob)
         "job_id" => string(job.id),
         "suite" => string(job.plan.suite.id),
         "profile" => string(job.plan.profile),
-        "status" => string(suite_job_status(job)))
+        "status" => string(suite_job_status(job)),
+        "progress" => suite_job_progress(job))
     job.status[] === :complete && (payload["result"] = suite_dict(job.result[]))
     if job.status[] === :failed && job.error[] !== nothing
         error, _ = job.error[]
@@ -467,17 +564,19 @@ function wait_suite(job::SuiteJob; strict::Bool = true)
     wait(job.task)
     if job.error[] !== nothing
         error, trace = job.error[]
-        @debug "suite orchestration failure" exception = (error, trace)
+        @debug "suite orchestration failure" exception=(error, trace)
         throw(error)
     end
+    job.status[] === :cancelled && throw(InterruptException())
     result = job.result[]::SoftwareSuiteResult
     strict && !suite_passed(result) && throw(SuiteRunError(result))
     return result
 end
 
 function run_suite(plan::SuitePlan; executor = _default_suite_executor,
-        overrides::AbstractDict = Dict{Symbol, Any}(), strict::Bool = true)
-    result = _execute_suite_plan(plan; executor, overrides)
+        overrides::AbstractDict = Dict{Symbol, Any}(), strict::Bool = true,
+        progress_callback = _ -> nothing)
+    result = _execute_suite_plan(plan; executor, overrides, progress_callback)
     strict && !suite_passed(result) && throw(SuiteRunError(result))
     return result
 end
@@ -550,9 +649,9 @@ function _first_summary_row(run::FeatureRun)
     run.result isa CheckerResult || return Dict{String, Any}()
     table = summary_table(run.result)
     isempty(table) && return Dict{String, Any}()
-    return Dict{String, Any}(string(name) =>
-                                 (ismissing(getproperty(table, name)[1]) ? nothing :
-                                  getproperty(table, name)[1])
+    return Dict{String, Any}(string(name) => (ismissing(getproperty(table, name)[1]) ?
+                                              nothing :
+                                              getproperty(table, name)[1])
     for name in propertynames(table))
 end
 
@@ -566,15 +665,15 @@ function suite_dict(result::SoftwareSuiteResult)
         "finished_at" => result.finished_at,
         "passed" => suite_passed(result),
         "runs" => [Dict{String, Any}(
-             "package" => run.planned.package_suite.package,
-             "feature" => string(run.planned.feature.id),
-             "version" => run.planned.target.label,
-             "target_kind" => string(run.planned.target.kind),
-             "comparison_key" => run.planned.comparison_key,
-             "status" => string(run.status),
-             "elapsed_seconds" => run.elapsed_seconds,
-             "message" => run.message,
-             "summary" => _first_summary_row(run)) for run in result.runs])
+                       "package" => run.planned.package_suite.package,
+                       "feature" => string(run.planned.feature.id),
+                       "version" => run.planned.target.label,
+                       "target_kind" => string(run.planned.target.kind),
+                       "comparison_key" => run.planned.comparison_key,
+                       "status" => string(run.status),
+                       "elapsed_seconds" => run.elapsed_seconds,
+                       "message" => run.message,
+                       "summary" => _first_summary_row(run)) for run in result.runs])
 end
 
 function write_suite_json(result::SoftwareSuiteResult, path::AbstractString)
@@ -661,8 +760,8 @@ function write_suite_reports(result::SoftwareSuiteResult, directory::AbstractStr
         push!(paths, write_run_bundle(bundle, bundle_path))
     end
     if any(format -> format in formats,
-            (:version_series, :version_comparison_json,
-                :version_comparison_markdown))
+        (:version_series, :version_comparison_json,
+            :version_comparison_markdown))
         comparison = compare_suite_versions(bundle; relative_limits, min_samples)
         :version_series in formats && push!(paths,
             write_version_series_json(comparison,

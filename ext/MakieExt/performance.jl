@@ -21,14 +21,16 @@ function _add_inspector(figure)
     try
         DataInspector(figure)
     catch error
-        @debug "Makie DataInspector is unavailable for this backend" exception = (
+        @debug "Makie DataInspector is unavailable for this backend" exception=(
             error, catch_backtrace())
     end
     return figure
 end
 
-_has_positive_range(values) = !isempty(values) && all(>=(0), values) &&
-                              maximum(values) > minimum(values)
+function _has_positive_range(values)
+    !isempty(values) && all(>=(0), values) &&
+        maximum(values) > minimum(values)
+end
 
 function _version_series_figure(plot)
     isempty(plot.data) && return _empty_performance_figure(plot)
@@ -40,8 +42,9 @@ function _version_series_figure(plot)
               RGBf(0.04, 0.52, 0.57) for item in plot.data]
     lines!(axis, xs, ys; color = RGBf(0.04, 0.52, 0.57), linewidth = 3)
     scatter!(axis, xs, ys; color = colors, markersize = 15, strokewidth = 2,
-        strokecolor = :white, inspector_label = (self, index, position) ->
-            "$(labels[index])\n$(round(position[2]; sigdigits = 5)) $(plot.options["unit"])" )
+        strokecolor = :white, inspector_label = (self,
+            index,
+            position) -> "$(labels[index])\n$(round(position[2]; sigdigits = 5)) $(plot.options["unit"])")
     axis.xticks = (collect(eachindex(labels)), labels)
     axis.xticklabelrotation = pi / 4
     axis.xlabel = "package version"
@@ -68,12 +71,15 @@ function _distribution_figure(plot)
 end
 
 function _delta_figure(plot)
-    records = [item for item in plot.data if get(item, "relative_delta", nothing) isa Number]
+    records = [item
+               for item in plot.data if get(item, "relative_delta", nothing) isa Number]
     isempty(records) && return _empty_performance_figure(plot)
     figure, axis = _performance_figure(plot.title)
-    labels = ["$(item["baseline_version"]) → $(item["candidate_version"])" for item in records]
+    labels = ["$(item["baseline_version"]) → $(item["candidate_version"])"
+              for item in records]
     values = Float64[item["relative_delta"] * 100 for item in records]
-    colors = [value > 0 ? RGBf(0.77, 0.16, 0.13) : value < 0 ?
+    colors = [value > 0 ? RGBf(0.77, 0.16, 0.13) :
+              value < 0 ?
               RGBf(0.05, 0.49, 0.25) : RGBf(0.36, 0.42, 0.50) for value in values]
     barplot!(axis, eachindex(values), values; color = colors, strokecolor = :white,
         strokewidth = 1)
@@ -155,8 +161,7 @@ function _allocation_heatmap_figure(plot)
     label_index = Dict(label => index for (index, label) in pairs(labels))
     matrix = zeros(Float64, length(versions), length(labels))
     for item in plot.data
-        matrix[version_index[String(item["version"])], label_index[String(item["label"])]] =
-            Float64(item["bytes"])
+        matrix[version_index[String(item["version"])], label_index[String(item["label"])]] = Float64(item["bytes"])
     end
     height = max(650, 20 * length(labels))
     figure, axis = _performance_figure(plot.title; size = (1250, height))
@@ -171,6 +176,62 @@ function _allocation_heatmap_figure(plot)
     return _add_inspector(figure)
 end
 
+const _FLAME_STATUS_COLORS = Dict(
+    "runtime_dispatch" => RGBf(0.78, 0.08, 0.19),
+    "inference_warning" => RGBf(0.46, 0.20, 0.72),
+    "gc_event" => RGBf(0.95, 0.50, 0.08))
+
+function _flame_tooltip(item, plot)
+    value_label = String(plot.options["value_label"])
+    lines = String[
+        "Frame: $(item["label"])",
+        "Path: $(join(item["path"], " → "))",
+        "Share: $(round(Float64(item["percentage"]); digits = 3))%",
+        "Weight: $(round(Float64(item["value"]); sigdigits = 6)) $value_label"]
+    dispatch_value = Float64(get(item, "runtime_dispatch_value", 0.0))
+    dispatch_percentage = Float64(get(item, "runtime_dispatch_percentage", 0.0))
+    dispatch_value > 0 && push!(lines,
+        "Runtime dispatch: $(round(dispatch_percentage; digits = 2))% ($(round(dispatch_value; sigdigits = 6)) $value_label)")
+    gc_value = Float64(get(item, "gc_event_value", 0.0))
+    gc_percentage = Float64(get(item, "gc_event_percentage", 0.0))
+    gc_value > 0 && push!(lines,
+        "Garbage collection: $(round(gc_percentage; digits = 2))% ($(round(gc_value; sigdigits = 6)) $value_label)")
+    inference_status = String.(get(item, "inference_status", String[]))
+    return_types = String.(get(item, "inferred_return_type", String[]))
+    isempty(inference_status) || push!(lines,
+        "Julia inference: $(join(inference_status, ", "))")
+    isempty(return_types) || push!(lines,
+        "Inferred return: $(join(return_types, " | "))")
+    any(status -> status in ("any", "union", "abstract"), inference_status) &&
+        push!(lines, "Inspect with @code_warntype or Cthulhu")
+    return join(lines, '\n')
+end
+
+function _flame_legend!(figure, allocation_only)
+    normal_color = RGBf(0.22, 0.66, 0.72)
+    if allocation_only
+        elements = [PolyElement(color = normal_color)]
+        labels = ["sampled allocation frame"]
+        note = "Width = share of allocated bytes.\nHover any frame for its full path."
+    else
+        statuses = ("normal", "runtime_dispatch", "inference_warning", "gc_event")
+        colors = [normal_color;
+                  [_FLAME_STATUS_COLORS[status] for status in statuses[2:end]]]
+        elements = [PolyElement(color = color) for color in colors]
+        labels = [
+            "sampled Julia frame", "runtime dispatch", "non-concrete inferred return",
+            "garbage collection"]
+        note = "Red = observed dynamic dispatch.\nPurple = non-concrete inferred return.\nOrange = garbage collection.\nHover any frame for full diagnostics."
+    end
+    legend_grid = figure[1, 2] = GridLayout()
+    Legend(legend_grid[1, 1], elements, labels;
+        title = "frame diagnostics", tellheight = false)
+    Label(legend_grid[2, 1], note;
+        tellwidth = false, justification = :left, halign = :left,
+        color = RGBf(0.30, 0.35, 0.42), fontsize = 12)
+    return figure
+end
+
 function _flamegraph_figure(plot)
     isempty(plot.data) && return _empty_performance_figure(plot)
     maximum_depth = maximum(item -> Int(item["depth"]), plot.data)
@@ -180,20 +241,17 @@ function _flamegraph_figure(plot)
     labels = sort!(unique!(String[String(item["label"]) for item in plot.data]))
     palette = make_colors(length(labels))
     label_colors = Dict(label => palette[index] for (index, label) in pairs(labels))
-    rectangles = Rect2f[]
-    rectangle_colors = RGBf[]
-    for item in plot.data
-        x0 = 100 * Float64(item["x0"])
-        width = 100 * (Float64(item["x1"]) - Float64(item["x0"]))
-        depth = Int(item["depth"])
-        push!(rectangles, Rect2f(x0, depth - 0.42, width, 0.84))
-        push!(rectangle_colors, label_colors[String(item["label"])])
-    end
-    poly!(axis, rectangles; color = rectangle_colors, strokecolor = :white,
-        strokewidth = 0.8, inspector_label = (self, index, position) -> begin
-            item = plot.data[index]
-            "$(join(item["path"], " → "))\n$(round(Float64(item["percentage"]); digits = 2))% · $(round(Float64(item["value"]); sigdigits = 5)) $(plot.options["value_label"])"
-        end)
+    allocation_only = plot.kind === :allocation_flamegraph
+    depths = Float64[Int(item["depth"]) for item in plot.data]
+    starts = Float64[100 * Float64(item["x0"]) for item in plot.data]
+    stops = Float64[100 * Float64(item["x1"]) for item in plot.data]
+    rectangle_colors = [get(_FLAME_STATUS_COLORS, String(get(item, "status", "normal")),
+                            label_colors[String(item["label"])])
+                        for item in plot.data]
+    barplot!(axis, depths, stops; fillto = starts, direction = :x,
+        width = 0.84, gap = 0, color = rectangle_colors, strokecolor = :white,
+        strokewidth = 0.8, inspectable = true,
+        inspector_label = (self, index, position) -> _flame_tooltip(plot.data[index], plot))
     for item in plot.data
         x0 = 100 * Float64(item["x0"])
         width = 100 * (Float64(item["x1"]) - Float64(item["x0"]))
@@ -207,6 +265,7 @@ function _flamegraph_figure(plot)
     axis.xlabel = "share of captured $(lowercase(String(plot.options["value_label"]))) (%)"
     axis.ylabel = "call stack depth"
     axis.xticks = 0:10:100
+    _flame_legend!(figure, allocation_only)
     return _add_inspector(figure)
 end
 
@@ -240,11 +299,13 @@ function PerfChecker.performance_figure(plot::PerfChecker.PerformancePlot)
     plot.kind === :allocation_heatmap && return _allocation_heatmap_figure(plot)
     plot.kind === :allocation_flamegraph && return _flamegraph_figure(plot)
     plot.kind === :cpu_flamegraph && return _flamegraph_figure(plot)
+    plot.kind === :wall_flamegraph && return _flamegraph_figure(plot)
     plot.kind === :time_allocation_tradeoff && return _tradeoff_figure(plot)
     throw(ArgumentError("Makie does not support performance plot kind $(plot.kind)"))
 end
 
 function PerfChecker.performance_figure(bundle::PerfChecker.RunBundle,
         id::AbstractString; kwargs...)
-    return PerfChecker.performance_figure(PerfChecker.performance_plot(bundle, id; kwargs...))
+    return PerfChecker.performance_figure(PerfChecker.performance_plot(
+        bundle, id; kwargs...))
 end

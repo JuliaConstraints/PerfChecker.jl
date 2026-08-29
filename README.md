@@ -31,7 +31,8 @@ write_suite_reports(result, "perf/results/ci")
 
 The shared plan, asynchronous-job, result, property-corpus, JSON, Markdown,
 JUnit, version-series/comparison, and portable run-bundle grammars are consumed by the optional Oxygen,
-Pluto, Makie, DrWatson, and Supposition integrations. External command
+Pluto, Makie, DrWatson, Supposition, maintained PropCheck compatibility, and
+PProf/FlameGraphs integrations. External command
 providers can emit the same observations from Python, Rust, R, or a mixed
 stack without loading PerfChecker in the measured process. `action.yml`,
 `bin/perfchecker-suite.jl`, and `bin/perfchecker-provider.jl` provide
@@ -39,8 +40,17 @@ the same workflow to CI without putting those controller dependencies inside
 the measured workers. See the software-suite documentation for version windows,
 dependency pins, and multi-package examples.
 
-The Oxygen extension includes a responsive Performance Studio for selecting,
-reordering, configuring, and launching feature/version runs, then exploring
+Terminal workflows use the same grammar through `filter_suite_plan`,
+`configure_suite_repl`, and `run_suite_repl`: inclusive version bounds,
+package/feature/backend filters, search, stable sorting, worker options, and a
+run-count progress bar. Loading UnicodePlots adds `terminal_plot`. Loading
+Documenter or DocumenterVitepress adds static performance pages and VitePress
+builds from the same portable bundle; none of these UI packages enter measured
+workers.
+
+The Oxygen extension includes a responsive Performance Studio for selecting
+semantic version ranges, filtering, colour-labelling, sorting, configuring and
+launching feature/version runs, then exploring
 their historical curves and regressions. It supports a loopback controller or
 an authenticated hosted controller with pull-based local/remote agents; the
 measured Malt workers remain free of PerfChecker and UI dependencies.
@@ -52,7 +62,11 @@ trajectories, sample distributions, regression deltas, time/allocation
 trade-offs, allocations by source file, allocation hotspots by exact line, and
 version-by-line heatmaps. Allocation shares are also available as percentage
 pie charts. CPU sampling and allocation stacks can be explored as Makie flame
-graphs, with version selection in the same Studio.
+graphs, including Julia 1.12 wall-time task profiles, with version selection in
+the same Studio. Every flame section has a full-path hover tooltip and a legend;
+CPU views distinguish observed runtime dispatch, non-concrete inferred returns,
+and garbage collection. Network-aware workloads can report explicit payload and
+operation counters without sampling unrelated host traffic.
 
 ## Google Summer of Code (2023)
 

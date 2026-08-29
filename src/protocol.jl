@@ -28,7 +28,7 @@ function ExternalCommandSpec(id::Symbol, language::AbstractString,
     isdir(root) || throw(ArgumentError("provider directory does not exist: $root"))
     timeout_seconds > 0 || throw(ArgumentError("provider timeout must be positive"))
     variables = Dict{String, String}(String(key) => String(value)
-                                     for (key, value) in pairs(environment))
+    for (key, value) in pairs(environment))
     return ExternalCommandSpec(id, String(language), String.(command), root, variables,
         Float64(timeout_seconds))
 end
@@ -69,8 +69,9 @@ function _canonical_json(io::IO, value)
         end
         print(io, '}')
     elseif value isa NamedTuple
-        _canonical_json(io, Dict(string(key) => getproperty(value, key)
-                                 for key in propertynames(value)))
+        _canonical_json(io,
+            Dict(string(key) => getproperty(value, key)
+            for key in propertynames(value)))
     elseif value isa Tuple || value isa AbstractVector || value isa Set
         print(io, '[')
         for (index, item) in enumerate(value)
@@ -141,6 +142,18 @@ function _measurement_definition(backend::Symbol, column::Symbol)
         column === :allocs && return ("julia.alloc.count/profile-allocs-v1", "1")
     elseif backend === :profile
         column === :samples && return ("julia.cpu.samples/profile-v1", "1")
+    elseif backend === :wall_profile
+        column === :samples && return ("julia.wall.samples/profile-walltime-v1", "1")
+    elseif backend === :network
+        column === :bytes_sent && return ("network.io.sent/network-explicit-v1", "By")
+        column === :bytes_received &&
+            return ("network.io.received/network-explicit-v1", "By")
+        column === :operations && return ("network.operations/network-explicit-v1", "1")
+        column === :seconds && return ("julia.wall.time/network-explicit-v1", "s")
+        column === :throughput_bytes_per_second &&
+            return ("network.throughput/network-explicit-v1", "By/s")
+        column === :operations_per_second &&
+            return ("network.operations.rate/network-explicit-v1", "1/s")
     end
     return nothing
 end
@@ -156,9 +169,13 @@ function _definition_dict(id::String, unit::String, backend::Symbol)
         "unit" => unit,
         "collector" => string(backend),
         "sample_semantics" => "one backend sample",
-        "preference" => "lower",
-        "warmup_policy" => backend in (:alloc, :profile_alloc, :profile) ?
-                           "explicit feature setup" : "collector controlled",
+        "preference" =>
+            occursin("throughput", id) || occursin(".rate/", id) ?
+            "higher" : "lower",
+        "warmup_policy" =>
+            backend in (:alloc, :profile_alloc, :profile,
+                :wall_profile, :network) ?
+            "explicit feature setup" : "collector controlled",
         "includes_compilation" => false,
         "includes_children" => false,
         "version" => 1)
@@ -175,10 +192,16 @@ function _metric_columns(backend::Symbol, names)
         (:bytes, :allocs)
     elseif backend === :profile
         (:samples,)
+    elseif backend === :wall_profile
+        (:samples,)
+    elseif backend === :network
+        (:bytes_sent, :bytes_received, :operations, :seconds,
+            :throughput_bytes_per_second, :operations_per_second)
     else
         Tuple(names)
     end
-    return [name for name in candidates
+    return [name
+            for name in candidates
             if name in names && _measurement_definition(backend, name) !== nothing]
 end
 
@@ -194,17 +217,18 @@ function _result_protocol_records(result::SoftwareSuiteResult, run_id::String,
         if run.status !== :pass
             rule = run.status === :unavailable ? "feature.unavailable" : "feature.failed"
             severity = run.status === :unavailable ? "info" : "error"
-            push!(diagnostics, Dict{String, Any}(
-                "record_type" => "diagnostic",
-                "run_id" => run_id,
-                "attempt_id" => attempt_id,
-                "case_id" => case_id,
-                "target_id" => target_id,
-                "rule_id" => rule,
-                "severity" => severity,
-                "message" => run.message,
-                "fingerprint" => _content_digest((rule, case_id, run.message)),
-                "evidence" => Dict("status" => string(run.status))))
+            push!(diagnostics,
+                Dict{String, Any}(
+                    "record_type" => "diagnostic",
+                    "run_id" => run_id,
+                    "attempt_id" => attempt_id,
+                    "case_id" => case_id,
+                    "target_id" => target_id,
+                    "rule_id" => rule,
+                    "severity" => severity,
+                    "message" => run.message,
+                    "fingerprint" => _content_digest((rule, case_id, run.message)),
+                    "evidence" => Dict("status" => string(run.status))))
             continue
         end
         run.result isa CheckerResult || continue
@@ -225,44 +249,49 @@ function _result_protocol_records(result::SoftwareSuiteResult, run_id::String,
                         "version" => planned.target.label,
                         "target_kind" => string(planned.target.kind),
                         "table_index" => table_index)
-                    if backend in (:alloc, :profile_alloc, :profile)
+                    if backend in (:alloc, :profile_alloc, :profile, :wall_profile)
                         :filename in names &&
                             (attributes["source_file"] = getproperty(table, :filename)[sample_index])
                         :line in names &&
                             (attributes["source_line"] = getproperty(table, :line)[sample_index])
                         :stack in names &&
                             (attributes["stack"] = getproperty(table, :stack)[sample_index])
+                        for field in (:runtime_dispatch, :gc_event, :inference_status,
+                            :inferred_return_type)
+                            field in names || continue
+                            attributes[string(field)] = getproperty(table, field)[sample_index]
+                        end
                     end
-                    push!(observations, Dict{String, Any}(
-                        "record_type" => "observation",
-                        "run_id" => run_id,
-                        "attempt_id" => attempt_id,
-                        "case_id" => case_id,
-                        "target_id" => target_id,
-                        "metric" => _metric_name(definition_id),
-                        "value" => value,
-                        "unit" => unit,
-                        "aggregation" => "sample",
-                        "sample_index" => sample_index,
-                        "scope" => "workload",
-                        "attributes" => attributes,
-                        "measurement_definition" => definition_id,
-                        "comparison_key" =>
-                            "$(planned.comparison_key)::$definition_id"))
+                    push!(observations,
+                        Dict{String, Any}(
+                            "record_type" => "observation",
+                            "run_id" => run_id,
+                            "attempt_id" => attempt_id,
+                            "case_id" => case_id,
+                            "target_id" => target_id,
+                            "metric" => _metric_name(definition_id),
+                            "value" => value,
+                            "unit" => unit,
+                            "aggregation" => "sample",
+                            "sample_index" => sample_index,
+                            "scope" => "workload",
+                            "attributes" => attributes,
+                            "measurement_definition" => definition_id,
+                            "comparison_key" => "$(planned.comparison_key)::$definition_id"))
                 end
             end
         end
     end
     return sort!(collect(values(definitions)); by = definition -> definition["id"]),
-           observations, diagnostics
+    observations, diagnostics
 end
 
 function _suite_run_bundle(result::SoftwareSuiteResult; run_id = uuid4(),
         attempt_id = uuid4(), evidence::AbstractString = "fresh")
     logical_id = string(run_id)
     physical_id = string(attempt_id)
-    definitions, observations, diagnostics =
-        _result_protocol_records(result, logical_id, physical_id)
+    definitions, observations, diagnostics = _result_protocol_records(
+        result, logical_id, physical_id)
     identity = Dict{String, Any}(
         "plan" => suite_plan_dict(result.plan),
         "runtime" => string(VERSION),
@@ -295,9 +324,11 @@ function _suite_run_bundle(result::SoftwareSuiteResult; run_id = uuid4(),
         Dict{String, Any}[])
 end
 
-bundle_passed(bundle::RunBundle) =
+function bundle_passed(bundle::RunBundle)
     get(bundle.manifest, "state", "failed") == "complete" &&
-    !any(get(diagnostic, "severity", "") == "error" for diagnostic in bundle.diagnostics)
+        !any(get(diagnostic, "severity", "") == "error"
+        for diagnostic in bundle.diagnostics)
+end
 
 function bundle_dict(bundle::RunBundle; include_records::Bool = true)
     payload = Dict{String, Any}(
@@ -316,7 +347,8 @@ end
 "Write a run bundle using a temporary sibling and an atomic directory rename."
 function write_run_bundle(bundle::RunBundle, directory::AbstractString)
     destination = abspath(String(directory))
-    ispath(destination) && throw(ArgumentError("bundle destination already exists: $destination"))
+    ispath(destination) &&
+        throw(ArgumentError("bundle destination already exists: $destination"))
     parent = dirname(destination)
     mkpath(parent)
     temporary = destination * ".tmp-" * string(uuid4())
@@ -367,7 +399,8 @@ function list_run_bundles(root::AbstractString; recursive::Bool = false)
     isdir(directory) || return Dict{String, Any}[]
     manifests = Dict{String, Any}[]
     entries = if recursive
-        sort!([walk_root for (walk_root, _, files) in walkdir(directory)
+        sort!([walk_root
+               for (walk_root, _, files) in walkdir(directory)
                if "manifest.json" in files])
     else
         sort!(readdir(directory; join = true))
@@ -382,15 +415,16 @@ function list_run_bundles(root::AbstractString; recursive::Bool = false)
             manifest["bundle_path"] = entry
             push!(manifests, manifest)
         catch error
-            @debug "ignoring unreadable PerfChecker bundle" entry exception =
-                (error, catch_backtrace())
+            @debug "ignoring unreadable PerfChecker bundle" entry exception=(
+                error, catch_backtrace())
         end
     end
     return manifests
 end
 
 function _validate_provider_definition(definition)
-    definition isa AbstractDict || throw(ArgumentError("provider definition must be an object"))
+    definition isa AbstractDict ||
+        throw(ArgumentError("provider definition must be an object"))
     for key in ("id", "metric", "unit")
         value = get(definition, key, nothing)
         value isa AbstractString && !isempty(value) ||
@@ -403,7 +437,8 @@ end
 
 function _validate_provider_observation(observation, definitions, run_id, attempt_id,
         case_id, target_id)
-    observation isa AbstractDict || throw(ArgumentError("provider observation must be an object"))
+    observation isa AbstractDict ||
+        throw(ArgumentError("provider observation must be an object"))
     metric = get(observation, "metric", nothing)
     metric isa AbstractString && occursin('.', metric) ||
         throw(ArgumentError("provider observation requires a namespaced metric"))
@@ -422,7 +457,8 @@ function _validate_provider_observation(observation, definitions, run_id, attemp
     unit == definitions[definition]["unit"] ||
         throw(ArgumentError("provider observation unit differs from its definition"))
     attributes = get(observation, "attributes", Dict{String, Any}())
-    attributes isa AbstractDict || throw(ArgumentError("observation attributes must be an object"))
+    attributes isa AbstractDict ||
+        throw(ArgumentError("observation attributes must be an object"))
     if metric == "network.io.payload"
         get(attributes, "capture_layer", nothing) == "application" ||
             throw(ArgumentError("payload network metrics require capture_layer=application"))
@@ -430,7 +466,7 @@ function _validate_provider_observation(observation, definitions, run_id, attemp
             throw(ArgumentError("payload network metrics require an explicit direction"))
     end
     normalized = Dict{String, Any}(string(key) => item
-                                   for (key, item) in pairs(observation))
+    for (key, item) in pairs(observation))
     normalized["record_type"] = "observation"
     normalized["run_id"] = run_id
     normalized["attempt_id"] = attempt_id
@@ -458,9 +494,9 @@ function _provider_result(payload::AbstractDict)
     observations = [_validate_provider_observation(observation, definition_index,
                         run_id, attempt_id, case_id, target_id)
                     for observation in get(payload, "observations", Any[])]
-    diagnostics = Dict{String, Any}[
-        Dict{String, Any}(string(key) => item for (key, item) in pairs(diagnostic))
-        for diagnostic in get(payload, "diagnostics", Any[])]
+    diagnostics = Dict{String, Any}[Dict{String, Any}(string(key) => item
+                                    for (key, item) in pairs(diagnostic))
+                                    for diagnostic in get(payload, "diagnostics", Any[])]
     for diagnostic in diagnostics
         diagnostic["record_type"] = "diagnostic"
         diagnostic["run_id"] = run_id
@@ -468,9 +504,9 @@ function _provider_result(payload::AbstractDict)
         diagnostic["case_id"] = get(diagnostic, "case_id", case_id)
         diagnostic["target_id"] = get(diagnostic, "target_id", target_id)
     end
-    artifacts = Dict{String, Any}[
-        Dict{String, Any}(string(key) => item for (key, item) in pairs(artifact))
-        for artifact in get(payload, "artifacts", Any[])]
+    artifacts = Dict{String, Any}[Dict{String, Any}(string(key) => item
+                                  for (key, item) in pairs(artifact))
+                                  for artifact in get(payload, "artifacts", Any[])]
     manifest = Dict{String, Any}(
         "schema_version" => RUN_BUNDLE_SCHEMA,
         "run_id" => run_id,
@@ -490,8 +526,9 @@ function _provider_result(payload::AbstractDict)
 end
 
 "Read and validate a language-neutral provider result."
-read_provider_result(path::AbstractString) =
+function read_provider_result(path::AbstractString)
     _provider_result(JSON.parsefile(abspath(String(path)); use_mmap = false))
+end
 
 function _failed_provider_bundle(spec::ExternalCommandSpec, message::String)
     run_id = string(uuid4())
@@ -516,7 +553,8 @@ function _failed_provider_bundle(spec::ExternalCommandSpec, message::String)
         "suite" => "external",
         "case_id" => string(spec.id),
         "runtime" => Dict("language" => spec.language),
-        "environment" => Dict("os" => string(Sys.KERNEL), "architecture" => string(Sys.ARCH)),
+        "environment" => Dict(
+            "os" => string(Sys.KERNEL), "architecture" => string(Sys.ARCH)),
         "collector_capabilities" => String[],
         "warnings" => String[])
     return RunBundle(manifest, Dict{String, Any}[], Dict{String, Any}[],
@@ -549,7 +587,7 @@ function _remove_temporary_tree(path::AbstractString)
         end
         sleep(0.05)
     end
-    @warn "could not remove temporary directory" path exception = last_error
+    @warn "could not remove temporary directory" path exception=last_error
     return nothing
 end
 
@@ -569,7 +607,7 @@ function _remove_temporary_file(path::AbstractString)
         end
         sleep(0.05)
     end
-    @warn "could not remove provider result file" path exception = last_error
+    @warn "could not remove provider result file" path exception=last_error
     return nothing
 end
 
@@ -587,8 +625,10 @@ function run_external_command(spec::ExternalCommandSpec; bundle_root = nothing,
         command = addenv(command, spec.environment...,
             "PERFCHECKER_OUTPUT" => output_path,
             "PERFCHECKER_CASE_ID" => string(spec.id))
-        process = run(pipeline(ignorestatus(command), stdout = stdout_buffer,
-            stderr = stderr_buffer); wait = false)
+        process = run(
+            pipeline(ignorestatus(command), stdout = stdout_buffer,
+                stderr = stderr_buffer);
+            wait = false)
         wait_status = timedwait(() -> !process_running(process), spec.timeout_seconds;
             pollint = 0.05)
         if wait_status === :timed_out
@@ -606,7 +646,8 @@ function run_external_command(spec::ExternalCommandSpec; bundle_root = nothing,
             finalize(process)
             stderr_text = String(take!(stderr_buffer))
             if !process_succeeded
-                detail = isempty(strip(stderr_text)) ? "no stderr" : first(stderr_text, 4096)
+                detail = isempty(strip(stderr_text)) ? "no stderr" :
+                         first(stderr_text, 4096)
                 bundle = _failed_provider_bundle(spec,
                     "provider exited with code $exit_code: $detail")
             elseif !isfile(output_path)
@@ -616,16 +657,17 @@ function run_external_command(spec::ExternalCommandSpec; bundle_root = nothing,
                 bundle = read_provider_result(output_path)
                 bundle.manifest["provider"] = external_command_dict(spec)
                 if !isempty(strip(stderr_text))
-                    push!(bundle.diagnostics, Dict{String, Any}(
-                        "record_type" => "diagnostic",
-                        "run_id" => bundle.manifest["run_id"],
-                        "attempt_id" => bundle.manifest["attempt_id"],
-                        "case_id" => string(spec.id),
-                        "rule_id" => "provider.stderr",
-                        "severity" => "warning",
-                        "message" => first(stderr_text, 4096),
-                        "fingerprint" => _content_digest(stderr_text),
-                        "evidence" => Dict{String, Any}()))
+                    push!(bundle.diagnostics,
+                        Dict{String, Any}(
+                            "record_type" => "diagnostic",
+                            "run_id" => bundle.manifest["run_id"],
+                            "attempt_id" => bundle.manifest["attempt_id"],
+                            "case_id" => string(spec.id),
+                            "rule_id" => "provider.stderr",
+                            "severity" => "warning",
+                            "message" => first(stderr_text, 4096),
+                            "fingerprint" => _content_digest(stderr_text),
+                            "evidence" => Dict{String, Any}()))
                 end
             end
         end
@@ -649,10 +691,14 @@ end
     import Pkg
 
     mktempdir() do dir
-        @test JSON.parsefile(joinpath(pkgdir(PerfChecker), "schemas",
-            "perfchecker-run-bundle-v1.schema.json"); use_mmap = false)["type"] == "object"
-        @test JSON.parsefile(joinpath(pkgdir(PerfChecker), "schemas",
-            "perfchecker-provider-result-v1.schema.json"); use_mmap = false)["type"] == "object"
+        @test JSON.parsefile(
+            joinpath(pkgdir(PerfChecker), "schemas",
+                "perfchecker-run-bundle-v1.schema.json");
+            use_mmap = false)["type"] == "object"
+        @test JSON.parsefile(
+            joinpath(pkgdir(PerfChecker), "schemas",
+                "perfchecker-provider-result-v1.schema.json");
+            use_mmap = false)["type"] == "object"
         entrypoint = joinpath(dir, "feature.jl")
         write(entrypoint, "perf_workload(state) = nothing\n")
         feature = FeatureSpec(:portable; entrypoint,
@@ -662,10 +708,12 @@ end
             features = [feature])
         plan = plan_suite(SoftwareSuite(:portable, [package]); profile = :release,
             version_provider = _ -> [v"1.0.0"])
-        fake(_, _, _, _) = PerfChecker.CheckerResult(
-            [PerfChecker.Table(times = [10.0, 12.0], gctimes = [1.0, 0.0],
-                memory = [8, 8], allocs = [1, 1])], nothing, [:portable],
-            [Pkg.Types.PackageSpec(name = "Example", version = v"1.0.0")])
+        function fake(_, _, _, _)
+            PerfChecker.CheckerResult(
+                [PerfChecker.Table(times = [10.0, 12.0], gctimes = [1.0, 0.0],
+                    memory = [8, 8], allocs = [1, 1])], nothing, [:portable],
+                [Pkg.Types.PackageSpec(name = "Example", version = v"1.0.0")])
+        end
         result = run_suite(plan; executor = fake)
         bundle_path = write_suite_bundle(result, joinpath(dir, "bundles"))
         bundle = read_run_bundle(bundle_path)
@@ -675,24 +723,24 @@ end
         @test Set(observation["unit"] for observation in bundle.observations) ==
               Set(["ns", "By", "1"])
         @test all(occursin("::", observation["comparison_key"])
-                  for observation in bundle.observations)
+        for observation in bundle.observations)
         @test isdir(joinpath(bundle_path, "artifacts"))
 
         provider_path = joinpath(dir, "provider.json")
-        write(provider_path, JSON.json(Dict(
-            "schema_version" => "perfchecker-provider-result/1",
-            "suite" => "mixed",
-            "case_id" => "http-client",
-            "runtime" => Dict("language" => "python", "version" => "3"),
-            "measurement_definitions" => [Dict(
-                "id" => "network.io.payload/application-v1",
-                "metric" => "network.io.payload", "unit" => "By")],
-            "observations" => [Dict(
-                "metric" => "network.io.payload", "value" => 128,
-                "unit" => "By", "measurement_definition" =>
-                    "network.io.payload/application-v1",
-                "attributes" => Dict("capture_layer" => "application",
-                    "direction" => "out"))])))
+        write(provider_path,
+            JSON.json(Dict(
+                "schema_version" => "perfchecker-provider-result/1",
+                "suite" => "mixed",
+                "case_id" => "http-client",
+                "runtime" => Dict("language" => "python", "version" => "3"),
+                "measurement_definitions" => [Dict(
+                    "id" => "network.io.payload/application-v1",
+                    "metric" => "network.io.payload", "unit" => "By")],
+                "observations" => [Dict(
+                    "metric" => "network.io.payload", "value" => 128,
+                    "unit" => "By", "measurement_definition" => "network.io.payload/application-v1",
+                    "attributes" => Dict("capture_layer" => "application",
+                        "direction" => "out"))])))
         provider = read_provider_result(provider_path)
         @test bundle_passed(provider)
         @test provider.observations[1]["attributes"]["direction"] == "out"

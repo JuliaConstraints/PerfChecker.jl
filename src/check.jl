@@ -94,7 +94,7 @@ function safe_stop(worker)
     try
         stop(worker)
     catch err
-        @debug "failed to stop PerfChecker worker" exception = (err, catch_backtrace())
+        @debug "failed to stop PerfChecker worker" exception=(err, catch_backtrace())
     end
 end
 
@@ -102,8 +102,97 @@ function safe_cleanup(options, backend::Symbol)
     try
         cleanup(options, backend)
     catch err
-        @debug "failed to run PerfChecker cleanup hook" exception = (err, catch_backtrace())
+        @debug "failed to run PerfChecker cleanup hook" exception=(err, catch_backtrace())
     end
+end
+
+function _drop_incompatible_manifest!(environment::AbstractString;
+        runtime::VersionNumber = VERSION)
+    manifest = joinpath(environment, "Manifest.toml")
+    isfile(manifest) || return false
+    metadata = try
+        parse(read(manifest, String))
+    catch
+        return false
+    end
+    recorded = get(metadata, "julia_version", nothing)
+    recorded === nothing && return false
+    version = try
+        VersionNumber(String(recorded))
+    catch
+        return false
+    end
+    (version.major, version.minor) == (runtime.major, runtime.minor) && return false
+    rm(manifest; force = true)
+    return true
+end
+
+function _install_target!(worker, target::RunTarget, options::Dict{Symbol, Any})
+    remote_eval_wait(Main, worker,
+        quote
+            d = $options
+            is_dev = $(target.is_dev)
+            target_spec = $(target.spec)
+            target_label = $(target.label)
+            pkg_io = get(d, :quiet, false) ? devnull : stderr
+            if is_dev
+                pkg = d[:devops]
+                try
+                    Pkg.rm(target_label; io = pkg_io)
+                catch
+                end
+                pkg isa Tuple ? Pkg.develop(pkg[1]; pkg[2]..., io = pkg_io) :
+                Pkg.develop(pkg; io = pkg_io)
+            elseif !isnothing(target_spec.name)
+                try
+                    Pkg.rm(target_spec.name; io = pkg_io)
+                catch
+                end
+                Pkg.add(target_spec; io = pkg_io)
+            end
+            if haskey(d, :extra_pkgs)
+                extras = d[:extra_pkgs]
+                extras = extras isa AbstractVector ? extras : [extras]
+                specs = [spec isa NamedTuple ? Pkg.PackageSpec(; spec...) : spec
+                         for spec in extras]
+                Pkg.add(specs; io = pkg_io)
+            end
+            haskey(d, :extra_devops) && Pkg.develop(d[:extra_devops]; io = pkg_io)
+        end)
+    return nothing
+end
+
+"Prepare one immutable package target environment for reuse by fresh workers."
+function _prepare_check_environment(config::PerfConfig)
+    normalized = normalize_config(config)
+    targets = run_targets(normalized)
+    length(targets) == 1 || throw(ArgumentError(
+        "suite environment preparation requires exactly one package target"))
+    options = legacy_options(normalized)
+    root = mktempdir()
+    environment = joinpath(root, "environment")
+    cp(normalized.path, environment)
+    _drop_incompatible_manifest!(environment)
+    worker = nothing
+    try
+        worker = Worker(; exeflags = ["-t $(normalized.threads)",
+            "--project=$environment"])
+        quiet = get(options, :quiet, false)
+        remote_eval_wait(Main, worker,
+            quote
+                import Pkg
+                ENV["JULIA_PKG_PRECOMPILE_AUTO"] = "0"
+                $quiet && (Pkg.UPDATED_REGISTRY_THIS_SESSION[] = true)
+                Pkg.instantiate(; io = $quiet ? devnull : stderr)
+            end)
+        _install_target!(worker, only(targets), options)
+    catch
+        rm(root; recursive = true, force = true)
+        rethrow()
+    finally
+        worker === nothing || safe_stop(worker)
+    end
+    return root, environment
 end
 
 function check_function(x::Symbol, d::Dict, block1, block2)
@@ -138,8 +227,14 @@ function check_function(x::Symbol, d::Dict, block1, block2)
     temp_roots = Dict(index => mktempdir() for index in worker_indices)
     worker_envs = Dict(index => joinpath(temp_roots[index], "environment")
     for index in worker_indices)
+    prepared_environment = get(di, :prepared_environment, nothing)
+    environment_source = prepared_environment === nothing ? config.path :
+                         abspath(String(prepared_environment))
+    isdir(environment_source) || throw(ArgumentError(
+        "prepared environment does not exist: $environment_source"))
     for index in worker_indices
-        cp(config.path, worker_envs[index])
+        cp(environment_source, worker_envs[index])
+        _drop_incompatible_manifest!(worker_envs[index])
     end
     procs = Any[nothing for _ in 1:len]
     cleanup_options = Dict{Symbol, Any}[]
@@ -147,7 +242,7 @@ function check_function(x::Symbol, d::Dict, block1, block2)
         @sync for i in worker_indices
             @async procs[i] = Worker(;
                 exeflags = ["--track-allocation=$(config.track)",
-                "-t $(config.threads)", "--project=$(worker_envs[i])"])
+                    "-t $(config.threads)", "--project=$(worker_envs[i])"])
         end
 
         for i in 1:len
@@ -160,6 +255,7 @@ function check_function(x::Symbol, d::Dict, block1, block2)
 
             if cached_path === nothing
                 quiet = get(di, :quiet, false)
+                instantiate_environment = prepared_environment === nothing
                 remote_eval_wait(Main,
                     procs[i],
                     quote
@@ -170,44 +266,16 @@ function check_function(x::Symbol, d::Dict, block1, block2)
                             i = $i
                             $quiet || @info "Worker No.: $i"
                         end
-                        Pkg.instantiate(; io = $quiet ? devnull : stderr)
+                        $instantiate_environment &&
+                            Pkg.instantiate(; io = $quiet ? devnull : stderr)
                     end)
+
+                remote_eval_wait(Main, procs[i], :(global d = $run_options))
 
                 remote_eval_wait(Main, procs[i], initpkg)
 
-                remote_eval_wait(Main, procs[i],
-                    quote
-                        d = $run_options
-                        is_dev = $(target.is_dev)
-                        target_spec = $(target.spec)
-                        target_label = $(target.label)
-                        pkg_io = get(d, :quiet, false) ? devnull : stderr
-                        if is_dev
-                            pkg = d[:devops]
-                            try
-                                Pkg.rm(target_label; io = pkg_io)
-                            catch
-                            end
-                            pkg isa Tuple ? Pkg.develop(pkg[1]; pkg[2]..., io = pkg_io) :
-                            Pkg.develop(pkg; io = pkg_io)
-                        elseif !isnothing(target_spec.name)
-                            try
-                                Pkg.rm(target_spec.name; io = pkg_io)
-                            catch
-                            end
-                            Pkg.add(target_spec; io = pkg_io)
-                        end
-                        if haskey(d, :extra_pkgs)
-                            extras = d[:extra_pkgs]
-                            extras = extras isa AbstractVector ? extras : [extras]
-                            specs = [spec isa NamedTuple ? Pkg.PackageSpec(; spec...) :
-                                     spec
-                                     for spec in extras]
-                            Pkg.add(specs; io = pkg_io)
-                        end
-                        haskey(d, :extra_devops) &&
-                            Pkg.develop(d[:extra_devops]; io = pkg_io)
-                    end)
+                prepared_environment === nothing &&
+                    _install_target!(procs[i], target, run_options)
 
                 run_options[:prep_result] = remote_eval_fetch(Main, procs[i], g)
                 run_options[:check_result] = remote_eval_fetch(Main, procs[i], h)
@@ -444,5 +512,20 @@ end
         development_result = PerfChecker.check_function(development,
             :(using PerfCheckerWorkerFixture), :(PerfCheckerWorkerFixture.answer()))
         @test length(development_result.tables) == 1
+    end
+end
+
+@testitem "Worker manifests follow the Julia minor version" tags=[:unit, :workers] begin
+    using PerfChecker
+
+    mktempdir() do dir
+        manifest = joinpath(dir, "Manifest.toml")
+        write(manifest, "julia_version = \"9.9.1\"\nmanifest_format = \"2.0\"\n")
+        @test PerfChecker._drop_incompatible_manifest!(dir; runtime = v"1.10.0")
+        @test !isfile(manifest)
+
+        write(manifest, "julia_version = \"1.10.12\"\nmanifest_format = \"2.0\"\n")
+        @test !PerfChecker._drop_incompatible_manifest!(dir; runtime = v"1.10.0")
+        @test isfile(manifest)
     end
 end

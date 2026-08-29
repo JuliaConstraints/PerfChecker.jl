@@ -6,7 +6,8 @@ end
 
 function default_options(::Val{:profile_alloc})
     return Dict(:threads => 1, :targets => [], :track => "none", :repeat => true,
-        :sample_rate => 1.0, :profile_repetitions => 1)
+        :sample_rate => 1.0, :profile_repetitions => 1,
+        :max_profile_stacks => 50_000)
 end
 
 function check(d::Dict, block::Expr, ::Val{:profile_alloc})
@@ -16,27 +17,33 @@ function check(d::Dict, block::Expr, ::Val{:profile_alloc})
         throw(ArgumentError(":sample_rate must be in the interval (0, 1]"))
     repetitions = Int(get(d, :profile_repetitions, 1))
     repetitions > 0 || throw(ArgumentError(":profile_repetitions must be positive"))
+    max_stacks = Int(get(d, :max_profile_stacks, 50_000))
+    max_stacks > 1 || throw(ArgumentError(":max_profile_stacks must be greater than one"))
     target_names = String.(get(d, :targets, String[]))
     return quote
         $warmup
         target_names = Set(Symbol.($target_names))
         loaded = Base.loaded_modules_array()
         targets = isempty(target_names) ? loaded :
-            filter(module_value -> nameof(module_value) in target_names, loaded)
+                  filter(module_value -> nameof(module_value) in target_names, loaded)
         target_roots = String[]
         for module_value in targets
             source = pathof(module_value)
             source === nothing || push!(target_roots, dirname(abspath(source)))
         end
-        isempty(target_roots) && error("No loaded allocation target found in $(collect(target_names))")
-        normalize_source(path) = Sys.iswindows() ? lowercase(normpath(path)) : normpath(path)
+        isempty(target_roots) &&
+            error("No loaded allocation target found in $(collect(target_names))")
+        function normalize_source(path)
+            Sys.iswindows() ? lowercase(normpath(path)) :
+            normpath(path)
+        end
         normalized_roots = normalize_source.(target_roots)
 
         total_bytes = Base.@allocated $block
         total_allocs = Base.@allocations $block
         Profile.Allocs.clear()
         Profile.Allocs.@profile sample_rate=$sample_rate begin
-            for _ in 1:$repetitions
+            for _ in 1:($repetitions)
                 $block
             end
         end
@@ -73,10 +80,25 @@ function check(d::Dict, block::Expr, ::Val{:profile_alloc})
         sampled_bytes > 0 || error("Allocation profiler found no target source sites")
         byte_scale = Float64(total_bytes) / sampled_bytes
         alloc_scale = sampled_allocs == 0 ? 0.0 : Float64(total_allocs) / sampled_allocs
-        [(bytes = values[1] * byte_scale, allocs = values[2] * alloc_scale,
-          filename = key[1], line = key[2], stack = collect(key[3]))
-         for (key, values) in sort!(collect(grouped); by = item ->
-                 (-last(item)[1], first(item)[1], first(item)[2]))]
+        ordered = sort!(
+            collect(grouped); by = item -> (
+                -last(item)[1], first(item)[1], first(item)[2]))
+        keep = length(ordered) > $max_stacks ? $max_stacks - 1 : length(ordered)
+        output = [(bytes = values[1] * byte_scale,
+                      allocs = values[2] * alloc_scale,
+                      filename = key[1], line = key[2], stack = collect(key[3]))
+                  for (key, values) in first(ordered, keep)]
+        if length(ordered) > $max_stacks
+            remainder_bytes = sum(item -> last(item)[1],
+                ordered[($max_stacks):end]; init = 0) * byte_scale
+            remainder_allocs = sum(item -> last(item)[2],
+                ordered[($max_stacks):end]; init = 0) * alloc_scale
+            push!(output,
+                (bytes = remainder_bytes, allocs = remainder_allocs,
+                    filename = "[other]", line = 0,
+                    stack = ["Other sampled allocation stacks"]))
+        end
+        output
     end
 end
 
@@ -100,7 +122,7 @@ end
 
     records = PerfChecker.ProfileAllocSite[
         (bytes = 64.0, allocs = 2.0, filename = "src/demo.jl", line = 12,
-         stack = ["demo (src/demo.jl:12)"])]
+        stack = ["demo (src/demo.jl:12)"])]
     table = PerfChecker.to_table(records)
     @test table.bytes == [64.0]
     @test table.allocs == [2.0]

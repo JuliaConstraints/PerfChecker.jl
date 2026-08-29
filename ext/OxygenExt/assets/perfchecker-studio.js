@@ -7,12 +7,14 @@
   const $ = selector => document.querySelector(selector);
   const $$ = selector => Array.from(document.querySelectorAll(selector));
   const state = { plan: null, selected: [], dragged: null, series: [], comparison: null,
-    plots: [], currentRun: null,
-    token: window.sessionStorage.getItem('perfchecker-token') || '', started: false };
+    plots: [], results: [], currentRun: null,
+    token: window.sessionStorage.getItem('perfchecker-token') || '', csrf: '', started: false };
 
   async function api(path, options = {}) {
     const headers = new Headers(options.headers || {});
     if (state.token) headers.set('Authorization', `Bearer ${state.token}`);
+    const method = String(options.method || 'GET').toUpperCase();
+    if (state.csrf && !['GET', 'HEAD', 'OPTIONS'].includes(method)) headers.set('X-CSRF-Token', state.csrf);
     const response = await fetch(base + path, { ...options, headers });
     const payload = await response.json();
     if (response.status === 401 && authRequired) $('#login-dialog').showModal();
@@ -36,10 +38,75 @@
   $$('[data-view-target]').forEach(button => button.addEventListener('click', () => showView(button.dataset.viewTarget)));
 
   function runText(run) { return `${run.package} ${run.feature} ${run.version} ${run.backend}`.toLowerCase(); }
+  function versionKey(label) {
+    const match = String(label).match(/(\d+)\.(\d+)\.(\d+)/);
+    const parts = match ? match.slice(1).map(Number) : [-1, -1, -1];
+    return [...parts, String(label).startsWith('dev@') ? 1 : 0, String(label)];
+  }
+  function compareVersion(left, right) {
+    const a = versionKey(left), b = versionKey(right);
+    for (let index = 0; index < 4; index += 1) if (a[index] !== b[index]) return a[index] - b[index];
+    return a[4].localeCompare(b[4]);
+  }
+  function compareRuns(left, right) {
+    const mode = $('#plan-sort')?.value || 'package-version';
+    const byVersion = compareVersion(left.version, right.version);
+    const byPackage = left.package.localeCompare(right.package);
+    const byFeature = left.feature.localeCompare(right.feature);
+    if (mode === 'version-package') return byVersion || byPackage || byFeature;
+    if (mode === 'feature-version') return byFeature || byVersion || byPackage;
+    if (mode === 'version-desc') return -byVersion || byPackage || byFeature;
+    return byPackage || byVersion || byFeature || left.backend.localeCompare(right.backend);
+  }
+  function colorIndex(value) {
+    let hash = 0; for (const character of String(value)) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
+    return Math.abs(hash) % 8;
+  }
+  function setOptions(node, values, allLabel) {
+    const previous = node.value;
+    const first = document.createElement('option'); first.value = ''; first.textContent = allLabel;
+    node.replaceChildren(first, ...values.map(value => { const option = document.createElement('option'); option.value = value; option.textContent = value; return option; }));
+    if (values.includes(previous)) node.value = previous;
+  }
+  function populatePlanFilters() {
+    const runs = state.plan?.runs || [];
+    const unique = key => Array.from(new Set(runs.map(run => run[key]))).sort();
+    setOptions($('#package-filter'), unique('package'), 'All packages');
+    setOptions($('#feature-filter'), unique('feature'), 'All features');
+    setOptions($('#backend-filter'), unique('backend'), 'All backends');
+    const versions = unique('version').sort(compareVersion);
+    setOptions($('#version-min'), versions, 'First'); setOptions($('#version-max'), versions, 'Last');
+  }
+  function runMatches(run) {
+    const query = ($('#plan-filter')?.value || '').trim().toLowerCase();
+    if (query && !runText(run).includes(query)) return false;
+    for (const [id, key] of [['#package-filter', 'package'], ['#feature-filter', 'feature'], ['#backend-filter', 'backend']]) {
+      const value = $(id)?.value || ''; if (value && run[key] !== value) return false;
+    }
+    if (!$('#show-unavailable')?.checked && run.status === 'unavailable') return false;
+    const minimum = $('#version-min')?.value || '', maximum = $('#version-max')?.value || '';
+    if (minimum && compareVersion(run.version, minimum) < 0) return false;
+    if (maximum && compareVersion(run.version, maximum) > 0) return false;
+    return true;
+  }
+  function filteredRuns() { return (state.plan?.runs || []).filter(runMatches).sort(compareRuns); }
+  function sortSelection() {
+    if (($('#plan-sort')?.value || '') === 'custom') return;
+    const order = new Map((state.plan?.runs || []).slice().sort(compareRuns).map((run, index) => [run.id, index]));
+    state.selected.sort((left, right) => (order.get(left) ?? 0) - (order.get(right) ?? 0));
+  }
+  function renderFilterChips() {
+    const host = $('#active-filters'); if (!host) return;
+    const labels = [];
+    [['#package-filter', 'Package'], ['#feature-filter', 'Feature'], ['#backend-filter', 'Backend'], ['#version-min', 'From'], ['#version-max', 'To']].forEach(([id, label]) => { if ($(id).value) labels.push(`${label}: ${$(id).value}`); });
+    const query = ($('#plan-filter').value || '').trim(); if (query) labels.push(`Search: ${query}`);
+    host.replaceChildren(...labels.map(text => { const chip = document.createElement('span'); chip.className = 'filter-chip'; chip.textContent = text; return chip; }));
+  }
   function moveSelected(id, offset) {
     const index = state.selected.indexOf(id); if (index < 0) return;
     const target = Math.max(0, Math.min(state.selected.length - 1, index + offset));
     state.selected.splice(index, 1); state.selected.splice(target, 0, id);
+    $('#plan-sort').value = 'custom';
     renderPlan(id); announce(`Moved run to position ${target + 1}`);
   }
   function selectRun(id, selected, beforeId = null) {
@@ -52,12 +119,16 @@
   }
   function runCard(run, selected) {
     const item = document.createElement(selected ? 'li' : 'div');
-    item.className = `run-card${run.status === 'unavailable' ? ' unavailable' : ''}`;
+    item.className = `run-card package-color-${colorIndex(run.package)}${run.status === 'unavailable' ? ' unavailable' : ''}`;
     item.dataset.runId = run.id; item.draggable = true; item.tabIndex = 0;
     const handle = document.createElement('span'); handle.className = 'drag-handle'; handle.textContent = '⠿'; handle.setAttribute('aria-hidden', 'true');
     const copy = document.createElement('div'); copy.className = 'run-copy';
     const title = document.createElement('strong'); title.textContent = `${run.package} · ${run.feature}`;
-    const detail = document.createElement('small'); detail.textContent = `${run.version} · ${run.backend}${run.status === 'unavailable' ? ' · unavailable' : ''}`;
+    const detail = document.createElement('small');
+    const versionBadge = document.createElement('span'); versionBadge.className = `tag version-color-${colorIndex(run.version)}`; versionBadge.textContent = run.version;
+    const backendBadge = document.createElement('span'); backendBadge.className = 'tag backend-tag'; backendBadge.textContent = run.backend;
+    detail.append(versionBadge, document.createTextNode(' '), backendBadge);
+    if (run.status === 'unavailable') { const unavailable = document.createElement('span'); unavailable.className = 'tag unavailable-tag'; unavailable.textContent = 'unavailable'; detail.append(document.createTextNode(' '), unavailable); }
     copy.append(title, detail);
     const actions = document.createElement('div'); actions.className = 'run-actions';
     if (selected) {
@@ -66,8 +137,9 @@
         button.addEventListener('click', () => moveSelected(run.id, offset)); actions.append(button);
       });
     }
-    const toggle = document.createElement('button'); toggle.type = 'button'; toggle.textContent = selected ? '−' : '+';
-    toggle.title = selected ? 'Remove' : 'Add'; toggle.addEventListener('click', () => selectRun(run.id, !selected)); actions.append(toggle);
+    const toggleLabel = document.createElement('label'); toggleLabel.className = 'run-check'; toggleLabel.title = selected ? 'Remove from selection' : 'Add to selection';
+    const toggle = document.createElement('input'); toggle.type = 'checkbox'; toggle.checked = selected; toggle.setAttribute('aria-label', `${selected ? 'Remove' : 'Add'} ${run.package} ${run.feature} ${run.version}`);
+    toggle.addEventListener('change', () => selectRun(run.id, toggle.checked)); toggleLabel.append(toggle); actions.append(toggleLabel);
     item.append(handle, copy, actions);
     item.addEventListener('dragstart', event => { state.dragged = run.id; item.classList.add('dragging'); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', run.id); });
     item.addEventListener('dragend', () => { state.dragged = null; item.classList.remove('dragging'); $$('.drop-zone').forEach(zone => zone.classList.remove('drag-over')); });
@@ -81,15 +153,18 @@
   }
   function renderPlan(focusId = null) {
     if (!state.plan) return;
-    const query = ($('#plan-filter')?.value || '').trim().toLowerCase();
+    sortSelection();
     const selectedSet = new Set(state.selected);
-    const available = state.plan.runs.filter(run => !selectedSet.has(run.id) && (!query || runText(run).includes(query)));
-    const ordered = state.selected.map(id => state.plan.runs.find(run => run.id === id)).filter(Boolean).filter(run => !query || runText(run).includes(query));
+    const visible = filteredRuns();
+    const available = visible.filter(run => !selectedSet.has(run.id));
+    const visibleIds = new Set(visible.map(run => run.id));
+    const ordered = state.selected.map(id => state.plan.runs.find(run => run.id === id)).filter(run => run && visibleIds.has(run.id));
     $('#available-runs').replaceChildren(...available.map(run => runCard(run, false)));
     $('#selected-runs').replaceChildren(...ordered.map(run => runCard(run, true)));
-    $('#plan-summary').textContent = `${state.selected.length}/${state.plan.runs.length} selected`;
+    $('#plan-summary').textContent = `${state.selected.length}/${state.plan.runs.length} selected · ${visible.length} visible`;
     $('#plan-revision').textContent = `Plan ${state.plan.plan_revision.slice(0, 12)} · ${state.plan.profile}`;
     $('#launch-job').disabled = state.selected.length === 0;
+    renderFilterChips();
     if (focusId) document.querySelector(`[data-run-id="${CSS.escape(focusId)}"]`)?.focus();
   }
   function installDropZones() {
@@ -109,6 +184,7 @@
       const profile = $('#profile').value;
       state.plan = await api(`/suite-plan?profile=${encodeURIComponent(profile)}`);
       state.selected = state.plan.runs.map(run => run.id);
+      populatePlanFilters();
       renderPlan(); announce(`Loaded ${state.plan.runs.length} planned runs`);
     } catch (error) { toast(error.message); }
   }
@@ -149,23 +225,73 @@
         const status = document.createElement('span'); status.className = `status ${job.state}`; status.textContent = job.state; header.append(title, status);
         const detail = document.createElement('p'); detail.textContent = `${job.profile} · ${job.run_count} runs · ${job.execution_target}`;
         const message = document.createElement('small'); message.textContent = job.message || job.started_at || job.created_at;
-        card.append(header, detail, message); return card;
+        card.append(header, detail);
+        const progress = job.progress || {}; const total = Number(progress.total || job.run_count || 0); const completed = Number(progress.completed || 0);
+        const progressBox = document.createElement('div'); progressBox.className = 'job-progress';
+        const progressBar = document.createElement('progress'); progressBar.max = Math.max(total, 1); progressBar.value = Math.min(completed, progressBar.max);
+        const progressText = document.createElement('small'); const current = progress.current_run;
+        progressText.textContent = `${completed}/${total} · ${Number(progress.percent || 0).toFixed(0)}%` + (current ? ` · ${current.package}/${current.feature} ${current.version}` : '');
+        progressBox.append(progressBar, progressText); card.append(progressBox, message);
+        if (!['complete', 'failed', 'cancelled'].includes(job.state)) {
+          const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'danger-button'; cancel.textContent = 'Cancel';
+          cancel.addEventListener('click', async () => { try { await api('/jobs/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: job.job_id }) }); toast(`Job ${job.job_id.slice(0, 8)} cancelled`); loadJobs(); } catch (error) { toast(error.message); } });
+          card.append(cancel);
+        }
+        return card;
       }));
     } catch (error) { toast(error.message); }
   }
 
   function resultButton(run) {
     const button = document.createElement('button'); button.type = 'button';
+    button.className = state.currentRun === run.run_id ? 'active' : '';
+    button.setAttribute('aria-pressed', String(state.currentRun === run.run_id));
     const title = document.createElement('strong'); title.textContent = run.suite || 'Performance run';
     const detail = document.createElement('small'); detail.textContent = `${run.profile || ''} · ${run.state} · ${String(run.run_id).slice(0, 8)}`;
     button.append(title, detail); button.addEventListener('click', () => loadComparison(run.run_id)); return button;
   }
+  function resultText(run) {
+    const planned = run.plan?.runs || [];
+    const planText = planned.map(item => `${item.package || ''} ${item.feature || ''} ${item.version || ''} ${item.backend || ''}`).join(' ');
+    return `${run.suite || ''} ${run.profile || ''} ${run.state || ''} ${run.run_id || ''} ${run.finished_at || ''} ${planText}`.toLowerCase();
+  }
+  function resultMatches(run) {
+    const query = ($('#result-filter')?.value || '').trim().toLowerCase();
+    if (query && !resultText(run).includes(query)) return false;
+    for (const [id, key] of [['#result-suite-filter', 'suite'], ['#result-profile-filter', 'profile'], ['#result-state-filter', 'state']]) {
+      const value = $(id)?.value || ''; if (value && String(run[key] || '') !== value) return false;
+    }
+    return true;
+  }
+  function compareResults(left, right) {
+    const mode = $('#result-sort')?.value || 'newest';
+    const finished = String(left.finished_at || '').localeCompare(String(right.finished_at || ''));
+    const suite = String(left.suite || '').localeCompare(String(right.suite || ''));
+    const profile = String(left.profile || '').localeCompare(String(right.profile || ''));
+    const stateName = String(left.state || '').localeCompare(String(right.state || ''));
+    if (mode === 'oldest') return finished || suite || profile;
+    if (mode === 'suite') return suite || -finished || profile;
+    if (mode === 'profile') return profile || -finished || suite;
+    if (mode === 'state') return stateName || -finished || suite;
+    return -finished || suite || profile;
+  }
+  function populateResultFilters() {
+    const unique = key => Array.from(new Set(state.results.map(run => String(run[key] || '')).filter(Boolean))).sort();
+    setOptions($('#result-suite-filter'), unique('suite'), 'All suites');
+    setOptions($('#result-profile-filter'), unique('profile'), 'All profiles');
+    setOptions($('#result-state-filter'), unique('state'), 'All states');
+  }
+  function renderResults() {
+    const visible = state.results.filter(resultMatches).sort(compareResults);
+    $('#results').replaceChildren(...visible.map(resultButton));
+    $('#result-count').textContent = `${visible.length}/${state.results.length} runs`;
+    if (!state.results.length) $('#results').textContent = 'No completed bundles yet.';
+    else if (!visible.length) $('#results').textContent = 'No runs match these filters.';
+  }
   async function loadResults() {
     try {
-      const results = await api('/results');
-      results.sort((a, b) => String(b.finished_at || '').localeCompare(String(a.finished_at || '')));
-      $('#results').replaceChildren(...results.map(resultButton));
-      if (!results.length) $('#results').textContent = 'No completed bundles yet.';
+      state.results = await api('/results');
+      populateResultFilters(); renderResults();
     } catch (error) { toast(error.message); }
   }
   function formatValue(value) {
@@ -234,6 +360,7 @@
     try {
       const [bundle, comparison, catalog] = await Promise.all([api(`/results?id=${encodeURIComponent(id)}`), api(`/version-comparison?id=${encodeURIComponent(id)}`), api(`/plots?id=${encodeURIComponent(id)}`)]);
       state.currentRun = id; state.comparison = comparison; state.series = comparison.series || []; state.plots = catalog.plots || [];
+      renderResults();
       const summary = document.createElement('div'); summary.className = 'result-summary';
       [`${bundle.manifest.suite}`, `${state.series.length} series`, `${comparison.records.length} comparisons`, `${state.plots.length} Makie plots`, `${bundle.observations.length} observations`].forEach(text => { const strong = document.createElement('strong'); strong.textContent = text; summary.append(strong); }); $('#result-summary').replaceWith(summary); summary.id = 'result-summary';
       const picker = $('#plot-picker'); picker.replaceChildren(...state.plots.map((plot, index) => { const option = document.createElement('option'); option.value = index; option.textContent = plotLabel(plot); return option; }));
@@ -253,6 +380,11 @@
     state.started = true;
     if (writable) {
     $('#profile').addEventListener('change', loadPlan); $('#plan-filter').addEventListener('input', () => renderPlan());
+    ['#package-filter', '#feature-filter', '#backend-filter', '#version-min', '#version-max', '#show-unavailable'].forEach(id => $(id).addEventListener('change', () => renderPlan()));
+    $('#plan-sort').addEventListener('change', () => renderPlan());
+    $('#add-visible').addEventListener('click', () => { state.selected = Array.from(new Set([...state.selected, ...filteredRuns().map(run => run.id)])); renderPlan(); });
+    $('#remove-visible').addEventListener('click', () => { const ids = new Set(filteredRuns().map(run => run.id)); state.selected = state.selected.filter(id => !ids.has(id)); renderPlan(); });
+    $('#invert-visible').addEventListener('click', () => { const ids = new Set(filteredRuns().map(run => run.id)); const selected = new Set(state.selected); ids.forEach(id => selected.has(id) ? selected.delete(id) : selected.add(id)); state.selected = Array.from(selected); renderPlan(); });
     $('#select-all').addEventListener('click', () => { state.selected = state.plan.runs.map(run => run.id); renderPlan(); });
     $('#clear-selection').addEventListener('click', () => { state.selected = []; renderPlan(); });
     $('#launch-job').addEventListener('click', launchJob); installDropZones(); loadPlan(); loadAgents();
@@ -260,12 +392,23 @@
       showView('configure');
     } else showView('results');
     $('#refresh-results').addEventListener('click', loadResults);
+    $('#result-filter').addEventListener('input', renderResults);
+    ['#result-suite-filter', '#result-profile-filter', '#result-state-filter', '#result-sort'].forEach(id => $(id).addEventListener('change', renderResults));
+    $('#clear-result-filters').addEventListener('click', () => {
+      $('#result-filter').value = '';
+      ['#result-suite-filter', '#result-profile-filter', '#result-state-filter'].forEach(id => $(id).value = '');
+      $('#result-sort').value = 'newest'; renderResults(); $('#result-filter').focus();
+    });
   }
 
   async function authenticate() {
     try {
       const account = await api('/me');
-      if (authRequired) await api('/session', { method: 'POST' });
+      if (authRequired) {
+        const session = state.token ? await api('/session', { method: 'POST' }) : await api('/session');
+        state.csrf = session.csrf_token || '';
+        state.token = ''; window.sessionStorage.removeItem('perfchecker-token');
+      }
       const identity = account.identity || {};
       $('#current-user').textContent = identity.name || identity.id || 'Authenticated';
       $('#login-error').textContent = '';
@@ -285,7 +428,6 @@
   });
 
   if (authRequired) {
-    if (state.token) authenticate().then(ok => ok ? startStudio() : $('#login-dialog').showModal());
-    else $('#login-dialog').showModal();
+    authenticate().then(ok => ok ? startStudio() : $('#login-dialog').showModal());
   } else startStudio();
 })();

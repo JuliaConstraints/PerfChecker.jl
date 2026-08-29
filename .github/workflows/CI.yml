@@ -17,14 +17,14 @@ jobs:
     strategy:
       matrix:
         julia-version: [1]
-        julia-arch: [x86]
+        julia-arch: [x64]
         os: [ubuntu-latest]
     steps:
-      - uses: julia-actions/setup-julia@latest
+      - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.julia-version }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install JuliaFormatter and format
         # This will use the latest version by default but you can set the version like so:
         #
@@ -50,14 +50,13 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - "lts" # Minimal version of Julia for PerfChecker.jl
+          - "1.10" # Minimum supported Julia version
           - "1" # automatically expands to the latest stable 1.x release of Julia
           - "pre" # automatically expands to the latest pre-release of Julia"
         os:
           - ubuntu-latest
         arch:
           - x64
-          - x86
         include:
           # test macOS and Windows with latest Julia only
           - os: macOS-latest
@@ -66,31 +65,27 @@ jobs:
           - os: windows-latest
             arch: x64
             version: 1
-          - os: windows-latest
-            arch: x86
-            version: 1
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: actions/cache@v4
-        env:
-          cache-name: cache-artifacts
-        with:
-          path: ~/.julia/artifacts
-          key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-test-${{ env.cache-name }}-
-            ${{ runner.os }}-test-
-            ${{ runner.os }}-
+      - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v5
         with:
           file: lcov.info
+  web-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --check ext/OxygenExt/assets/perfchecker-studio.js
   # docs:
   #   name: Documentation
   #   runs-on: ubuntu-latest

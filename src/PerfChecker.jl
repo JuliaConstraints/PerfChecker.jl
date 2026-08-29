@@ -12,6 +12,17 @@ import Malt: remote_eval_wait, Worker, remote_eval_fetch, stop, fetch
 import Pkg
 import Pkg.Types: PackageSpec, Context
 import Profile
+import Random
+
+# Extension entry points. Their implementations are loaded only when the
+# corresponding optional dependency is present.
+function drwatson_run_suite end
+function documenter_makedocs end
+function documenter_page end
+function documenter_vitepress_makedocs end
+function freeze_propcheck_corpus end
+function prepare_pluto_dashboard end
+function terminal_plot end
 import SHA
 import TOML: parse
 import TestItems: @testitem
@@ -36,6 +47,7 @@ export SuitePlan
 export VersionWindow
 export check_to_metadata_csv
 export bundle_passed
+export cancel_suite!
 export bundle_dict
 export comparison_dict
 export comparison_passed
@@ -53,11 +65,17 @@ export checkres_to_scatterlines
 export csv_to_table
 export drwatson_parameters
 export drwatson_produce_or_load
+export drwatson_run_suite
 export drwatson_savename
+export documenter_makedocs
+export documenter_page
+export documenter_vitepress_makedocs
 export find_by_tags
 export freeze_supposition_corpus
+export freeze_propcheck_corpus
 export get_versions
 export launch_pluto_dashboard
+export prepare_pluto_dashboard
 export launch_suite
 export load_software_suite
 export plan_suite
@@ -76,18 +94,27 @@ export run_studio_agent
 export saveplot
 export serve_suite
 export select_suite_plan
+export filter_suite_plan
+export configure_suite_repl
+export print_suite_plan
+export run_suite_repl
 export studio_token_authenticator
+export write_folded_profile
+export write_pprof_profile
+export write_speedscope_profile
 export summary_table
 export suite_dashboard
 export suite_dict
 export suite_job_status
 export suite_job_dict
+export suite_job_progress
 export suite_passed
 export suite_plan_dict
 export suite_summary
 export suite_version_series
 export table_to_csv
 export table_to_pie
+export terminal_plot
 export to_table
 export write_suite_json
 export write_run_bundle
@@ -122,8 +149,11 @@ include("check.jl")
 include("alloc.jl")
 include("profile_allocs.jl")
 include("profile.jl")
+include("network.jl")
 include("suites.jl")
+include("repl.jl")
 include("protocol.jl")
+include("profile_exports.jl")
 include("compare.jl")
 include("version_compare.jl")
 include("plots.jl")

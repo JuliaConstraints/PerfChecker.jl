@@ -5,6 +5,7 @@ using HTTP
 using JSON
 using Oxygen
 using PerfChecker
+using TOML
 
 include("studio.jl")
 
@@ -68,19 +69,28 @@ function PerfChecker.register_oxygen_routes!(bundle::PerfChecker.RunBundle;
     Oxygen.get(api("/plot-data")) do request
         params = Oxygen.queryparams(request)
         version = get(params, "version", "")
-        top = try parse(Int, get(params, "top", "40")) catch; 40 end
+        top = try
+            parse(Int, get(params, "top", "40"))
+        catch
+            40
+        end
         try
             plot = PerfChecker.performance_plot(bundle, get(params, "plot", "");
                 version = isempty(version) ? nothing : version, top = clamp(top, 1, 200))
             Oxygen.json(PerfChecker.performance_plot_dict(plot))
         catch error
-            Oxygen.json(Dict("error" => first(sprint(showerror, error), 1_000)); status = 400)
+            Oxygen.json(
+                Dict("error" => first(sprint(showerror, error), 1_000)); status = 400)
         end
     end
     Oxygen.get(api("/plot")) do request
         params = Oxygen.queryparams(request)
         version = get(params, "version", "")
-        top = try parse(Int, get(params, "top", "40")) catch; 40 end
+        top = try
+            parse(Int, get(params, "top", "40"))
+        catch
+            40
+        end
         try
             plot = PerfChecker.performance_plot(bundle, get(params, "plot", "");
                 version = isempty(version) ? nothing : version, top = clamp(top, 1, 200))
@@ -100,7 +110,8 @@ end
 function _public_manifests(store::String)
     manifests = PerfChecker.list_run_bundles(store; recursive = true)
     return [Dict(key => value for (key, value) in pairs(manifest)
-                 if key != "bundle_path") for manifest in manifests], manifests
+            if key != "bundle_path") for manifest in manifests],
+    manifests
 end
 
 function _bundle_by_id(store::String, id::AbstractString)
@@ -111,12 +122,13 @@ function _bundle_by_id(store::String, id::AbstractString)
 end
 
 function _register_result_routes!(api, store::String)
-    handler = function(request)
+    handler = function (request)
         id = get(Oxygen.queryparams(request), "id", "")
         public, _ = _public_manifests(store)
         isempty(id) && return Oxygen.json(public)
         bundle = _bundle_by_id(store, id)
-        bundle === nothing && return Oxygen.json(Dict("error" => "unknown run"); status = 404)
+        bundle === nothing &&
+            return Oxygen.json(Dict("error" => "unknown run"); status = 404)
         return Oxygen.json(PerfChecker.bundle_dict(bundle))
     end
     Oxygen.get(handler, api("/results"))
@@ -124,24 +136,31 @@ function _register_result_routes!(api, store::String)
     Oxygen.get(api("/version-comparison")) do request
         id = get(Oxygen.queryparams(request), "id", "")
         bundle = _bundle_by_id(store, id)
-        bundle === nothing && return Oxygen.json(Dict("error" => "unknown run"); status = 404)
+        bundle === nothing &&
+            return Oxygen.json(Dict("error" => "unknown run"); status = 404)
         return Oxygen.json(PerfChecker.version_comparison_dict(
             PerfChecker.compare_suite_versions(bundle)))
     end
     Oxygen.get(api("/plots")) do request
         id = get(Oxygen.queryparams(request), "id", "")
         bundle = _bundle_by_id(store, id)
-        bundle === nothing && return Oxygen.json(Dict("error" => "unknown run"); status = 404)
+        bundle === nothing &&
+            return Oxygen.json(Dict("error" => "unknown run"); status = 404)
         return Oxygen.json(Dict("schema_version" => "perfchecker-plot-catalog/1",
             "run_id" => id, "plots" => PerfChecker.plot_catalog(bundle)))
     end
     Oxygen.get(api("/plot-data")) do request
         params = Oxygen.queryparams(request)
         bundle = _bundle_by_id(store, get(params, "id", ""))
-        bundle === nothing && return Oxygen.json(Dict("error" => "unknown run"); status = 404)
+        bundle === nothing &&
+            return Oxygen.json(Dict("error" => "unknown run"); status = 404)
         plot_id = get(params, "plot", "")
         version = get(params, "version", "")
-        top = try parse(Int, get(params, "top", "40")) catch; 40 end
+        top = try
+            parse(Int, get(params, "top", "40"))
+        catch
+            40
+        end
         try
             plot = PerfChecker.performance_plot(bundle, plot_id;
                 version = isempty(version) ? nothing : version, top = clamp(top, 1, 200))
@@ -154,10 +173,15 @@ function _register_result_routes!(api, store::String)
     Oxygen.get(api("/plot")) do request
         params = Oxygen.queryparams(request)
         bundle = _bundle_by_id(store, get(params, "id", ""))
-        bundle === nothing && return Oxygen.json(Dict("error" => "unknown run"); status = 404)
+        bundle === nothing &&
+            return Oxygen.json(Dict("error" => "unknown run"); status = 404)
         plot_id = get(params, "plot", "")
         version = get(params, "version", "")
-        top = try parse(Int, get(params, "top", "40")) catch; 40 end
+        top = try
+            parse(Int, get(params, "top", "40"))
+        catch
+            40
+        end
         try
             plot = PerfChecker.performance_plot(bundle, plot_id;
                 version = isempty(version) ? nothing : version, top = clamp(top, 1, 200))
@@ -177,7 +201,7 @@ function PerfChecker.register_oxygen_routes!(root::AbstractString;
         prefix::AbstractString = "/perfchecker/v1", allow_ingest::Bool = false)
     store = abspath(String(root))
     allow_ingest ? mkpath(store) :
-        isdir(store) || throw(ArgumentError("bundle store does not exist: $store"))
+    isdir(store) || throw(ArgumentError("bundle store does not exist: $store"))
     api = Oxygen.router(String(prefix); tags = ["PerfChecker bundle store"])
     _register_studio_assets!(api)
     Oxygen.get(api("/")) do
@@ -188,8 +212,8 @@ function PerfChecker.register_oxygen_routes!(root::AbstractString;
             "schema_version" => "perfchecker-capabilities/1",
             "read_only" => !allow_ingest,
             "resources" => allow_ingest ?
-                ["results", "version-comparison", "plots", "ingest"] :
-                ["results", "version-comparison", "plots"],
+                           ["results", "version-comparison", "plots", "ingest"] :
+                           ["results", "version-comparison", "plots"],
             "protocol" => "perfchecker-run-bundle/1"))
     end
     _register_result_routes!(api, store)
@@ -213,11 +237,15 @@ function PerfChecker.register_oxygen_routes!(suite::PerfChecker.SoftwareSuite;
         executor = PerfChecker._default_suite_executor,
         reports_root::AbstractString = joinpath(pwd(), "perfchecker-results"),
         max_concurrent::Integer = 1, authenticator = nothing,
-        authorizer = _default_studio_authorizer)
+        authorizer = _default_studio_authorizer, lease_seconds::Integer = 300,
+        max_agent_attempts::Integer = 3, session_hours::Integer = 8,
+        secure_cookies::Bool = false)
     return _register_suite_workspace!(suite; profile, prefix = String(prefix),
         version_provider, overrides, executor,
         reports_root = abspath(String(reports_root)), max_concurrent = Int(max_concurrent),
-        authenticator, authorizer)
+        authenticator, authorizer, lease_seconds = Int(lease_seconds),
+        max_agent_attempts = Int(max_agent_attempts), session_hours = Int(session_hours),
+        secure_cookies)
 end
 
 function PerfChecker.serve_suite(provider::Function; host::AbstractString = "127.0.0.1",
@@ -252,8 +280,9 @@ function PerfChecker.serve_suite(suite::PerfChecker.SoftwareSuite;
         allow_remote_control::Bool = false, authenticator = nothing, kwargs...)
     normalized_host = lowercase(String(host))
     loopback = normalized_host in ("127.0.0.1", "localhost", "::1")
-    loopback || (allow_remote_control && authenticator !== nothing) || throw(ArgumentError(
-        "remote performance control requires allow_remote_control=true and an authenticator"))
+    loopback || (allow_remote_control && authenticator !== nothing) ||
+        throw(ArgumentError(
+            "remote performance control requires allow_remote_control=true and an authenticator"))
     PerfChecker.register_oxygen_routes!(suite; prefix, authenticator, kwargs...)
     return Oxygen.serve(; host = String(host), port = Int(port), async)
 end

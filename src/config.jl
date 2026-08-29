@@ -212,8 +212,12 @@ function normalize_config(backend::Symbol, config::Dict)
     include_current = Bool(get(options, :include_current, true))
     !include_current && packages === nothing && devops === nothing &&
         throw(ArgumentError(":include_current=false requires :pkgs or :devops"))
-    option_pairs = sort!(collect(pairs(options)); by = p -> string(first(p)))
-    option_fingerprint = join(map(p -> string(first(p), "=", repr(last(p))), option_pairs), "|")
+    option_pairs = sort!(
+        [pair for pair in pairs(options)
+         if first(pair) !== :prepared_environment];
+        by = p -> string(first(p)))
+    option_fingerprint = join(
+        map(p -> string(first(p), "=", repr(last(p))), option_pairs), "|")
     config_hash = stable_uuid_string(
         join(string.([backend, path, tags, threads, track, option_fingerprint]), "|"))
 
@@ -270,4 +274,8 @@ end
     @test_throws ArgumentError PerfConfig(:benchmark, Dict("path" => @__DIR__))
     @test_throws ArgumentError PerfChecker.normalize_config(:benchmark,
         Dict(:path => @__DIR__, :include_current => false))
+    prepared_cfg = PerfChecker.normalize_config(:benchmark,
+        Dict(:path => @__DIR__, :tags => [:unit], :threads => 1,
+            :prepared_environment => "internal-cache-path"))
+    @test prepared_cfg.config_hash == cfg.config_hash
 end

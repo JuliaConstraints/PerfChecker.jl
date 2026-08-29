@@ -115,9 +115,9 @@ workflow is:
 [Supposition.jl](https://github.com/Seelengrab/Supposition.jl) is the optional
 bridge because it supports deterministic replay, integrated shrinking,
 composable generators, stateful tests and Julia's test-set API.
-[PropCheck.jl](https://seelengrab.github.io/PropCheck.jl/) remains usable as an
-external corpus producer, but shipping two overlapping required integrations
-would add little value. `freeze_supposition_corpus` generates a finite corpus
+[PropCheck.jl](https://seelengrab.github.io/PropCheck.jl/) is in maintenance
+mode, but remains supported by an optional compatibility extension for existing
+suites. `freeze_supposition_corpus` and `freeze_propcheck_corpus` generate a finite corpus
 in the controller and stores it using the
 `perfchecker-property-corpus/1` grammar. `write_property_corpus` offers the same
 boundary for PropCheck or custom fuzzers. Neither generator belongs in the
@@ -193,11 +193,33 @@ silently bridged by a comparison.
 ## Oxygen Performance Studio
 
 Registering a `SoftwareSuite` serves a dynamic Studio at the route prefix. It
-generates the authoritative plan, lets a developer filter and reorder run cards,
-configures allowlisted measurement parameters and regression limits, and starts
-a bounded queue. Drag-and-drop is optional: every action is also available by
-buttons and keyboard. The layout remains usable on narrow and coarse-pointer
-devices.
+generates the authoritative plan and starts a bounded queue. Developers select
+whole inclusive version intervals, combine package, feature, backend and text
+filters, sort by semantic version/package/feature, and add, remove or invert
+every visible run in one action. Deterministic colour labels make packages and
+versions identifiable across large matrices. Checkboxes, keyboard controls and
+drag-and-drop remain available for individual runs.
+
+The same selection grammar is available without a browser:
+
+```julia
+plan = plan_suite(suite; profile = :historical)
+selected = filter_suite_plan(plan;
+    packages = ["Parser"], backends = [:benchmark, :profile_alloc],
+    from_version = v"1.2", to_version = v"2.0", sort = :version_package)
+result = run_suite_repl(selected; reports = "perf/results/custom")
+```
+
+`configure_suite_repl` provides guided package, feature, backend, inclusive
+version-range, search, ordering, samples, duration, and thread choices.
+`run_suite_repl` renders the common run-count progress contract. Loading
+UnicodePlots adds terminal-native charts. Suite jobs expose the same progress
+as JSON, including the current run, so Oxygen, remote agents, Pluto, and
+non-Julia clients can render a consistent progress bar.
+
+Loading Documenter adds `documenter_page` and `documenter_makedocs`. Loading
+DocumenterVitepress adds `documenter_vitepress_makedocs`; both consume stored
+bundles and remain outside measured workers.
 
 ```julia
 using Oxygen, PerfChecker
@@ -207,8 +229,10 @@ serve_suite(suite; profile = :ci, reports_root = "perf/results/studio")
 
 Each selected run still starts a fresh Malt worker. Oxygen, PerfChecker, and UI
 libraries stay in the controller. A job becomes `complete` only after its bundle
-and comparison reports have been written atomically. Completed evidence is
-durable; the current lightweight controller queue is process-local.
+and comparison reports have been written atomically. Jobs, sessions and agent
+registrations are written atomically to `studio-state.json`; interrupted local
+jobs are requeued after restart. Remote work uses expiring hashed lease tokens,
+heartbeats and bounded retries. Queued or running jobs can be cancelled.
 
 ### Makie plot grammar
 
@@ -228,9 +252,22 @@ The catalog includes per-version trajectories, raw-sample distributions,
 adjacent-version deltas, time/allocation trade-offs, allocations stacked by
 source file, top allocation sites by `file:line`, and a version-by-line
 allocation heatmap. A percentage pie shows the allocation share per file.
-`Profile` CPU samples and `Profile.Allocs` allocation stacks also produce
-version-selectable Makie flame graphs. These profile views come from the
+`Profile` CPU samples, Julia 1.12 task wall-time samples, and `Profile.Allocs`
+allocation stacks also produce version-selectable Makie flame graphs. Folded
+stacks and Speedscope JSON are portable core exports; loading PProf and
+FlameGraphs adds compressed pprof protobuf output. These profile views come from the
 isolated workload worker and never profile the controller or dashboard process.
+
+Every flame rectangle is inspectable, including sections too narrow to carry a
+visible label. Hovering reports the complete call path, weight, percentage and
+available Julia diagnostics. The legend uses red for observed runtime dispatch,
+purple for a cached non-concrete inferred return, and orange for garbage
+collection. Runtime dispatch and a multi-type return are deliberately separate:
+the latter is evidence to inspect with `@code_warntype` or Cthulhu, not by itself
+proof of a performance defect. Allocation flame graphs retain the same full-path
+hover but do not claim CPU type-inference diagnostics. GLMakie and CairoMakie use
+the Makie figure directly; the self-contained web export uses an SVG interaction
+layer so hover and keyboard focus remain functional without a live Julia callback.
 
 The corresponding Oxygen routes are `GET /plots`, `GET /plot-data`, and
 `GET /plot`. The last route is available when WGLMakie is loaded by the
@@ -240,14 +277,30 @@ For a hosted controller, `serve_suite` refuses a non-loopback host unless both
 `allow_remote_control=true` and an `authenticator` are supplied. The included
 `studio_token_authenticator` maps SHA-256 token digests to user identities. A
 custom bearer/OIDC validator and `authorizer` callback can integrate an existing
-identity system. The default roles are `admin`, `runner`, and `agent`; TLS and
-token issuance remain deployment responsibilities.
+identity system. A built-in TOML user store accepts `[[users]]` records with
+SHA-256 token digests, roles, and optional allowed agent IDs. Browser sessions
+use HttpOnly cookies and CSRF tokens. The default roles are `admin`, `runner`,
+and `agent`; TLS and token issuance remain deployment responsibilities.
 
 Jobs may target `local`, `agent:any`, or `agent:<id>`. A pull-based agent calls
 `run_studio_agent`, verifies that its locally generated suite-plan revision and
 run IDs match the server lease, executes through the normal isolated runner,
 and uploads the portable bundle. The server never transmits source expressions
 or shell commands to the agent.
+
+## Network and experiment integrations
+
+The `:network` backend measures only counters explicitly returned by the
+workload (`bytes_sent`, `bytes_received`, and/or `operations`). It produces
+payload throughput and operation rate without confusing package traffic with
+registry downloads or host-wide interface noise. It is appropriate for HTTP,
+database and distributed features; suites without network semantics should not
+enable it.
+
+`drwatson_run_suite` caches a complete suite result through DrWatson and writes
+the normal report tree. `prepare_pluto_dashboard` prepares a suite job or loads
+an existing bundle for a notebook without profiling Pluto. Both remain
+controller-side integrations.
 
 ## Definition-aware comparisons
 

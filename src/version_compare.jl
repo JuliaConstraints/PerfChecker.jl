@@ -32,15 +32,16 @@ function suite_version_series(bundle::RunBundle)
     for observation in bundle.observations
         attributes = get(observation, "attributes", nothing)
         attributes isa AbstractDict || continue
-        all(haskey(attributes, key) for key in
-            ("package", "feature", "version", "target_kind")) || continue
+        all(haskey(attributes, key)
+        for key in ("package", "feature", "version", "target_kind")) || continue
         value = get(observation, "value", nothing)
         value isa Number || continue
         numeric = Float64(value)
         isfinite(numeric) || continue
         definition = String(get(observation, "measurement_definition", "unknown"))
         definition == "julia.alloc.fraction/line-tracking-v1" && continue
-        definition == "julia.cpu.samples/profile-v1" && continue
+        definition in ("julia.cpu.samples/profile-v1",
+            "julia.wall.samples/profile-walltime-v1") && continue
         key = (
             String(attributes["package"]),
             String(attributes["feature"]),
@@ -49,7 +50,7 @@ function suite_version_series(bundle::RunBundle)
             definition,
             String(get(observation, "unit", "unknown")),
             String(attributes["version"]),
-            String(attributes["target_kind"]),
+            String(attributes["target_kind"])
         )
         push!(get!(groups, key, Float64[]), numeric)
     end
@@ -59,7 +60,8 @@ function suite_version_series(bundle::RunBundle)
         package, feature, comparison_key, metric, definition, unit, version, kind = key
         allocation_sites = definition in (
             "julia.alloc.bytes/line-tracking-v1", "julia.alloc.bytes/profile-allocs-v1",
-            "julia.alloc.count/profile-allocs-v1", "julia.cpu.samples/profile-v1")
+            "julia.alloc.count/profile-allocs-v1", "julia.cpu.samples/profile-v1",
+            "julia.wall.samples/profile-walltime-v1")
         aggregation = allocation_sites ? "sum" : "median"
         aggregate = aggregation == "sum" ? sum(values) : _median(values)
         point = Dict{String, Any}(
@@ -67,7 +69,7 @@ function suite_version_series(bundle::RunBundle)
             "target_kind" => kind,
             "median" => aggregate,
             "samples" => length(values),
-            "aggregation" => aggregation,
+            "aggregation" => aggregation
         )
         series_key = (package, feature, comparison_key, metric, definition, unit)
         push!(get!(series_groups, series_key, Dict{String, Any}[]), point)
@@ -77,20 +79,22 @@ function suite_version_series(bundle::RunBundle)
     for (key, points) in series_groups
         package, feature, comparison_key, metric, definition, unit = key
         sort!(points; by = _version_point_key)
-        push!(result, Dict{String, Any}(
-            "series_id" => _series_identifier(key),
-            "package" => package,
-            "feature" => feature,
-            "comparison_key" => comparison_key,
-            "metric" => metric,
-            "measurement_definition" => definition,
-            "unit" => unit,
-            "points" => points,
-        ))
+        push!(result,
+            Dict{String, Any}(
+                "series_id" => _series_identifier(key),
+                "package" => package,
+                "feature" => feature,
+                "comparison_key" => comparison_key,
+                "metric" => metric,
+                "measurement_definition" => definition,
+                "unit" => unit,
+                "points" => points
+            ))
     end
-    sort!(result; by = series -> (
-        series["package"], series["feature"], series["metric"],
-        series["measurement_definition"]))
+    sort!(result;
+        by = series -> (
+            series["package"], series["feature"], series["metric"],
+            series["measurement_definition"]))
     return result
 end
 
@@ -115,10 +119,10 @@ function _availability_records(bundle::RunBundle)
     planned = get(plan, "runs", nothing)
     planned isa AbstractVector || return Dict{String, Any}[]
     observed = Set((String(get(item, "case_id", "")),
-                    String(get(item, "target_id", ""))) for item in bundle.observations)
+                       String(get(item, "target_id", ""))) for item in bundle.observations)
     diagnostics = Dict(
         (String(get(item, "case_id", "")), String(get(item, "target_id", ""))) => item
-        for item in bundle.diagnostics)
+    for item in bundle.diagnostics)
     suite = String(get(bundle.manifest, "suite", "suite"))
     records = Dict{String, Any}[]
     for run in planned
@@ -129,7 +133,7 @@ function _availability_records(bundle::RunBundle)
         diagnostic = get(diagnostics, (case_id, target_id), nothing)
         status, reason = if diagnostic !== nothing
             (String(get(get(diagnostic, "evidence", Dict()), "status", "failed")),
-             String(get(diagnostic, "message", "")))
+                String(get(diagnostic, "message", "")))
         elseif (case_id, target_id) in observed
             ("observed", "")
         elseif String(get(run, "status", "ready")) == "unavailable"
@@ -137,25 +141,27 @@ function _availability_records(bundle::RunBundle)
         else
             ("missing", "planned target produced no observation")
         end
-        push!(records, Dict{String, Any}(
-            "run_id" => String(get(run, "id", "")), "case_id" => case_id,
-            "package" => String(get(run, "package", package_id)),
-            "package_id" => package_id, "feature" => feature,
-            "version" => target_id,
-            "target_kind" => String(get(run, "target_kind", "release")),
-            "comparison_key" => String(get(run, "comparison_key", "")),
-            "status" => status, "reason" => reason))
+        push!(records,
+            Dict{String, Any}(
+                "run_id" => String(get(run, "id", "")), "case_id" => case_id,
+                "package" => String(get(run, "package", package_id)),
+                "package_id" => package_id, "feature" => feature,
+                "version" => target_id,
+                "target_kind" => String(get(run, "target_kind", "release")),
+                "comparison_key" => String(get(run, "comparison_key", "")),
+                "status" => status, "reason" => reason))
     end
-    sort!(records; by = item -> (item["package"], item["feature"],
-        _version_point_key(item)))
+    sort!(
+        records; by = item -> (item["package"], item["feature"],
+            _version_point_key(item)))
     return records
 end
 
 function _expected_points(series, availability)
     definition_suffix = "::$(series["measurement_definition"])"
     base_key = endswith(String(series["comparison_key"]), definition_suffix) ?
-        chop(String(series["comparison_key"]); tail = length(definition_suffix)) :
-        String(series["comparison_key"])
+               chop(String(series["comparison_key"]); tail = length(definition_suffix)) :
+               String(series["comparison_key"])
     matching = [Dict{String, Any}(
                     "version" => item["version"],
                     "target_kind" => item["target_kind"],
@@ -175,7 +181,7 @@ function _comparison_pairs(series, availability)
     isempty(expected) && return _version_pairs(series["points"])
     observed = Dict(String(point["version"]) => point for point in series["points"])
     return [(get(observed, String(baseline["version"]), baseline),
-             get(observed, String(candidate["version"]), candidate), relation)
+                get(observed, String(candidate["version"]), candidate), relation)
             for (baseline, candidate, relation) in _version_pairs(expected)]
 end
 
@@ -205,7 +211,7 @@ function _version_comparison_record(series, baseline, candidate, relation,
         "candidate_median" => candidate_median,
         "absolute_delta" => absolute_delta,
         "relative_delta" => relative_delta,
-        "relative_limit" => limit,
+        "relative_limit" => limit
     )
     if baseline["samples"] < min_samples || candidate["samples"] < min_samples
         record["status"] = "insufficient_samples"
@@ -231,7 +237,7 @@ function _missing_version_record(series, baseline, candidate, relation)
     haskey(baseline, "median") || push!(missing, String(baseline["version"]))
     haskey(candidate, "median") || push!(missing, String(candidate["version"]))
     reasons = unique!(String[get(point, "reason", "no observation")
-        for point in (baseline, candidate) if !haskey(point, "median")])
+                             for point in (baseline, candidate) if !haskey(point, "median")])
     return Dict{String, Any}(
         "series_id" => series["series_id"], "package" => series["package"],
         "feature" => series["feature"], "comparison_key" => series["comparison_key"],
@@ -269,9 +275,9 @@ function compare_suite_versions(bundle::RunBundle;
         end
         for (baseline, candidate, relation) in _comparison_pairs(item, availability)
             record = haskey(baseline, "median") && haskey(candidate, "median") ?
-                _version_comparison_record(item, baseline, candidate,
-                    relation, definition, relative_limits, min_samples) :
-                _missing_version_record(item, baseline, candidate, relation)
+                     _version_comparison_record(item, baseline, candidate,
+                relation, definition, relative_limits, min_samples) :
+                     _missing_version_record(item, baseline, candidate, relation)
             push!(records, record)
         end
     end
@@ -279,11 +285,12 @@ function compare_suite_versions(bundle::RunBundle;
         unique!(warnings), availability, series, records)
 end
 
-version_comparison_passed(comparison::VersionComparison) =
+function version_comparison_passed(comparison::VersionComparison)
     comparison.input_passed &&
-    !any(get(record, "status", "") in
-         ("regression", "incomparable", "insufficient_samples", "missing")
-         for record in comparison.records)
+        !any(get(record, "status", "") in (
+                 "regression", "incomparable", "insufficient_samples", "missing")
+        for record in comparison.records)
+end
 
 function version_comparison_dict(comparison::VersionComparison)
     return Dict{String, Any}(
@@ -294,17 +301,19 @@ function version_comparison_dict(comparison::VersionComparison)
         "warnings" => comparison.warnings,
         "availability" => comparison.availability,
         "series" => comparison.series,
-        "records" => comparison.records,
+        "records" => comparison.records
     )
 end
 
 function write_version_series_json(comparison::VersionComparison, path::AbstractString)
     mkpath(dirname(path))
-    _write_json(path, Dict(
-        "schema_version" => "perfchecker-version-series/1",
-        "run_id" => comparison.run_id,
-        "availability" => comparison.availability,
-        "series" => comparison.series); canonical = true)
+    _write_json(path,
+        Dict(
+            "schema_version" => "perfchecker-version-series/1",
+            "run_id" => comparison.run_id,
+            "availability" => comparison.availability,
+            "series" => comparison.series);
+        canonical = true)
     return String(path)
 end
 
@@ -320,27 +329,32 @@ function write_version_comparison_markdown(comparison::VersionComparison,
     mkpath(dirname(path))
     open(path, "w") do io
         println(io, "# PerfChecker version comparison\n")
-        println(io, "Status: **$(version_comparison_passed(comparison) ? "PASS" : "FAIL")**  ")
+        println(
+            io, "Status: **$(version_comparison_passed(comparison) ? "PASS" : "FAIL")**  ")
         println(io, "Series: $(length(comparison.series))  ")
         println(io, "Comparisons: $(length(comparison.records))\n")
-        println(io, "| Package | Feature | Metric | Baseline | Candidate | Delta | Status |")
+        println(
+            io, "| Package | Feature | Metric | Baseline | Candidate | Delta | Status |")
         println(io, "| --- | --- | --- | --- | --- | ---: | --- |")
         for record in comparison.records
             delta = record["relative_delta"]
             formatted = delta === nothing ? "—" : "$(round(100 * delta; digits = 2))%"
-            println(io, "| $(record["package"]) | $(record["feature"]) | " *
-                        "$(record["metric"]) | $(record["baseline_version"]) | " *
-                        "$(record["candidate_version"]) | $formatted | " *
-                        "$(record["status"]) |")
+            println(io,
+                "| $(record["package"]) | $(record["feature"]) | " *
+                "$(record["metric"]) | $(record["baseline_version"]) | " *
+                "$(record["candidate_version"]) | $formatted | " *
+                "$(record["status"]) |")
         end
-        unavailable = [item for item in comparison.availability
-            if item["status"] != "observed"]
+        unavailable = [item
+                       for item in comparison.availability
+                       if item["status"] != "observed"]
         if !isempty(unavailable)
             println(io, "\n## Unavailable, failed, or missing targets\n")
             println(io, "| Package | Feature | Version | Status | Reason |")
             println(io, "| --- | --- | --- | --- | --- |")
             for item in unavailable
-                println(io, "| $(item["package"]) | $(item["feature"]) | " *
+                println(io,
+                    "| $(item["package"]) | $(item["feature"]) | " *
                     "$(item["version"]) | $(item["status"]) | $(item["reason"]) |")
             end
         end
@@ -356,18 +370,19 @@ end
         "unit" => "ns", "preference" => "lower")
     observations = Dict{String, Any}[]
     for (version, kind, values) in (
-            ("0.1.0", "release", [10, 12]),
-            ("0.2.0", "release", [8, 10]),
-            ("dev@0.3.0", "dev", [12, 14]))
+        ("0.1.0", "release", [10, 12]),
+        ("0.2.0", "release", [8, 10]),
+        ("dev@0.3.0", "dev", [12, 14]))
         for (index, value) in enumerate(values)
-            push!(observations, Dict{String, Any}(
-                "case_id" => "Example/parse@$version",
-                "metric" => "julia.wall.time", "value" => value, "unit" => "ns",
-                "sample_index" => index,
-                "measurement_definition" => "julia.wall.time/test-v1",
-                "comparison_key" => "parse/v1::julia.wall.time/test-v1",
-                "attributes" => Dict("package" => "Example", "feature" => "parse",
-                    "version" => version, "target_kind" => kind)))
+            push!(observations,
+                Dict{String, Any}(
+                    "case_id" => "Example/parse@$version",
+                    "metric" => "julia.wall.time", "value" => value, "unit" => "ns",
+                    "sample_index" => index,
+                    "measurement_definition" => "julia.wall.time/test-v1",
+                    "comparison_key" => "parse/v1::julia.wall.time/test-v1",
+                    "attributes" => Dict("package" => "Example", "feature" => "parse",
+                        "version" => version, "target_kind" => kind)))
         end
     end
     manifest = Dict{String, Any}(
@@ -398,7 +413,9 @@ end
         @test isfile(write_version_series_json(gated, joinpath(dir, "series.json")))
         @test isfile(write_version_comparison_json(gated,
             joinpath(dir, "comparison.json")))
-        @test occursin("dev@0.3.0", read(write_version_comparison_markdown(gated,
-            joinpath(dir, "comparison.md")), String))
+        @test occursin("dev@0.3.0",
+            read(
+                write_version_comparison_markdown(gated,
+                    joinpath(dir, "comparison.md")), String))
     end
 end

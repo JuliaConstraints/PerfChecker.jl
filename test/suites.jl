@@ -1,13 +1,19 @@
 @testitem "Feature and software suites" tags=[:suites] begin
     using BenchmarkTools
     using DrWatson
+    using Documenter
+    using DocumenterVitepress
+    using FlameGraphs
     using HTTP
     using JSON
     using Makie
     using Oxygen
+    using PProf
     using PerfChecker
     using Pluto
+    using PropCheck
     using Supposition
+    using UnicodePlots
     using WGLMakie
     using SHA
     import Pkg
@@ -70,6 +76,8 @@ version = "0.2.0"
         job = launch_suite(plan; executor = fake_runner)
         async_result = wait_suite(job)
         @test suite_job_status(job) == :complete
+        @test suite_job_progress(job)["completed"] == length(plan.runs)
+        @test suite_job_progress(job)["percent"] == 100
         @test suite_job_dict(job)["result"]["passed"]
         @test suite_passed(async_result)
 
@@ -84,7 +92,8 @@ version = "0.2.0"
             use_mmap = false)
         @test parsed["schema_version"] == "perfchecker-suite-result/1"
         @test parsed["passed"]
-        @test occursin("<testsuite", read(joinpath(dir, "reports", "suite-junit.xml"), String))
+        @test occursin(
+            "<testsuite", read(joinpath(dir, "reports", "suite-junit.xml"), String))
         bundle_path = only(filter(isdir, reports))
         bundle = read_run_bundle(bundle_path)
         @test bundle_passed(bundle)
@@ -142,6 +151,12 @@ end
         generated = read_property_corpus(generated_path)
         @test generated["producer"] == "Supposition.jl"
         @test length(generated["cases"]) == 4
+
+        legacy_path = freeze_propcheck_corpus(joinpath(dir, "propcheck.json"),
+            PropCheck.itype(Int8); count = 4, seed = 7)
+        legacy = read_property_corpus(legacy_path)
+        @test legacy["producer"] == "PropCheck.jl"
+        @test length(legacy["cases"]) == 4
 
         @testset "DrWatson extension" begin
             parameters = drwatson_parameters(plan)
@@ -219,12 +234,44 @@ end
                 "/test/perfchecker/jobs/assets/perfchecker-studio.css")).status == 200
             @test Oxygen.internalrequest(HTTP.Request("GET",
                 "/test/perfchecker/jobs/assets/perfchecker-studio.js")).status == 200
+            studio_html = String(Oxygen.internalrequest(HTTP.Request("GET",
+                "/test/perfchecker/jobs/")).body)
+            @test occursin("version-min", studio_html)
+            @test occursin("add-visible", studio_html)
+            @test occursin("result-filter", studio_html)
+            @test occursin("result-profile-filter", studio_html)
+            @test occursin("result-sort", studio_html)
+            state_file = joinpath(dir, "studio-results", "studio-state.json")
+            @test isfile(state_file)
+            @test any(job -> job["job_id"] == launch_body["job_id"],
+                JSON.parsefile(state_file; use_mmap = false)["jobs"])
+            Oxygen.resetstate()
+
+            register_oxygen_routes!(software; prefix = "/test/perfchecker/recovered",
+                profile = :historical, version_provider = provider,
+                executor = fake_runner, reports_root = joinpath(dir, "studio-results"))
+            recovered = JSON.parse(String(Oxygen.internalrequest(HTTP.Request("GET",
+                "/test/perfchecker/recovered/jobs")).body))
+            @test any(
+                job -> job["job_id"] == launch_body["job_id"] &&
+                       job["state"] == "complete", recovered)
             Oxygen.resetstate()
 
             token = "test-personal-access-token"
             authenticate = studio_token_authenticator(Dict(
                 bytes2hex(sha256(token)) => Dict("id" => "developer-1",
-                    "name" => "Package developer", "roles" => ["runner", "agent"])))
+                "name" => "Package developer", "roles" => ["runner", "agent"],
+                "agent_ids" => ["worker-1"])))
+            user_store = joinpath(dir, "studio-users.toml")
+            write(user_store, """
+[[users]]
+id = "developer-1"
+name = "Package developer"
+roles = ["runner", "agent"]
+agent_ids = ["worker-1"]
+token_sha256 = "$(bytes2hex(sha256(token)))"
+""")
+            @test studio_token_authenticator(user_store)(token)["id"] == "developer-1"
             register_oxygen_routes!(software; prefix = "/test/perfchecker/hosted",
                 profile = :quick, version_provider = provider, executor = fake_runner,
                 reports_root = joinpath(dir, "hosted-results"),
@@ -269,8 +316,12 @@ end
                 JSON.json(Dict("agent_id" => "worker-1"))))
             @test claim.status == 200
             claim_body = JSON.parse(String(claim.body))
-            local_remote_plan = select_suite_plan(plan_suite(software;
-                profile = :quick, version_provider = provider), remote_ids)
+            @test !isempty(claim_body["lease_token"])
+            @test !isnothing(claim_body["lease_until"])
+            local_remote_plan = select_suite_plan(
+                plan_suite(software;
+                    profile = :quick, version_provider = provider),
+                remote_ids)
             remote_result = run_suite(local_remote_plan; executor = fake_runner,
                 strict = false)
             remote_bundle = PerfChecker._suite_run_bundle(remote_result)
@@ -278,9 +329,31 @@ end
                 "/test/perfchecker/hosted/agents/complete",
                 [auth_headers; "Content-Type" => "application/json"], JSON.json(Dict(
                     "agent_id" => "worker-1", "job_id" => claim_body["job_id"],
+                    "lease_token" => claim_body["lease_token"],
                     "bundle" => bundle_dict(remote_bundle)))))
             @test completion.status == 200
-            @test JSON.parse(String(completion.body))["state"] == "complete"
+            completion_body = JSON.parse(String(completion.body))
+            @test completion_body["state"] == "complete"
+            @test completion_body["progress"]["state"] == "complete"
+            @test completion_body["progress"]["completed"] == length(remote_ids)
+            @test completion_body["progress"]["remaining"] == 0
+            @test completion_body["progress"]["percent"] == 100.0
+            @test completion_body["progress"]["passed"] == length(remote_ids)
+            @test isnothing(completion_body["progress"]["current_run"])
+            cancel_launch = Oxygen.internalrequest(HTTP.Request("POST",
+                "/test/perfchecker/hosted/jobs",
+                [auth_headers; "Content-Type" => "application/json"], JSON.json(Dict(
+                    "profile" => "quick",
+                    "plan_revision" => hosted_plan_body["plan_revision"],
+                    "selected_run_ids" => remote_ids,
+                    "execution_target" => "agent:worker-1"))))
+            cancel_id = JSON.parse(String(cancel_launch.body))["job_id"]
+            cancel_response = Oxygen.internalrequest(HTTP.Request("POST",
+                "/test/perfchecker/hosted/jobs/cancel",
+                [auth_headers; "Content-Type" => "application/json"],
+                JSON.json(Dict("job_id" => cancel_id))))
+            @test cancel_response.status == 200
+            @test JSON.parse(String(cancel_response.body))["state"] == "cancelled"
             Oxygen.resetstate()
 
             register_oxygen_routes!(bundle; prefix = "/test/perfchecker/bundle")
@@ -347,6 +420,28 @@ end
             figure_from_suite = suite_dashboard(software; profile = :historical,
                 version_provider = provider, executor = fake_runner)
             @test figure_from_suite isa Makie.Figure
+
+            profile_bundle = PerfChecker.RunBundle(
+                Dict(
+                    "schema_version" => PerfChecker.RUN_BUNDLE_SCHEMA,
+                    "run_id" => "profile-export", "suite" => "demo", "state" => "complete"),
+                Dict{String, Any}[], [Dict{String, Any}(
+                    "metric" => "julia.cpu.samples", "case_id" => "demo/case",
+                    "version" => "dev", "value" => 3,
+                    "attributes" => Dict("stack" => ["root (a.jl:1)", "leaf (b.jl:2)"]))],
+                Dict{String, Any}[], Dict{String, Any}[])
+            pprof_path = write_pprof_profile(profile_bundle,
+                joinpath(dir, "profile.pb.gz"); max_samples = 20)
+            @test isfile(pprof_path)
+            @test filesize(pprof_path) > 0
+            documenter_path = documenter_page(bundle,
+                joinpath(dir, "docs", "performance.md"))
+            @test occursin("# Performance", read(documenter_path, String))
+            @test hasmethod(documenter_vitepress_makedocs, Tuple{RunBundle})
+            terminal = terminal_plot(compare_suite_versions(bundle))
+            @test occursin("median", sprint(show, "text/plain", terminal))
+            terminal_from_grammar = terminal_plot(bundle; kind = :version_series)
+            @test occursin("median", sprint(show, "text/plain", terminal_from_grammar))
         end
     end
 end

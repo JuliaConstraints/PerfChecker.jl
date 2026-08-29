@@ -417,6 +417,9 @@ later by satisfying the same collector contract.
 | FirefoxProfileFormat.jl | 1.0.0 | Firefox profile interchange | Evaluate after the base profile contract is complete |
 | Arrow.jl | 2.8.1 | Efficient large sample/time-series batches | Optional storage/export extension |
 | Makie.jl | 0.21/0.22 (existing) | Current plots and richer dashboards | Preserve; rewrite against report models, not backend tables |
+| UnicodePlots.jl | 3.x | REPL-native version and regression plots | Optional terminal reporter over the common plot/result grammar |
+| Documenter.jl | 1.x | Static package documentation | Optional reporter that generates performance pages from stored bundles |
+| DocumenterVitepress.jl | 0.2.x | VitePress Markdown backend for Documenter | Optional renderer over the same generated performance page |
 | Oxygen.jl | 1.10.1 | OpenAPI HTTP control plane and web service | Separate optional service package once the protocol is stable |
 | OpenTelemetry.jl | 0.4.0 | Export live operational telemetry | Optional exporter only; implementation is unofficial and benchmark artifacts are not ordinary service metrics |
 | Prometheus.jl | 1.4.1 | Current gauges/counters for a running service | Oxygen operational metrics, not canonical benchmark storage |
@@ -534,10 +537,12 @@ cannot safely compare.
 ## Oxygen service and polyglot boundary
 
 The first Oxygen service keeps result ingestion and browsing separate from
-execution. A local Studio now proves the job contract with a bounded in-memory
-queue, and authenticated pull agents prove remote execution without sending
-source code through the control plane. Durable multi-replica scheduling,
-leases/timeouts, quotas, retention, and tenant storage remain service-layer work.
+execution. The local Studio now persists its bounded queue and browser sessions
+atomically, recovers interrupted work, and supports cancellation. Authenticated
+pull agents use identity-bound expiring leases, heartbeats and bounded retries
+without receiving source code through the control plane. Multi-replica
+coordination, quotas, retention policies, tenant storage and external OIDC
+remain service-layer work.
 
 Candidate v1 endpoints:
 
