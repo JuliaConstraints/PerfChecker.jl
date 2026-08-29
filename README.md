@@ -45,6 +45,15 @@ their historical curves and regressions. It supports a loopback controller or
 an authenticated hosted controller with pull-based local/remote agents; the
 measured Malt workers remain free of PerfChecker and UI dependencies.
 
+Visualization uses one `perfchecker-plot/1` grammar across interfaces. WGLMakie
+provides interactive WebGL figures in Oxygen, GLMakie can open the same figures
+locally, and CairoMakie exports CI artifacts. Available views include version
+trajectories, sample distributions, regression deltas, time/allocation
+trade-offs, allocations by source file, allocation hotspots by exact line, and
+version-by-line heatmaps. Allocation shares are also available as percentage
+pie charts. CPU sampling and allocation stacks can be explored as Makie flame
+graphs, with version selection in the same Studio.
+
 ## Google Summer of Code (2023)
 
 `JuliaConstraints`, including `PerfChecker.jl`, is participating in Google Summer of Code (GSoC) through the Julia language umbrella and is looking for contributors. Complete lists of projects:

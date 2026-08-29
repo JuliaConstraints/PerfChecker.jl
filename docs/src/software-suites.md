@@ -210,6 +210,32 @@ libraries stay in the controller. A job becomes `complete` only after its bundle
 and comparison reports have been written atomically. Completed evidence is
 durable; the current lightweight controller queue is process-local.
 
+### Makie plot grammar
+
+Every stored bundle exposes a backend-neutral `perfchecker-plot/1` description.
+`plot_catalog(bundle)` lists the available views and `performance_plot(bundle, id)`
+returns their data and encodings. This is the common contract used by the Julia
+API, Oxygen JSON routes, Pluto notebooks, and Makie renderers.
+
+Loading Makie adds `performance_figure`. The active Makie backend controls the
+surface without changing the plot definition:
+
+- WGLMakie renders interactive WebGL figures inside the Oxygen Studio;
+- GLMakie provides the local GPU window for package developers;
+- CairoMakie writes deterministic PNG, SVG, or PDF artifacts in CI.
+
+The catalog includes per-version trajectories, raw-sample distributions,
+adjacent-version deltas, time/allocation trade-offs, allocations stacked by
+source file, top allocation sites by `file:line`, and a version-by-line
+allocation heatmap. A percentage pie shows the allocation share per file.
+`Profile` CPU samples and `Profile.Allocs` allocation stacks also produce
+version-selectable Makie flame graphs. These profile views come from the
+isolated workload worker and never profile the controller or dashboard process.
+
+The corresponding Oxygen routes are `GET /plots`, `GET /plot-data`, and
+`GET /plot`. The last route is available when WGLMakie is loaded by the
+controller.
+
 For a hosted controller, `serve_suite` refuses a non-loopback host unless both
 `allow_remote_control=true` and an `authenticator` are supplied. The included
 `studio_token_authenticator` maps SHA-256 token digests to user identities. A

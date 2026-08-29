@@ -39,7 +39,7 @@ function PerfChecker.register_oxygen_routes!(bundle::PerfChecker.RunBundle;
             "schema_version" => "perfchecker-capabilities/1",
             "read_only" => true,
             "resources" => ["manifest", "measurement-definitions", "observations",
-                "diagnostics", "artifacts", "version-comparison"]))
+                "diagnostics", "artifacts", "version-comparison", "plots"]))
     end
     Oxygen.get(api("/manifest")) do
         Oxygen.json(bundle.manifest)
@@ -59,6 +59,40 @@ function PerfChecker.register_oxygen_routes!(bundle::PerfChecker.RunBundle;
     Oxygen.get(api("/version-comparison")) do
         Oxygen.json(PerfChecker.version_comparison_dict(
             PerfChecker.compare_suite_versions(bundle)))
+    end
+    Oxygen.get(api("/plots")) do
+        Oxygen.json(Dict("schema_version" => "perfchecker-plot-catalog/1",
+            "run_id" => bundle.manifest["run_id"],
+            "plots" => PerfChecker.plot_catalog(bundle)))
+    end
+    Oxygen.get(api("/plot-data")) do request
+        params = Oxygen.queryparams(request)
+        version = get(params, "version", "")
+        top = try parse(Int, get(params, "top", "40")) catch; 40 end
+        try
+            plot = PerfChecker.performance_plot(bundle, get(params, "plot", "");
+                version = isempty(version) ? nothing : version, top = clamp(top, 1, 200))
+            Oxygen.json(PerfChecker.performance_plot_dict(plot))
+        catch error
+            Oxygen.json(Dict("error" => first(sprint(showerror, error), 1_000)); status = 400)
+        end
+    end
+    Oxygen.get(api("/plot")) do request
+        params = Oxygen.queryparams(request)
+        version = get(params, "version", "")
+        top = try parse(Int, get(params, "top", "40")) catch; 40 end
+        try
+            plot = PerfChecker.performance_plot(bundle, get(params, "plot", "");
+                version = isempty(version) ? nothing : version, top = clamp(top, 1, 200))
+            applicable(PerfChecker.performance_plot_html, plot) || return Oxygen.json(
+                Dict("error" => "WGLMakie is not loaded in this controller"); status = 501)
+            Oxygen.html(PerfChecker.performance_plot_html(plot);
+                headers = ["Cache-Control" => "private, max-age=60",
+                    "X-Content-Type-Options" => "nosniff"])
+        catch error
+            Oxygen.json(Dict("error" => first(sprint(showerror, error), 1_000));
+                status = 400)
+        end
     end
     return api
 end
@@ -94,6 +128,49 @@ function _register_result_routes!(api, store::String)
         return Oxygen.json(PerfChecker.version_comparison_dict(
             PerfChecker.compare_suite_versions(bundle)))
     end
+    Oxygen.get(api("/plots")) do request
+        id = get(Oxygen.queryparams(request), "id", "")
+        bundle = _bundle_by_id(store, id)
+        bundle === nothing && return Oxygen.json(Dict("error" => "unknown run"); status = 404)
+        return Oxygen.json(Dict("schema_version" => "perfchecker-plot-catalog/1",
+            "run_id" => id, "plots" => PerfChecker.plot_catalog(bundle)))
+    end
+    Oxygen.get(api("/plot-data")) do request
+        params = Oxygen.queryparams(request)
+        bundle = _bundle_by_id(store, get(params, "id", ""))
+        bundle === nothing && return Oxygen.json(Dict("error" => "unknown run"); status = 404)
+        plot_id = get(params, "plot", "")
+        version = get(params, "version", "")
+        top = try parse(Int, get(params, "top", "40")) catch; 40 end
+        try
+            plot = PerfChecker.performance_plot(bundle, plot_id;
+                version = isempty(version) ? nothing : version, top = clamp(top, 1, 200))
+            return Oxygen.json(PerfChecker.performance_plot_dict(plot))
+        catch error
+            return Oxygen.json(Dict("error" => first(sprint(showerror, error), 1_000));
+                status = 400)
+        end
+    end
+    Oxygen.get(api("/plot")) do request
+        params = Oxygen.queryparams(request)
+        bundle = _bundle_by_id(store, get(params, "id", ""))
+        bundle === nothing && return Oxygen.json(Dict("error" => "unknown run"); status = 404)
+        plot_id = get(params, "plot", "")
+        version = get(params, "version", "")
+        top = try parse(Int, get(params, "top", "40")) catch; 40 end
+        try
+            plot = PerfChecker.performance_plot(bundle, plot_id;
+                version = isempty(version) ? nothing : version, top = clamp(top, 1, 200))
+            applicable(PerfChecker.performance_plot_html, plot) || return Oxygen.json(
+                Dict("error" => "WGLMakie is not loaded in this controller"); status = 501)
+            return Oxygen.html(PerfChecker.performance_plot_html(plot);
+                headers = ["Cache-Control" => "private, max-age=60",
+                    "X-Content-Type-Options" => "nosniff"])
+        catch error
+            return Oxygen.json(Dict("error" => first(sprint(showerror, error), 1_000));
+                status = 400)
+        end
+    end
 end
 
 function PerfChecker.register_oxygen_routes!(root::AbstractString;
@@ -110,8 +187,9 @@ function PerfChecker.register_oxygen_routes!(root::AbstractString;
         Oxygen.json(Dict(
             "schema_version" => "perfchecker-capabilities/1",
             "read_only" => !allow_ingest,
-            "resources" => allow_ingest ? ["results", "version-comparison", "ingest"] :
-                           ["results", "version-comparison"],
+            "resources" => allow_ingest ?
+                ["results", "version-comparison", "plots", "ingest"] :
+                ["results", "version-comparison", "plots"],
             "protocol" => "perfchecker-run-bundle/1"))
     end
     _register_result_routes!(api, store)

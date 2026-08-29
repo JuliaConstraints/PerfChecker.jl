@@ -38,12 +38,15 @@ function suite_version_series(bundle::RunBundle)
         value isa Number || continue
         numeric = Float64(value)
         isfinite(numeric) || continue
+        definition = String(get(observation, "measurement_definition", "unknown"))
+        definition == "julia.alloc.fraction/line-tracking-v1" && continue
+        definition == "julia.cpu.samples/profile-v1" && continue
         key = (
             String(attributes["package"]),
             String(attributes["feature"]),
             String(get(observation, "comparison_key", "")),
             String(get(observation, "metric", "unknown")),
-            String(get(observation, "measurement_definition", "unknown")),
+            definition,
             String(get(observation, "unit", "unknown")),
             String(attributes["version"]),
             String(attributes["target_kind"]),
@@ -54,11 +57,17 @@ function suite_version_series(bundle::RunBundle)
     series_groups = Dict{NTuple{6, String}, Vector{Dict{String, Any}}}()
     for (key, values) in groups
         package, feature, comparison_key, metric, definition, unit, version, kind = key
+        allocation_sites = definition in (
+            "julia.alloc.bytes/line-tracking-v1", "julia.alloc.bytes/profile-allocs-v1",
+            "julia.alloc.count/profile-allocs-v1", "julia.cpu.samples/profile-v1")
+        aggregation = allocation_sites ? "sum" : "median"
+        aggregate = aggregation == "sum" ? sum(values) : _median(values)
         point = Dict{String, Any}(
             "version" => version,
             "target_kind" => kind,
-            "median" => _median(values),
+            "median" => aggregate,
             "samples" => length(values),
+            "aggregation" => aggregation,
         )
         series_key = (package, feature, comparison_key, metric, definition, unit)
         push!(get!(series_groups, series_key, Dict{String, Any}[]), point)

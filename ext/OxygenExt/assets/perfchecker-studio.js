@@ -7,6 +7,7 @@
   const $ = selector => document.querySelector(selector);
   const $$ = selector => Array.from(document.querySelectorAll(selector));
   const state = { plan: null, selected: [], dragged: null, series: [], comparison: null,
+    plots: [], currentRun: null,
     token: window.sessionStorage.getItem('perfchecker-token') || '', started: false };
 
   async function api(path, options = {}) {
@@ -197,15 +198,53 @@
       [record.relation, record.baseline_version, record.candidate_version, delta, record.status].forEach((value, index) => { const td = document.createElement('td'); td.textContent = value; if (index === 4) td.className = `status ${record.status}`; tr.append(td); }); bodyNode.append(tr);
     }); table.append(bodyNode); $('#comparison-table').replaceChildren(table);
   }
-  function showSeries(index) { const series = state.series[index]; if (!series) return; renderChart(series); renderComparisonTable(series); }
+  function plotLabel(plot) {
+    return `${plot.label} — ${plot.package || ''} · ${plot.feature || ''} · ${plot.metric || ''}`;
+  }
+  async function showPlot(resetVersion = false) {
+    const picker = $('#plot-picker'); const plot = state.plots[Number(picker.value)];
+    if (!plot || !state.currentRun) return;
+    const versionPicker = $('#plot-version');
+    if (resetVersion) versionPicker.value = '';
+    let query = `id=${encodeURIComponent(state.currentRun)}&plot=${encodeURIComponent(plot.id)}&top=40`;
+    if (versionPicker.value) query += `&version=${encodeURIComponent(versionPicker.value)}`;
+    try {
+      const payload = await api(`/plot-data?${query}`);
+      const versions = payload.options?.versions || [];
+      if (versions.length) {
+        const selected = payload.options.selected_version || versionPicker.value || versions[versions.length - 1];
+        versionPicker.replaceChildren(...versions.map(version => {
+          const option = document.createElement('option'); option.value = version; option.textContent = version;
+          option.selected = version === selected; return option;
+        }));
+        $('#plot-version-label').hidden = false;
+        query = `id=${encodeURIComponent(state.currentRun)}&plot=${encodeURIComponent(plot.id)}&top=40&version=${encodeURIComponent(selected)}`;
+      } else {
+        $('#plot-version-label').hidden = true; versionPicker.replaceChildren();
+      }
+      const frame = $('#makie-frame'); frame.hidden = false;
+      frame.src = `${base}/plot?${query}`;
+      $('#series-chart').hidden = true;
+      const series = state.series.find(item => item.series_id === plot.series_id);
+      if (series) renderComparisonTable(series); else $('#comparison-table').replaceChildren();
+      announce(`Showing ${plot.label}`);
+    } catch (error) { toast(error.message); }
+  }
   async function loadComparison(id) {
     try {
-      const [bundle, comparison] = await Promise.all([api(`/results?id=${encodeURIComponent(id)}`), api(`/version-comparison?id=${encodeURIComponent(id)}`)]);
-      state.comparison = comparison; state.series = comparison.series || [];
+      const [bundle, comparison, catalog] = await Promise.all([api(`/results?id=${encodeURIComponent(id)}`), api(`/version-comparison?id=${encodeURIComponent(id)}`), api(`/plots?id=${encodeURIComponent(id)}`)]);
+      state.currentRun = id; state.comparison = comparison; state.series = comparison.series || []; state.plots = catalog.plots || [];
       const summary = document.createElement('div'); summary.className = 'result-summary';
-      [`${bundle.manifest.suite}`, `${state.series.length} series`, `${comparison.records.length} comparisons`, `${bundle.observations.length} observations`].forEach(text => { const strong = document.createElement('strong'); strong.textContent = text; summary.append(strong); }); $('#result-summary').replaceWith(summary); summary.id = 'result-summary';
-      const picker = $('#series-picker'); picker.replaceChildren(...state.series.map((series, index) => { const option = document.createElement('option'); option.value = index; option.textContent = `${series.package} · ${series.feature} · ${series.metric}`; return option; }));
-      $('#series-picker-label').hidden = !state.series.length; picker.onchange = () => showSeries(Number(picker.value)); showSeries(0);
+      [`${bundle.manifest.suite}`, `${state.series.length} series`, `${comparison.records.length} comparisons`, `${state.plots.length} Makie plots`, `${bundle.observations.length} observations`].forEach(text => { const strong = document.createElement('strong'); strong.textContent = text; summary.append(strong); }); $('#result-summary').replaceWith(summary); summary.id = 'result-summary';
+      const picker = $('#plot-picker'); picker.replaceChildren(...state.plots.map((plot, index) => { const option = document.createElement('option'); option.value = index; option.textContent = plotLabel(plot); return option; }));
+      const preferred = state.plots.findIndex(plot => plot.kind === 'version_series' && plot.metric === 'julia.wall.time');
+      picker.value = String(preferred >= 0 ? preferred : 0);
+      $('#plot-picker-label').hidden = !state.plots.length;
+      picker.onchange = () => showPlot(true);
+      $('#plot-version').onchange = () => showPlot(false);
+      if (state.plots.length) showPlot(true); else {
+        $('#makie-frame').hidden = true; $('#comparison-table').replaceChildren();
+      }
     } catch (error) { toast(error.message); }
   }
 
@@ -226,6 +265,7 @@
   async function authenticate() {
     try {
       const account = await api('/me');
+      if (authRequired) await api('/session', { method: 'POST' });
       const identity = account.identity || {};
       $('#current-user').textContent = identity.name || identity.id || 'Authenticated';
       $('#login-error').textContent = '';

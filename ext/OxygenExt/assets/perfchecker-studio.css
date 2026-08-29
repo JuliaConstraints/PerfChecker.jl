@@ -78,6 +78,8 @@ input, select { width: 100%; padding: .45rem .55rem; border: 1px solid var(--lin
 .result-list button strong, .result-list button small { display: block; }
 .result-detail { min-width: 0; }
 .result-summary { display: flex; flex-wrap: wrap; gap: .5rem 1rem; margin-bottom: 1rem; }
+.plot-controls { display: grid; grid-template-columns: minmax(18rem, 1fr) minmax(10rem, .35fr); gap: .75rem; }
+.makie-frame { width: 100%; min-height: 38rem; margin: 1rem 0; border: 1px solid var(--line); border-radius: .5rem; background: var(--soft); }
 .chart { min-height: 18rem; margin: 1rem 0; overflow-x: auto; border: 1px solid var(--line); border-radius: .5rem; background: var(--soft); }
 .chart svg { display: block; min-width: 100%; height: 18rem; }
 .chart text { fill: var(--muted); font-size: 11px; }
@@ -108,6 +110,7 @@ dialog::backdrop { background: #071426b8; backdrop-filter: blur(.2rem); }
   .worker-badge { font-size: .68rem; }
   .section-heading { align-items: stretch; flex-direction: column; }
   .drop-grid { grid-template-columns: 1fr; }
+  .plot-controls { grid-template-columns: 1fr; }
   .drop-zone { min-height: 12rem; }
   .settings { grid-template-columns: 1fr 1fr; }
   .launch-bar { align-items: stretch; flex-direction: column; }

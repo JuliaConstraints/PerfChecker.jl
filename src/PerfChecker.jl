@@ -41,6 +41,11 @@ export comparison_dict
 export comparison_passed
 export compare_bundles
 export compare_suite_versions
+export performance_figure
+export performance_plot
+export performance_plot_dict
+export performance_plot_html
+export plot_catalog
 export external_command_dict
 export checkres_to_boxplots
 export checkres_to_pie
@@ -115,9 +120,12 @@ include("templates.jl")
 include("corpus.jl")
 include("check.jl")
 include("alloc.jl")
+include("profile_allocs.jl")
+include("profile.jl")
 include("suites.jl")
 include("protocol.jl")
 include("compare.jl")
 include("version_compare.jl")
+include("plots.jl")
 
 end

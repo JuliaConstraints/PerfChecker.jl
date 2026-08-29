@@ -34,14 +34,15 @@ function _studio_html(prefix::String; writable::Bool, auth_required::Bool = fals
 <div class="config-grid"><aside class="panel settings"><h2>Execution</h2><label>Worker<select id="execution-target"><option value="local">This server</option><option value="agent:any">Any remote agent</option></select></label><h2>Measurement</h2><label>Samples<input id="samples" type="number" min="1" value="20"></label><label>Seconds<input id="seconds" type="number" min="0.001" step="0.05" value="0.2"></label><label>Evaluations<input id="evals" type="number" min="1" value="1"></label><label>Threads<input id="threads" type="number" min="1" value="1"></label><h2>Regression limits</h2><label>Wall time %<input id="limit-time" type="number" min="0" step="1" value="10"></label><label>Allocation bytes %<input id="limit-bytes" type="number" min="0" step="1" value="5"></label></aside>
 <div class="matrix"><div class="matrix-toolbar"><label>Filter<input id="plan-filter" type="search" placeholder="Package, feature or version"></label><button type="button" id="select-all">Select all</button><button type="button" id="clear-selection">Clear</button><span id="plan-summary" class="muted"></span></div><div class="drop-grid"><section class="panel drop-zone" data-zone="available" aria-labelledby="available-title"><h2 id="available-title">Available</h2><div id="available-runs" class="run-list"></div></section><section class="panel drop-zone selected-zone" data-zone="selected" aria-labelledby="selected-title"><h2 id="selected-title">Execution order</h2><p class="muted">Drag cards here or use their buttons. Every case starts a fresh worker.</p><ol id="selected-runs" class="run-list sortable"></ol></section></div><footer class="launch-bar"><p id="plan-revision" class="muted"></p><button type="button" id="launch-job" class="primary">Launch selected runs</button></footer></div></div></section>
 <section class="view" data-view="jobs" hidden><header class="section-heading"><div><p class="eyebrow">Controller</p><h1>Jobs</h1><p>Queued, running and persisted runs.</p></div></header><div id="jobs" class="card-grid"></div></section>
-<section class="view" data-view="results" hidden><header class="section-heading"><div><p class="eyebrow">Evidence</p><h1>Version comparisons</h1><p>Adjacent releases and development versus the latest release.</p></div><button type="button" id="refresh-results">Refresh</button></header><div class="results-layout"><aside class="panel"><h2>Runs</h2><div id="results" class="result-list"></div></aside><section class="panel result-detail"><div id="result-summary" class="empty-state">Select a completed run.</div><label id="series-picker-label" hidden>Series<select id="series-picker"></select></label><div id="series-chart" class="chart" role="img" aria-label="Version performance chart"></div><div id="comparison-table"></div></section></div></section>
+<section class="view" data-view="results" hidden><header class="section-heading"><div><p class="eyebrow">Evidence</p><h1>Makie performance explorer</h1><p>Interactive trajectories, distributions, regressions and allocation profiles.</p></div><button type="button" id="refresh-results">Refresh</button></header><div class="results-layout"><aside class="panel"><h2>Runs</h2><div id="results" class="result-list"></div></aside><section class="panel result-detail"><div id="result-summary" class="empty-state">Select a completed run.</div><div class="plot-controls"><label id="plot-picker-label" hidden>Plot<select id="plot-picker"></select></label><label id="plot-version-label" hidden>Version<select id="plot-version"></select></label></div><iframe id="makie-frame" class="makie-frame" title="Interactive Makie performance plot" loading="lazy" hidden></iframe><div id="series-chart" class="chart" role="img" aria-label="Version performance chart" hidden></div><div id="comparison-table"></div></section></div></section>
 </main><dialog id="login-dialog"><form method="dialog" id="login-form"><p class="eyebrow">Hosted Studio</p><h2>Sign in</h2><p>Enter a personal access token issued by the PerfChecker service or its identity provider.</p><label>Access token<input id="access-token" type="password" autocomplete="current-password" required></label><div class="dialog-actions"><button type="submit" class="primary">Sign in</button></div><p id="login-error" class="error" role="alert"></p></form></dialog><div id="announcer" class="visually-hidden" aria-live="polite"></div><div id="toast" role="status" hidden></div>
 <script src="$base/assets/perfchecker-studio.js?v=$asset_version" defer></script></body></html>"""
 end
 
 function _studio_response(prefix::String; writable::Bool, auth_required::Bool = false)
     policy = "default-src 'self'; script-src 'self'; style-src 'self'; " *
-             "img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'"
+             "img-src 'self' data:; connect-src 'self'; frame-src 'self'; " *
+             "object-src 'none'; base-uri 'none'"
     return Oxygen.html(_studio_html(prefix; writable, auth_required);
         headers = ["Content-Security-Policy" => policy,
             "X-Content-Type-Options" => "nosniff"])
@@ -57,22 +58,42 @@ function PerfChecker.studio_token_authenticator(users::AbstractDict)
     end
 end
 
-function _studio_auth_middleware(authenticator)
+function _cookie_value(request, name::AbstractString)
+    header = HTTP.header(request, "Cookie", "")
+    for part in split(header, ';')
+        fields = split(strip(part), '='; limit = 2)
+        length(fields) == 2 && fields[1] == name && return fields[2]
+    end
+    return ""
+end
+
+function _studio_auth_middleware(authenticator, sessions, session_lock)
     return function(handler)
         return function(request)
             header = HTTP.header(request, "Authorization", "")
             prefix = "Bearer "
-            startswith(header, prefix) || return Oxygen.json(
-                Dict("error" => "authentication required"); status = 401,
-                headers = ["WWW-Authenticate" => "Bearer"])
-            token = strip(chop(header; head = length(prefix), tail = 0))
-            identity = try
-                authenticator(token)
-            catch
-                nothing
+            identity = if startswith(header, prefix)
+                token = strip(chop(header; head = length(prefix), tail = 0))
+                try
+                    authenticator(token)
+                catch
+                    nothing
+                end
+            else
+                session_id = _cookie_value(request, "perfchecker_session")
+                lock(session_lock) do
+                    session = get(sessions, session_id, nothing)
+                    session === nothing && return nothing
+                    expires = get(session, "expires_at", Dates.DateTime(0))
+                    if expires <= Dates.now(Dates.UTC)
+                        delete!(sessions, session_id)
+                        return nothing
+                    end
+                    return get(session, "identity", nothing)
+                end
             end
             identity === nothing && return Oxygen.json(
-                Dict("error" => "invalid access token"); status = 401,
+                Dict("error" => "authentication required"); status = 401,
                 headers = ["WWW-Authenticate" => "Bearer"])
             request.context[:perfchecker_identity] = identity
             return handler(request)
@@ -137,6 +158,7 @@ mutable struct StudioWorkspace
     authorizer::Any
     jobs::Dict{String, StudioJobEntry}
     agents::Dict{String, Dict{String, Any}}
+    sessions::Dict{String, Dict{String, Any}}
     pending::Vector{String}
     running::Set{String}
     lock::ReentrantLock
@@ -283,11 +305,12 @@ function _register_suite_workspace!(suite::PerfChecker.SoftwareSuite;
         Dict{Symbol, Any}(Symbol(key) => value for (key, value) in pairs(overrides)),
         executor, reports_root, max_concurrent, authorizer,
         Dict{String, StudioJobEntry}(), Dict{String, Dict{String, Any}}(),
-        String[], Set{String}(), ReentrantLock())
+        Dict{String, Dict{String, Any}}(), String[], Set{String}(), ReentrantLock())
     api = Oxygen.router(prefix; tags = ["PerfChecker Studio"])
     protected = authenticator === nothing ? api : Oxygen.router(prefix;
         tags = ["PerfChecker Studio"],
-        middleware = [_studio_auth_middleware(authenticator)])
+        middleware = [_studio_auth_middleware(authenticator, workspace.sessions,
+            workspace.lock)])
     _register_studio_assets!(api)
     Oxygen.get(api("/")) do
         _studio_response(prefix; writable = true,
@@ -297,13 +320,29 @@ function _register_suite_workspace!(suite::PerfChecker.SoftwareSuite;
         Oxygen.json(Dict("schema_version" => "perfchecker-capabilities/1",
             "read_only" => false, "runner" => "Malt", "max_concurrent" => max_concurrent,
             "profiles" => string.(sort!(collect(_STUDIO_PROFILES))),
-            "resources" => ["suite-plan", "jobs", "agents", "results", "version-comparison"]))
+            "resources" => ["suite-plan", "jobs", "agents", "results",
+                "version-comparison", "plots"]))
     end
     Oxygen.get(protected("/me")) do request
         identity = get(request.context, :perfchecker_identity,
             Dict("id" => "local", "name" => "Local user", "roles" => ["admin"]))
         Oxygen.json(Dict("schema_version" => "perfchecker-identity/1",
             "identity" => identity))
+    end
+    Oxygen.post(protected("/session")) do request
+        identity = get(request.context, :perfchecker_identity, nothing)
+        identity === nothing && return Oxygen.json(Dict("error" => "authentication required");
+            status = 401)
+        session_id = bytes2hex(PerfChecker.SHA.sha256(
+            "$(PerfChecker.uuid4())-$(PerfChecker.uuid4())-$(time_ns())"))
+        expires = Dates.now(Dates.UTC) + Dates.Hour(1)
+        lock(workspace.lock) do
+            workspace.sessions[session_id] = Dict{String, Any}(
+                "identity" => identity, "expires_at" => expires)
+        end
+        Oxygen.json(Dict("schema_version" => "perfchecker-session/1",
+            "expires_at" => string(expires)); headers = ["Set-Cookie" =>
+                "perfchecker_session=$session_id; HttpOnly; SameSite=Strict; Path=$(prefix); Max-Age=3600"])
     end
     Oxygen.get(protected("/suite-plan")) do request
         denied = _authorize(workspace, request, :view)

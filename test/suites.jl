@@ -8,6 +8,7 @@
     using PerfChecker
     using Pluto
     using Supposition
+    using WGLMakie
     using SHA
     import Pkg
 
@@ -91,6 +92,13 @@ version = "0.2.0"
         @test isfile(joinpath(dir, "reports", "version-series.json"))
         @test isfile(joinpath(dir, "reports", "version-comparison.json"))
         @test isfile(joinpath(dir, "reports", "version-comparison.md"))
+        plots = plot_catalog(bundle)
+        @test !isempty(plots)
+        first_plot = performance_plot(bundle, first(plots)["id"])
+        @test performance_figure(first_plot) isa Makie.Figure
+        plot_html = performance_plot_html(first_plot)
+        @test occursin("canvas", lowercase(plot_html))
+        @test plot_html == performance_plot_html(first_plot)
 
         notebook = write_suite_notebook(joinpath(dir, "dashboard.jl"))
         @test isfile(notebook)
@@ -233,6 +241,15 @@ end
                 "/test/perfchecker/hosted/me", auth_headers))
             @test JSON.parse(String(hosted_identity.body))["identity"]["id"] ==
                   "developer-1"
+            session_response = Oxygen.internalrequest(HTTP.Request("POST",
+                "/test/perfchecker/hosted/session", auth_headers))
+            @test session_response.status == 200
+            session_cookie = first(filter(header -> first(header) == "Set-Cookie",
+                session_response.headers)) |> last
+            cookie_identity = Oxygen.internalrequest(HTTP.Request("GET",
+                "/test/perfchecker/hosted/me",
+                ["Cookie" => first(split(session_cookie, ';'))]))
+            @test cookie_identity.status == 200
 
             hosted_plan_body = JSON.parse(String(hosted_plan.body))
             remote_ids = [run["id"] for run in hosted_plan_body["runs"]][1:2]
@@ -286,6 +303,19 @@ end
             @test only(JSON.parse(String(store_response.body)))["run_id"] ==
                   bundle.manifest["run_id"]
             @test !haskey(only(JSON.parse(String(store_response.body))), "bundle_path")
+            plot_response = Oxygen.internalrequest(HTTP.Request("GET",
+                "/test/perfchecker/store/plots?id=$(bundle.manifest["run_id"])"))
+            @test plot_response.status == 200
+            plot_id = first(JSON.parse(String(plot_response.body))["plots"])["id"]
+            plot_data_response = Oxygen.internalrequest(HTTP.Request("GET",
+                "/test/perfchecker/store/plot-data?id=$(bundle.manifest["run_id"])&plot=$plot_id"))
+            @test plot_data_response.status == 200
+            @test JSON.parse(String(plot_data_response.body))["schema_version"] ==
+                  "perfchecker-plot/1"
+            makie_response = Oxygen.internalrequest(HTTP.Request("GET",
+                "/test/perfchecker/store/plot?id=$(bundle.manifest["run_id"])&plot=$plot_id"))
+            @test makie_response.status == 200
+            @test occursin("canvas", lowercase(String(makie_response.body)))
             Oxygen.resetstate()
 
             ingest_store = joinpath(dir, "ingested-bundles")

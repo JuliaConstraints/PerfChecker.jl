@@ -136,6 +136,11 @@ function _measurement_definition(backend::Symbol, column::Symbol)
         column === :bytes && return ("julia.alloc.bytes/line-tracking-v1", "By")
         column === :percentage &&
             return ("julia.alloc.fraction/line-tracking-v1", "%")
+    elseif backend === :profile_alloc
+        column === :bytes && return ("julia.alloc.bytes/profile-allocs-v1", "By")
+        column === :allocs && return ("julia.alloc.count/profile-allocs-v1", "1")
+    elseif backend === :profile
+        column === :samples && return ("julia.cpu.samples/profile-v1", "1")
     end
     return nothing
 end
@@ -152,8 +157,8 @@ function _definition_dict(id::String, unit::String, backend::Symbol)
         "collector" => string(backend),
         "sample_semantics" => "one backend sample",
         "preference" => "lower",
-        "warmup_policy" => backend === :alloc ? "explicit feature setup" :
-                           "collector controlled",
+        "warmup_policy" => backend in (:alloc, :profile_alloc, :profile) ?
+                           "explicit feature setup" : "collector controlled",
         "includes_compilation" => false,
         "includes_children" => false,
         "version" => 1)
@@ -166,6 +171,10 @@ function _metric_columns(backend::Symbol, names)
         (:times, :gctimes, :bytes, :allocs)
     elseif backend === :alloc
         (:bytes, :percentage)
+    elseif backend === :profile_alloc
+        (:bytes, :allocs)
+    elseif backend === :profile
+        (:samples,)
     else
         Tuple(names)
     end
@@ -216,11 +225,13 @@ function _result_protocol_records(result::SoftwareSuiteResult, run_id::String,
                         "version" => planned.target.label,
                         "target_kind" => string(planned.target.kind),
                         "table_index" => table_index)
-                    if backend === :alloc
+                    if backend in (:alloc, :profile_alloc, :profile)
                         :filename in names &&
                             (attributes["source_file"] = getproperty(table, :filename)[sample_index])
                         :line in names &&
                             (attributes["source_line"] = getproperty(table, :line)[sample_index])
+                        :stack in names &&
+                            (attributes["stack"] = getproperty(table, :stack)[sample_index])
                     end
                     push!(observations, Dict{String, Any}(
                         "record_type" => "observation",
