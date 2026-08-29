@@ -141,8 +141,15 @@ function _install_target!(worker, target::RunTarget, options::Dict{Symbol, Any})
                     Pkg.rm(target_label; io = pkg_io)
                 catch
                 end
-                pkg isa Tuple ? Pkg.develop(pkg[1]; pkg[2]..., io = pkg_io) :
-                Pkg.develop(pkg; io = pkg_io)
+                if pkg isa Tuple
+                    Pkg.develop(pkg[1]; pkg[2]..., io = pkg_io)
+                    haskey(d, :extra_devops) &&
+                        Pkg.develop(d[:extra_devops]; io = pkg_io)
+                else
+                    dev_specs = haskey(d, :extra_devops) ?
+                        vcat([pkg], d[:extra_devops]) : [pkg]
+                    Pkg.develop(dev_specs; io = pkg_io)
+                end
             elseif !isnothing(target_spec.name)
                 try
                     Pkg.rm(target_spec.name; io = pkg_io)
@@ -157,7 +164,8 @@ function _install_target!(worker, target::RunTarget, options::Dict{Symbol, Any})
                          for spec in extras]
                 Pkg.add(specs; io = pkg_io)
             end
-            haskey(d, :extra_devops) && Pkg.develop(d[:extra_devops]; io = pkg_io)
+            !is_dev && haskey(d, :extra_devops) &&
+                Pkg.develop(d[:extra_devops]; io = pkg_io)
         end)
     return nothing
 end
@@ -511,6 +519,53 @@ end
             seconds = 0.01)
         development_result = PerfChecker.check_function(development,
             :(using PerfCheckerWorkerFixture), :(PerfCheckerWorkerFixture.answer()))
+        @test length(development_result.tables) == 1
+    end
+
+    mktempdir() do dir
+        runner = joinpath(dir, "runner")
+        dependency = joinpath(dir, "PerfCheckerUnregisteredDependency")
+        package = joinpath(dir, "PerfCheckerFederatedFixture")
+        mkpath(runner)
+        mkpath(joinpath(dependency, "src"))
+        mkpath(joinpath(package, "src"))
+        write(joinpath(runner, "Project.toml"), """
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+""")
+        write(joinpath(dependency, "Project.toml"), """
+name = "PerfCheckerUnregisteredDependency"
+uuid = "2f753ed5-e566-43ab-8854-88d35cd4e1e7"
+version = "0.1.0"
+""")
+        write(joinpath(dependency, "src", "PerfCheckerUnregisteredDependency.jl"), """
+module PerfCheckerUnregisteredDependency
+answer() = 42
+end
+""")
+        write(joinpath(package, "Project.toml"), """
+name = "PerfCheckerFederatedFixture"
+uuid = "90d876ee-8511-4c06-8f19-a6cd03998f87"
+version = "0.1.0"
+
+[deps]
+PerfCheckerUnregisteredDependency = "2f753ed5-e566-43ab-8854-88d35cd4e1e7"
+""")
+        write(joinpath(package, "src", "PerfCheckerFederatedFixture.jl"), """
+module PerfCheckerFederatedFixture
+using PerfCheckerUnregisteredDependency
+answer() = PerfCheckerUnregisteredDependency.answer()
+end
+""")
+
+        development = PerfConfig(:benchmark; path = runner,
+            devops = Pkg.PackageSpec(name = "PerfCheckerFederatedFixture", path = package),
+            extra_devops = [Pkg.PackageSpec(path = dependency)],
+            include_current = false, quiet = true, samples = 1, evals = 1,
+            seconds = 0.01)
+        development_result = PerfChecker.check_function(development,
+            :(using PerfCheckerFederatedFixture),
+            :(PerfCheckerFederatedFixture.answer()))
         @test length(development_result.tables) == 1
     end
 end
