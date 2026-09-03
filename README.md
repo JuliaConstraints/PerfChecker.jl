@@ -1,254 +1,325 @@
-# PerfChecker
+<p align="center">
+  <img src="branding/exports/perfchecker-lockup-light.svg" width="620" alt="PerfChecker.jl">
+</p>
 
-<!--[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaConstraints.github.io/PerfChecker.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaConstraints.github.io/PerfChecker.jl/dev)-->
-[![Build Status](https://github.com/JuliaConstraints/PerfChecker.jl/workflows/CI/badge.svg)](https://github.com/JuliaConstraints/PerfChecker.jl/actions)
-[![codecov](https://codecov.io/gh/JuliaConstraints/PerfChecker.jl/branch/main/graph/badge.svg?token=YVJhN4dpBp)](https://codecov.io/gh/JuliaConstraints/PerfChecker.jl)
-[![SciML Code Style](https://img.shields.io/static/v1?label=code%20style&message=SciML&color=9558b2&labelColor=389826)](https://github.com/SciML/SciMLStyle)
-[![Chat: Mattermost](https://img.shields.io/badge/chat-mattermost-blueviolet.svg)](https://nohost.iijlab.net/chat/signup_user_complete/?id=nnuc1g14gtrqtnas6thu193xmr)
-[![Website: JuliaConstraints](https://img.shields.io/badge/website-JuliaConstraints-informational.svg)](https://juliaconstraints.github.io/)
+[![Documentation](https://img.shields.io/badge/docs-dev-2dd4bf.svg)](https://mirage-interactive-fr.github.io/PerfChecker.jl/dev/)
+[![Build Status](https://github.com/Mirage-Interactive-Fr/PerfChecker.jl/workflows/CI/badge.svg)](https://github.com/Mirage-Interactive-Fr/PerfChecker.jl/actions)
+[![codecov](https://codecov.io/gh/Mirage-Interactive-Fr/PerfChecker.jl/branch/main/graph/badge.svg?token=YVJhN4dpBp)](https://codecov.io/gh/Mirage-Interactive-Fr/PerfChecker.jl)
+[![License: MIT](https://img.shields.io/badge/license-MIT-8b5cf6.svg)](LICENSE)
+[![Mirage Interactive](https://img.shields.io/badge/Mirage-Interactive-071014.svg)](https://mirageinteractive.fr/)
 
-`PerfChecker` is a set of performance checking tools for Julia packages. The ultimate aim is to create an environment where the tool can run similarly to a test environment. By doing so, it would be possible to test the performance of a package `P` in separate Julia instances. This would allow for each version of `P`:
+PerfChecker is a performance-testing system for Julia packages and software
+suites. It measures user-facing features in fresh Julia workers, compares
+releases and development revisions, attributes regressions to source evidence,
+and exposes the same result grammar to CI, VS Code, Oxygen, the REPL, Pluto,
+Makie, Documenter, and automation agents.
 
-- The use of the latest compatible versions of Julia and other dependencies of P
-- Independence of compatibility requirements of `PerfChecker.jl` from the environment used during performance checks.
+PerfChecker keeps the controller and visualization stack outside measured
+workers. A run loads only the target package, its workload, and the selected
+measurement backend.
 
-## Google Summer of Code (2023)
+## What it provides
 
-`JuliaConstraints`, including `PerfChecker.jl`, is participating in Google Summer of Code (GSoC) through the Julia language umbrella and is looking for contributors. Complete lists of projects:
+- one business feature with independently selectable timing, allocation,
+  profiling, and network checks;
+- comparisons across releases, a working tree, branches, tags, commits, and
+  Julia stable, prerelease, or nightly runtimes;
+- explicit compatibility windows when a feature did not exist in older
+  versions;
+- single-package and multi-package software suites;
+- BenchmarkTools and Chairmarks distributions;
+- allocation attribution by file, line, percentage, and stack;
+- CPU, wall-time, and allocation flame graphs with dispatch, inference, and GC
+  diagnostics when Julia exposes that evidence;
+- application, interface, and isolated-process network byte and packet counts;
+- portable integrity-protected bundles, JSON/JSONL, Markdown, JUnit, and
+  interactive plots;
+- a central VS Code interface, an Oxygen web studio, a guided REPL, Pluto,
+  Makie/WGLMakie, and documentation integrations.
 
-- [JuliaConstraints](https://julialang.org/jsoc/gsoc/juliaconstraints/)
-- Other [Julia language projects](https://julialang.org/jsoc/projects/)
+Code coverage is intentionally separate from these performance backends. The
+badge above reports coverage from the ordinary CI test suite through
+`julia-processcoverage` and Codecov.
 
-### Project Ideas
+## Quick start
 
-This package consists of a set of tools designed to check the performance of packages over time and versions. The targeted audience is the whole community of packages' developers in Julia (not only JuliaConstraints).
+Generate a performance workspace inside a Julia package:
 
-This README provides a short demo on how PerfChecker can be used.
-
-**Basic features to implement (length ≈ 175 hours)**
-
-- PerfCheck environment similar to Test.jl and Pkg.jl
-- Sugar syntax `@bench`, `@alloc`, `@profile` similar to Test.jl and Pkg.jl
-- Interactive REPL interface
-- Interactive GUI interface (using for instance Makie)
-- Automatic Profiling ? (not sure how, there already is a bunch of super cool packages)
-- Automatic plotting of previous features
-
-**Advanced features (length +≈ 175 hours)**
-
-- *Smart* semi-automatic analysis of performances
-- Performances bottlenecks
-- Regressions
-- Allocations vs speed trade-off
-- Descriptive plot captions
-- Handle Julia and other packages versions
-- Integrates with juliaup
-- Automatically generate versions parametric space for both packages and Julia
-
-Note that some features are interchangeable depending on the interest of the candidate. For candidates with a special interest in the JuliaConstraints ecosystem, checking the performances of some packages is an option.
-
-**Length**
-
-175 hours – 350 hours (depending on features)
-
-**Recommended Skills (||)**
-
-- Familiarity with package development
-- REPL and/or GUI interfaces
-- Coverage, Benchmarks, and Profiling tools
-
-**Difficulty**
-
-Easy to Medium, depending on the features implemented
-
-### Getting Started
-
-Although it is part of JuliaConstraints, `PerfChecker` is a standalone project. As such a good start is to understand fully its features and workflow. For instance, one way is to write a small use case in the vein of the small tutorial below. Possible packages could be
-
-- A JuliaConstraints package or dependency
-- A package written by the GSoC candidate
-- Another package from the Julia community
-
-Please bear in mind that, ideally, writing performance checks for such a package should be simple.
-
-Also, allocation checks generate memory files in the package local folder. Ideally the package should be `dev`ed in a local environment.
-
-To contribute, please fork the repo, create a new branch, make your changes, and submit a pull request. If you are unsure about anything or need any help, please don't hesitate to ask through issues, [JuliaConstraints chat](https://nohost.iijlab.net/chat/signup_user_complete/?id=nnuc1g14gtrqtnas6thu193xmr), or the `#juliaconstraints` channel on Humans-of-Julia's [Discord](https://discord.gg/7KC28q98nP).
-
-
-We encourage students and other possible GSoC contributors to participate in `PerfChecker`'s development as it would bring a tools for the Julia community as a whole. It would bring them experience and deep understanding of Julia packages development and, more generally, open source development along with performance testing.
-We're looking forward for proposals submissions.
-
-## Small tutorial
-
-This tutorial is based on a beta version and is prone to change frequently. Please use it as a workflow example.
-
-Let's write two small scripts to check allocations (`allocs.jl`) and benchmarks (`bench.jl`) for [CompositionalNetworks.jl](https://github.com/JuliaConstraints/CompositionalNetworks.jl) using `PerfChecker.jl`.
-In the current state, we write and execute the scripts (and stores a local environment) in the `/perf` folder of `CompositionalNetworks.jl`. You can use `julia --project` to activate that environment when running the script. For instance, I run the check for `CompositionalNetworks.jl` with the following command,
-
-```shell
-julia -t 10 --project
+```sh
+julia --project=/path/to/PerfChecker.jl \
+  /path/to/PerfChecker.jl/bin/perfchecker.jl init --root=/path/to/MyPackage
 ```
 
-To generate results from different versions of the targeted package, be sure to change the version in the local environment.
+The generated layout is deliberately small:
 
-We will generate plots from the allocations check and the benchmark check from the `REPL`.
+```text
+perf/
+├─ Project.toml
+├─ suite.jl
+├─ features/
+│  └─ parse_document.jl
+└─ results/
+```
 
-Please add to the environment the following packages (adapt to your use case):
-
-- `PerfChecker.jl`
-- `Test.jl`: for allocations
-- `BenchmarkTools`: for benchmarks
-- `CompositionalNetworks.jl`: target
-- `ConstraintDomains.jl`: dependency
-
-**Remark on code compilation and `PerfChecker.jl`**
-
-Depending on the nature of your code, it is important to be sure to trigger all compilation previous to the allocation check. This role is annotated in both scripts.
-
-Note that in the case of `CompositionalNetworks.jl`, it stochastically generates a great deal of methods to compile.
-
-For deterministic code, `pre-alloc()` can be minimal, and `@benchmark` will handle triggering the necessary compilation before the checks.
-
-### Allocation checks
-
-The current state of `PerfChecker.jl` requires the use of `Test.jl`, but this requirement will disappear soon.
+A feature entrypoint defines setup and one operation:
 
 ```julia
-# Required to run the script
+using MyPackage
+
+function perf_setup()
+    fixture = joinpath(@__DIR__, "fixtures", "document.txt")
+    return read(fixture, String)
+end
+
+perf_workload(input) = MyPackage.parse_document(input)
+```
+
+Setup runs before measurement. `perf_workload(state)` is the operation observed
+by the backend. Keep fixtures deterministic and make the result observable so
+the compiler cannot remove the work.
+
+## One feature, every compute backend
+
+The following suite declares one `parse_document` business feature and attaches
+each Julia compute backend independently. Interfaces group these entries as one
+feature with checkboxes; users do not see artificial features such as
+`parse_document_allocations`.
+
+```julia
 using PerfChecker
-using Test
 
-# Target(s)
-using CompositionalNetworks # latest release: 0.3.1
+const ENTRYPOINT = joinpath(@__DIR__, "features", "parse_document.jl")
 
-# Direct dependencies of this script
-using ConstraintDomains
+function check(id, backend; options = Dict{Symbol, Any}(), julia_since = nothing)
+    return FeatureSpec(
+        id;
+        workload = :parse_document,
+        backend,
+        entrypoint = ENTRYPOINT,
+        comparison_key = "parse-document/v1",
+        julia_since,
+        options,
+    )
+end
 
-@testset "PerfChecker.jl" begin
-    # Title of the alloc check (for logging purpose)
-    title = "Explore, Learn, and Compose"
+features = [
+    check(:parse_document_benchmark, :benchmark;
+        options = Dict(:samples => 30, :evals => 1, :seconds => 1.0)),
+    check(:parse_document_chairmark, :chairmark;
+        options = Dict(:samples => 30, :evals => 1, :seconds => 1.0)),
+    check(:parse_document_lines, :alloc;
+        options = Dict(:targets => ["MyPackage"], :track => "user", :repeat => true)),
+    check(:parse_document_cpu, :profile;
+        options = Dict(:targets => ["MyPackage"], :profile_seconds => 1.0,
+            :profile_delay => 0.001)),
+    check(:parse_document_wall, :wall_profile;
+        julia_since = v"1.12",
+        options = Dict(:targets => ["MyPackage"], :profile_seconds => 1.0)),
+    check(:parse_document_allocations, :profile_alloc;
+        options = Dict(:targets => ["MyPackage"], :sample_rate => 1.0,
+            :profile_repetitions => 10)),
+]
 
-    # Dependencies needed to execute pre_alloc and alloc
-    dependencies = [CompositionalNetworks, ConstraintDomains]
+package = PackageSuite(
+    "MyPackage";
+    source = normpath(joinpath(@__DIR__, "..")),
+    environment = joinpath(@__DIR__, "runner"),
+    versions = :all,
+    include_dev = true,
+    features,
+)
 
-    # Target of the alloc check
-    targets = [CompositionalNetworks]
+build_suite() = SoftwareSuite(:my_package, [package])
+```
 
-    # Code specific to the package being checked
-    domains = fill(domain([1, 2, 3]), 3)
+### Compute backend guide
 
-    # Code to trigger precompilation before the alloc check
-    pre_alloc() = foreach(_ -> explore_learn_compose(domains, allunique), 1:10)
+| Backend | What it measures | Typical use |
+| --- | --- | --- |
+| `:benchmark` | BenchmarkTools time samples, GC time, memory, and allocation count | Stable latency and regression gates |
+| `:chairmark` | Chairmarks time, GC fraction, bytes, and allocations | Low-overhead measurement of short operations |
+| `:alloc` | Bytes attributed to exact source files and lines | Line-level allocation investigation |
+| `:profile` | CPU stack samples plus dispatch, inference, and GC markers | CPU flame graphs and source attribution |
+| `:wall_profile` | Wall-time task stack samples on Julia 1.12+ | Waiting, scheduling, and asynchronous workloads |
+| `:profile_alloc` | Sampled allocation bytes, counts, sites, and stacks | Allocation flame graphs and type-oriented diagnosis |
 
-    # Code being allocations check
-    alloc() = explore_learn_compose(domains, allunique)
+BenchmarkTools and Chairmarks are optional dependencies. Install the backend
+you select in the suite's runner environment. Profiling backends use Julia's
+standard `Profile` library.
 
-    # Actual call to PerfChecker
-    alloc_check(title, dependencies, targets, pre_alloc, alloc; path=@__DIR__, threads=10)
+## Network backends
+
+Network checks use a separate entrypoint because an application-level workload
+must report its own semantic counters:
+
+```julia
+using MyPackage
+
+perf_setup() = MyPackage.Client("http://127.0.0.1:8080")
+
+function perf_workload(client)
+    request = MyPackage.encode_request()
+    response = MyPackage.exchange(client, request)
+    return (
+        bytes_sent = sizeof(request),
+        bytes_received = sizeof(response),
+        operations = 1,
+        connections = 1,
+    )
 end
 ```
 
-This script will output the table below (and store it as `mallocs/mallocs-0.3.1.csv`). Note that the allocations are provided in decreasing order. The `.mem` files generated by tracking allocations are automatically deleted (unless your code run into an error).
-
-![Malloc-check](/images/PerfChecker-alloc_check.png)
-
-### Benchmark checks
-
-As `BenchmarkTools.jl` provides already a great set of functionalities, we use it directly. In the future, it is likely that `PerfChecker.jl` will provide synthetic sugar to wrap `@benchmark` with similar behavior to make using `BenchmarkTools.jl` invisible.
+Attach the three scopes as separate checks of the same business feature:
 
 ```julia
-# Required to run the script
-using PerfChecker
-using BenchmarkTools
+const NETWORK_ENTRYPOINT = joinpath(@__DIR__, "features", "exchange.jl")
 
-# Target(s)
-using CompositionalNetworks # latest release: 0.3.1
-
-# Direct dependencies of this script
-using ConstraintDomains
-
-# Target of the benchmark
-target = CompositionalNetworks
-
-# Code specific to the package being checked
-domains = fill(domain([1, 2, 3, 4]), 4)
-
-# Code to trigger precompilation before the bench (optional)
-foreach(_ -> explore_learn_compose(domains, allunique), 1:10)
-
-# Code being benchmarked (be sure to enforce specific amounts of evals and samples for each version benchmarked)
-bench = @benchmark explore_learn_compose(domains, allunique) evals=1 samples=10 seconds=3600
-
-# Store the bench results
-store_benchmark(bench, target; path=@__DIR__)
+network_features = [
+    FeatureSpec(:exchange_application;
+        workload = :exchange,
+        backend = :network,
+        entrypoint = NETWORK_ENTRYPOINT,
+        comparison_key = "exchange/v1",
+        options = Dict(:network_repetitions => 10)),
+    FeatureSpec(:exchange_interface;
+        workload = :exchange,
+        backend = :network_interface,
+        entrypoint = NETWORK_ENTRYPOINT,
+        comparison_key = "exchange/v1",
+        options = Dict(:network_interface => "auto", :network_repetitions => 5)),
+    FeatureSpec(:exchange_isolated;
+        workload = :exchange,
+        backend = :network_isolated,
+        entrypoint = NETWORK_ENTRYPOINT,
+        comparison_key = "exchange/v1",
+        options = Dict(:network_interface => "lo", :network_repetitions => 5)),
+]
 ```
 
-This script will output the results of `@benchmark` as a table (and store it as `benchmarks/benchmark-0.3.1.csv`). Note that it is recommended (but not necessary) to ensure that for each version of the package benchmarked, the output is of similar length.
+| Backend | Attribution | Interpretation |
+| --- | --- | --- |
+| `:network` | Counters returned by the workload | Precise for application payload and logical operations |
+| `:network_interface` | Shared Windows or Linux host interface | Informative unless the interface and host are hermetic |
+| `:network_isolated` | Worker group in a Linux network namespace | Suitable for attributed byte and packet budgets |
 
-### Visualization
+The isolated backend requires Linux namespaces directly or through WSL2. Probe
+the host first and use `measure_isolated_network_command` when the complete
+process tree, including child services, must be measured. Remote latency remains
+contextual; byte and packet counts can be blocking CI evidence when attribution
+is explicit. See [Network measurement](docs/src/network-measurement.md).
 
-We will generate some plots, in `perf/mallocs` and `perf/benchmarks`. In the REPL (or a notebook), please run:
+## Plan, run, and compare
 
-```julia
-using PerfChecker
-using CompositionalNetworks
+Inspect compatibility and the exact run matrix before spending benchmark time:
 
-alloc_plot([CompositionalNetworks])
-bench_plot([COmpositionalNetworks])
+```sh
+julia --project=perf /path/to/PerfChecker.jl/bin/perfchecker.jl plan \
+  --suite=perf/suite.jl --profile=quick
 
+julia --project=perf /path/to/PerfChecker.jl/bin/perfchecker.jl preflight \
+  --suite=perf/suite.jl --profile=ci \
+  --output=perf/results/compatibility.json
+
+julia --project=perf /path/to/PerfChecker.jl/bin/perfchecker.jl run \
+  --suite=perf/suite.jl --profile=ci --reports=perf/results/ci \
+  --progress=jsonl
 ```
 
-**Allocs (Pie Chart)**
+Compare two portable bundles and fail when a declared budget is exceeded:
 
-For each version checked with the previous scripts, we get a pie plot showing the distribution of the allocations (per line). Obviously, improving the allocations at the 5th line of `metrics.jl` would improve allocations (and likely overall performances) in `CompositionalNetworks.jl`. Let's try to spot issues through the evolution of allocations over time.
+```sh
+julia --project=perf /path/to/PerfChecker.jl/bin/perfchecker.jl check \
+  --baseline=perf/bundles/stable --candidate=perf/bundles/change \
+  --limit=julia.wall.time=0.05 --limit=julia.alloc.bytes=0.02 \
+  --min-samples=10 --reports=perf/comparison
+```
 
-![Malloc-pie](images/mallocs-0.3.1.png)
+Released versions, the local working tree, Git branches, tags, commits, and
+multiple candidate implementations can coexist in one plan. A feature can use
+different entrypoints over explicit package-version windows when older releases
+do not expose the same API.
 
-**Allocs over time**
+## VS Code extension
 
-Luckily, an overview of the evolution of the allocations within each file is also plotted. The allocations in `CompositionalNetworks.jl` improve a lot from `v0.3.x`. Interestingly, the changes also introduced an increase in allocations in the `metrics.jl` file. Maybe there really is an issue (answer in future releases of `CompositionalNetworks.jl`).
+The PerfChecker extension is the central graphical workspace. It uses the same
+suite plan, `perf/perfchecker-ui.json`, and result bundles as the CLI, Oxygen,
+and documentation integrations.
 
-![Malloc-evolution](/images/mallocs-evolutions.png)
+Its tree follows the actual domain model:
 
-First, we should check how the performances are impacted by the changes in memory allocations.
+```text
+package → business feature → check type → version or Git target
+```
 
-**Benchmarks (allocs and memory)**
+From the Test Explorer or PerfChecker activity view, you can:
 
-To confirm the improvement of allocations above, let's have a look at the evolution of allocations and memory use over time.
+- run a package, feature, check type, version, or arbitrary selection;
+- watch progress and worker output;
+- open the exact workload script behind a test brick;
+- open the latest visual result at every relevant tree level;
+- select check types independently for each business feature;
+- filter and sort versions without dragging every card;
+- add branches, tags, commits, repository URLs, and grouped comparison targets;
+- configure exact or aggregated baselines;
+- inspect BenchmarkTools and Chairmarks distributions, version trajectories,
+  allocation pies and heatmaps, and interactive flame graphs;
+- hover small plot elements for their complete metric, source line, or stack;
+- save a shared configuration consumed by VS Code, Oxygen, and Documenter.
 
-![Benchmark-allocs](/images/benchmark-allocs.png)
-![Benchmark-memory](/images/benchmark-memory.png)
+### Build and install the current VSIX
 
-Both distribution of allocations and memory is very stable. This meet the improvement of the design of `CompositionalNetworks.jl` that ensure allocations of one data structure at the start of each `explore_learn_compose` call evaluated by both scripts.
+```powershell
+Set-Location editors\vscode
+npm ci
+npm test
+npm run package:pre-release -- --out perfchecker-vscode-0.9.0.vsix
+code --install-extension .\perfchecker-vscode-0.9.0.vsix --force
+```
 
-**Benchmarks (times and garbage collection times)**
+Reload VS Code, open the package root, click the PerfChecker activity-bar icon,
+and run **PerfChecker: Open visual suite editor** from the command palette. The
+extension settings select the Julia executable, runner project, suite factory,
+profile, report directory, and shared UI configuration.
 
-Garbage collection brings a lot of comfort for programmers, and it participates in the attractiveness of the Julia language. However, careless allocations can be a performance pitfall. Such was the case of `CompositionalNetworks.jl` prior to `v0.3`.
+The extension currently lives in `editors/vscode`. Moving it to a dedicated
+Mirage Interactive repository must preserve its Marketplace identity,
+`mirage-interactive-fr.perfchecker-vscode`, along with command and setting IDs.
+See the [VS Code guide](docs/src/interfaces/vscode.md).
 
-![Benchmark-gctimes](/images/benchmark-gctimes.png)
+## Other interfaces
 
-The changes introduce from that version clearly improved our GC issues. Does it reflect on the global time performance? (spoiler: yes, it does, cf next plot)
+- **Oxygen:** hosted Performance Studio, authenticated controller, and
+  pull-based local or remote agents.
+- **Makie/WGLMakie:** interactive desktop, browser, and exportable CI figures.
+- **REPL/UnicodePlots:** guided filtering, sorting, selection, progress, and
+  terminal plots.
+- **Pluto:** notebook dashboards backed by the same immutable plan.
+- **Documenter/DocumenterVitepress:** declarative documentation blocks filtered
+  by suite, package, feature, backend, metric, target, and artifact.
+- **Agents and CI:** canonical JSON/JSONL, bounded queries, integrity metadata,
+  JUnit, and explicit pass/fail policies.
 
-![Benchmark-times](/images/benchmark-times.png)
+Read the [complete documentation](https://mirage-interactive-fr.github.io/PerfChecker.jl/dev/)
+for tutorials, report contracts, Julia runtime campaigns, external dependency
+evidence, and hosted operation.
 
-We can remark important deviations (beware the logarithmic scale ...) from the mean. As mentioned above, `CompositionalNetworks.jl` uses a stochastic process, so it is not surprising. At least, memory (allocations) are stable.
+## Development
 
-**Benchmarks (evolutions overview)**
+Run Julia tests without user startup files:
 
-Well, we probably could get the gist of the previous 4 plots from the wrap-up plot below.
+```sh
+julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
+```
 
-![Benchmark-evolutions](/images/benchmark-evolutions.png)
+Validate the extension independently:
 
-Note that the analysis on memory stability despite a stochastic process that reflect on the `times` and `gctimes` is not possible here. But it looks much better if you only can show off one performance plot.
+```sh
+cd editors/vscode
+npm ci
+npm test
+```
 
-## Contributing
-
-We appreciate contributions from users including reporting bugs, fixing issues, improving performance and adding new features.
-
-To contribute, please fork the repo, create a new branch, make your changes, and submit a pull request. If you are unsure about anything or need any help, please don't hesitate to ask.
-
-## Acknowledgments
-
-This package is part of the [JuliaConstraints](https://juliaconstraints.github.io/) project. We thank the entire community for their contributions.
+Bug reports, feature proposals, documentation improvements, and new measurement
+providers are welcome through GitHub issues and pull requests. PerfChecker is
+maintained by [Mirage Interactive](https://mirageinteractive.fr/) for the Julia
+package ecosystem and is released under the MIT license.

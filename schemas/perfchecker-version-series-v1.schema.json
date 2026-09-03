@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirage-interactive-fr.github.io/PerfChecker.jl/schemas/perfchecker-version-series-v1.schema.json",
+  "title": "PerfChecker version series v1",
+  "type": "object",
+  "required": ["schema_version", "run_id", "availability", "series"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-version-series/1"},
+    "run_id": {"type": "string"},
+    "availability": {"type": "array", "items": {"type": "object"}},
+    "series": {"type": "array", "items": {"type": "object"}}
+  },
+  "additionalProperties": false
+}

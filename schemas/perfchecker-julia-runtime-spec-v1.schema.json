@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirage-interactive-fr.github.io/PerfChecker.jl/schemas/perfchecker-julia-runtime-spec-v1.schema.json",
+  "title": "PerfChecker Julia runtime spec v1",
+  "type": "object",
+  "required": ["schema_version", "id", "selector", "role", "source", "executable", "arguments"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-julia-runtime-spec/1"},
+    "id": {"type": "string", "minLength": 1},
+    "selector": {"type": "string", "minLength": 1},
+    "role": {"enum": ["baseline", "candidate", "control"]},
+    "source": {"enum": ["juliaup", "executable"]},
+    "executable": {"type": "string", "minLength": 1},
+    "arguments": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

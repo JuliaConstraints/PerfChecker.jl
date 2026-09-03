@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirage-interactive-fr.github.io/PerfChecker.jl/schemas/perfchecker-julia-runtime-campaign-v1.schema.json",
+  "title": "PerfChecker Julia runtime campaign v1",
+  "type": "object",
+  "required": ["schema_version", "id", "suite", "profile", "baseline_runtime_id", "started_at", "finished_at", "passed", "runs", "comparisons"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-julia-runtime-campaign/1"},
+    "id": {"type": "string", "minLength": 1},
+    "suite": {"type": "string", "minLength": 1},
+    "profile": {"type": "string", "minLength": 1},
+    "baseline_runtime_id": {"type": "string", "minLength": 1},
+    "started_at": {"type": "string"},
+    "finished_at": {"type": "string"},
+    "passed": {"type": "boolean"},
+    "runs": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "comparisons": {"type": "array", "items": {"type": "object"}}
+  },
+  "additionalProperties": false
+}

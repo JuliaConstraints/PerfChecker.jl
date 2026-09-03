@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirage-interactive-fr.github.io/PerfChecker.jl/schemas/perfchecker-network-isolation-spec-v1.schema.json",
+  "title": "PerfChecker network isolation spec v1",
+  "type": "object",
+  "required": ["schema_version", "provider", "distribution", "interface", "external_connectivity", "dns_servers", "attribution_scope", "requires_prepared_environment"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-network-isolation-spec/1"},
+    "provider": {"enum": ["linux_netns", "wsl2_netns"]},
+    "distribution": {"type": ["string", "null"]},
+    "interface": {"type": "string", "minLength": 1},
+    "external_connectivity": {"type": "boolean"},
+    "dns_servers": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^[0-9]{1,3}(\\.[0-9]{1,3}){3}$"},
+      "uniqueItems": true
+    },
+    "attribution_scope": {"const": "isolated_process_tree"},
+    "requires_prepared_environment": {"const": true}
+  },
+  "additionalProperties": false
+}

@@ -1,16 +1,9 @@
-using Test
+using TestItemRunner
 
-@testset "Package tests: PerfChecker" begin
-    include("Aqua.jl")
+profile = get(ENV, "PERFCHECKER_TEST_PROFILE", "full")
+selected_tags = Set(Symbol.(filter(!isempty,
+    split(get(ENV, "PERFCHECKER_TEST_TAGS", ""), ','))))
 
-    @testset "Other Packages" begin
-        using BenchmarkTools
-        using Chairmarks
-        using PerfChecker
-
-        include("pattern_folds.jl")
-    end
-
-    rm("metadata"; recursive = true, force = true)
-    rm("output"; recursive = true, force = true)
-end
+@run_package_tests filter = ti -> (
+    (profile == "full" || :historical ∉ ti.tags) &&
+    (isempty(selected_tags) || !isempty(selected_tags ∩ Set(ti.tags))))

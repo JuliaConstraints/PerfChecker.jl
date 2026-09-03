@@ -13,3 +13,4 @@
 *.swo
 
 .vscode/
+/editors/vscode/node_modules/

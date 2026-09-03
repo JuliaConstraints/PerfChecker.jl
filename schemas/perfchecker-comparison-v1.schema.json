@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirage-interactive-fr.github.io/PerfChecker.jl/schemas/perfchecker-comparison-v1.schema.json",
+  "title": "PerfChecker bundle comparison v1",
+  "type": "object",
+  "required": ["schema_version", "baseline_run_id", "candidate_run_id", "inputs_passed", "environment_status", "warnings", "passed", "records"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-comparison/1"},
+    "baseline_run_id": {"type": "string"}, "candidate_run_id": {"type": "string"},
+    "inputs_passed": {"type": "boolean"}, "passed": {"type": "boolean"},
+    "environment_status": {"enum": ["identical", "compatible", "incomparable"]},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "records": {"type": "array", "items": {"type": "object"}}
+  },
+  "additionalProperties": false
+}

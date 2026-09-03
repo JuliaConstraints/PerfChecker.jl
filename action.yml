@@ -1,0 +1,61 @@
+name: PerfChecker software suite
+description: Run an isolated PerfChecker feature suite and publish its common reports
+inputs:
+  julia-version:
+    description: Julia version used by the controller
+    default: "1"
+  project:
+    description: Julia project containing the suite controller dependencies
+    default: "perf"
+  suite:
+    description: Julia file defining build_suite() or suite
+    default: "perf/suite.jl"
+  profile:
+    description: PerfChecker profile (quick, ci, historical, or release)
+    default: "ci"
+  factory:
+    description: Zero-argument function in the suite file that builds the SoftwareSuite
+    default: "build_suite"
+  reports:
+    description: Report output directory
+    default: "perf/results/ci"
+runs:
+  using: composite
+  steps:
+    - name: Install Julia
+      uses: julia-actions/setup-julia@v3
+      with:
+        version: ${{ inputs.julia-version }}
+    - name: Cache Julia packages
+      uses: julia-actions/cache@v3
+    - name: Instantiate the controller
+      shell: bash
+      env:
+        PERFCHECKER_ACTION_PATH: ${{ github.action_path }}
+        PERFCHECKER_PROJECT: ${{ inputs.project }}
+      run: >-
+        julia --project="$PERFCHECKER_PROJECT" -e
+        'using Pkg; Pkg.develop(path=ENV["PERFCHECKER_ACTION_PATH"]); Pkg.instantiate()'
+    - name: Run performance suite
+      shell: bash
+      env:
+        PERFCHECKER_ACTION_PATH: ${{ github.action_path }}
+        PERFCHECKER_PROJECT: ${{ inputs.project }}
+        PERFCHECKER_SUITE: ${{ inputs.suite }}
+        PERFCHECKER_PROFILE: ${{ inputs.profile }}
+        PERFCHECKER_FACTORY: ${{ inputs.factory }}
+        PERFCHECKER_REPORTS: ${{ inputs.reports }}
+      run: >-
+        julia --project="$PERFCHECKER_PROJECT"
+        "$PERFCHECKER_ACTION_PATH/bin/perfchecker.jl" run
+        "--suite=$PERFCHECKER_SUITE"
+        "--profile=$PERFCHECKER_PROFILE"
+        "--factory=$PERFCHECKER_FACTORY"
+        "--reports=$PERFCHECKER_REPORTS"
+        "--progress=jsonl"
+    - name: Publish performance reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: perfchecker-${{ inputs.profile }}
+        path: ${{ inputs.reports }}

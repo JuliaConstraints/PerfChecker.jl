@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirage-interactive-fr.github.io/PerfChecker.jl/schemas/perfchecker-ui-config-v1.schema.json",
+  "title": "PerfChecker shared UI configuration v1",
+  "type": "object",
+  "required": ["schema_version", "suite", "profile", "selection", "documentation"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-ui-config/1"},
+    "suite": {"type": "string", "minLength": 1},
+    "profile": {"enum": ["quick", "ci", "historical", "release"]},
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["package", "label", "revision"],
+        "properties": {
+          "package": {"type": "string", "minLength": 1},
+          "label": {"type": "string", "minLength": 1},
+          "revision": {"type": "string", "minLength": 1},
+          "source": {"type": "string"},
+          "compatibility_version": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "comparisons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "package", "feature", "comparison_key", "baselines", "candidates", "aggregation"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "package": {"type": "string"},
+          "feature": {"type": "string"},
+          "comparison_key": {"type": "string"},
+          "baselines": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+          "candidates": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+          "aggregation": {"enum": ["median", "mean", "minimum", "maximum"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "selection": {
+      "type": "object",
+      "required": ["run_ids"],
+      "properties": {
+        "run_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "labels": {"type": "object", "additionalProperties": {"type": "string"}},
+        "sort": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "presentation": {
+      "type": "object",
+      "properties": {
+        "open_after_run": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "documentation": {
+      "type": "object",
+      "required": ["blocks"],
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["schema_version", "id", "title", "query", "views"],
+            "properties": {
+              "schema_version": {"const": "perfchecker-document-block/1"},
+              "id": {"type": "string", "minLength": 1},
+              "title": {"type": "string", "minLength": 1},
+              "query": {"type": "object"},
+              "views": {"type": "array", "items": {"enum": ["summary", "comparison", "observations", "diagnostics", "plots", "artifacts"]}, "uniqueItems": true},
+              "interactive_url": {"type": ["string", "null"]}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,7 +1,9 @@
 function PerfChecker.table_to_pie(x::Table, ::Val{:alloc}; pkg_name = "")
-    if !isempty(x.filenames)
+    filenames = hasproperty(x, :filename) ? x.filename : x.filenames
+    lines = hasproperty(x, :line) ? x.line : x.linenumbers
+    if !isempty(filenames)
         data = x.bytes
-        paths = smart_paths(x.filenames)[2] .* " — line " .* string.(x.linenumbers)
+        paths = smart_paths(filenames)[2] .* " — line " .* string.(lines)
         percentage = data .* 100 ./ sum(data)
         colors = make_colors(length(percentage))
         str = isempty(pkg_name) ? "" : " for $pkg_name"
@@ -38,14 +40,17 @@ function PerfChecker.checkres_to_scatterlines(
     for i in eachindex(x.tables)
         j = x.tables[i]
         p = x.pkgs[i]
-        u = unique(j.filenames)
+        filenames = hasproperty(j, :filename) ? j.filename : j.filenames
+        u = unique(filenames)
         if !isempty(u)
             paths = smart_paths(u)[2]
             for k in eachindex(u)
                 if haskey(di, paths[k])
-                    push!(di[paths[k]], (sum(j.bytes[j.filenames .== u[k]]), p.version))
+                    push!(di[paths[k]], (sum(j.bytes[filenames .== u[k]]), p.version))
                 else
-                    di[paths[k]] = [(sum(j.bytes[j.filenames .== u[k]]), p.version)]
+                    di[paths[k]] = Vector{Tuple{Int64, Union{String, VersionNumber}}}()
+                    push!(di[paths[k]], (
+                        sum(j.bytes[filenames .== u[k]]), p.version))
                 end
             end
         else

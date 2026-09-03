@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirage-interactive-fr.github.io/PerfChecker.jl/schemas/perfchecker-progress-v1.schema.json",
+  "title": "PerfChecker progress event v1",
+  "type": "object",
+  "required": ["schema_version", "stage", "state", "completed", "total", "fraction", "percent", "current_run"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-progress/1"},
+    "stage": {"enum": ["preflight", "measurement", "runtime_campaign", "report"]},
+    "state": {"enum": ["queued", "running", "complete", "failed", "cancelling", "cancelled"]},
+    "completed": {"type": "integer", "minimum": 0},
+    "total": {"type": "integer", "minimum": 0},
+    "fraction": {"type": "number", "minimum": 0, "maximum": 1},
+    "percent": {"type": "number", "minimum": 0, "maximum": 100},
+    "current_run": {"type": ["object", "null"]}
+  },
+  "additionalProperties": true
+}

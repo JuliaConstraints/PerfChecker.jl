@@ -1,0 +1,24 @@
+* text=auto
+/.gitattributes text eol=lf
+
+*.jl text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.jsonl text eol=lf
+*.ts text eol=lf
+*.mts text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+*.svg text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.vsix binary

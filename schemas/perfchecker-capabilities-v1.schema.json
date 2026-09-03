@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirage-interactive-fr.github.io/PerfChecker.jl/schemas/perfchecker-capabilities-v1.schema.json",
+  "title": "PerfChecker controller capabilities v1",
+  "type": "object",
+  "required": ["schema_version", "julia", "network_interface", "network_isolation", "commands"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-capabilities/1"},
+    "julia": {"type": "string"},
+    "network_interface": {"type": "object"},
+    "network_isolation": {"type": "object"},
+    "commands": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+  },
+  "additionalProperties": false
+}

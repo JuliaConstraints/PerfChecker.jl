@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirage-interactive-fr.github.io/PerfChecker.jl/schemas/perfchecker-query-result-v1.schema.json",
+  "title": "PerfChecker query result v1",
+  "type": "object",
+  "required": ["schema_version", "query", "run", "counts", "observations", "diagnostics", "artifacts", "plots", "comparison"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-query-result/1"},
+    "query": {"type": "object"}, "run": {"type": "object"},
+    "counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "observations": {"type": "array", "items": {"type": "object"}},
+    "diagnostics": {"type": "array", "items": {"type": "object"}},
+    "artifacts": {"type": "array", "items": {"type": "object"}},
+    "plots": {"type": "array", "items": {"type": "object"}},
+    "comparison": {"type": "array", "items": {"type": "object"}}
+  },
+  "additionalProperties": false
+}

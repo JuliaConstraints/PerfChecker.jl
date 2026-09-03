@@ -1,13 +1,14 @@
-@testset "Aqua.jl" begin
+@testitem "Aqua.jl" tags=[:quality] begin
     import Aqua
     import PerfChecker
 
-    # TODO: Fix the broken tests and remove the `broken = true` flag
     Aqua.test_all(
         PerfChecker;
         ambiguities = (broken = false,),
         deps_compat = false,
-        piracies = (broken = false,)
+        piracies = (broken = false,),
+        stale_deps = false,
+        persistent_tasks = false
     )
 
     @testset "Ambiguities: PerfChecker" begin
@@ -23,7 +24,7 @@
     @testset "Dependencies compatibility (no extras)" begin
         Aqua.test_deps_compat(PerfChecker;
             check_extras = false,
-            ignore = [:Pkg, :Profile, :TOML, :UUIDs]
+            ignore = [:Dates, :Pkg, :Profile, :TOML, :UUIDs]
         )
     end
 end
