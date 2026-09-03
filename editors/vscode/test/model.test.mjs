@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {compareVersions, comparisonsForRuns, filterRuns, logicalFeature, moveRun, outputsForRuns, seriesForRuns} from '../dist/model.js';
+import {compareVersions, comparisonsForRuns, filterRuns, logicalFeature, moveRun, outputsForRuns, parseGitReference, seriesForRuns} from '../dist/model.js';
 
 const runs = [
   {id: 'a', package: 'Bib', feature: 'parse', backend: 'benchmark', version: '1.2.0', description: ''},
@@ -22,6 +22,23 @@ test('filters and sorts the common plan', () => {
 
 test('drag ordering is stable', () => {
   assert.deepEqual(moveRun(['a', 'b', 'c'], 'c', 'a'), ['c', 'a', 'b']);
+});
+
+test('Git comparison targets accept refs and pasted repository URLs', () => {
+  assert.deepEqual(parseGitReference('refs/remotes/origin/feature/faster-parser'), {
+    revision: 'feature/faster-parser', suggestedLabel: 'feature/faster-parser',
+  });
+  assert.deepEqual(parseGitReference('https://github.com/Mirage-Interactive-Fr/PerfChecker.jl/tree/feature/ui'), {
+    revision: 'feature/ui', source: 'https://github.com/Mirage-Interactive-Fr/PerfChecker.jl.git',
+    suggestedLabel: 'feature/ui',
+  });
+  assert.deepEqual(parseGitReference('Mirage-Interactive-Fr/PerfChecker.jl@v1.0.0'), {
+    revision: 'v1.0.0', source: 'https://github.com/Mirage-Interactive-Fr/PerfChecker.jl.git',
+    suggestedLabel: 'v1.0.0',
+  });
+  assert.equal(parseGitReference('0123456789abcdef0123456789abcdef01234567').suggestedLabel, '0123456789ab');
+  assert.throws(() => parseGitReference('https://github.com/Mirage-Interactive-Fr/PerfChecker.jl'),
+    /does not identify/);
 });
 
 test('measurement backends do not leak into the workload name', () => {

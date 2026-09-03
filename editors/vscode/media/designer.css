@@ -36,6 +36,12 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 24px; }
 .target span { display: grid; overflow: hidden; } .target small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .target-options { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; max-height: 150px; overflow: auto; padding: 7px; margin-bottom: 10px; border: 1px solid var(--vscode-panel-border); }
 .target-options label { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.target-scan { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; align-items: center; margin: -5px 0 12px; }
+.target-scan small { letter-spacing: 0; overflow-wrap: anywhere; }
+details { margin-bottom: 12px; padding: 7px; border: 1px solid var(--vscode-panel-border); border-radius: 4px; }
+details summary { cursor: pointer; }
+details label { display: grid; gap: 5px; margin-top: 10px; }
+.form-error { color: var(--vscode-errorForeground); padding: 7px; border-left: 3px solid var(--vscode-errorForeground); }
 .aside-panel h3 { font-size: 12px; margin: 12px 0 5px; }
 .hint { color: var(--vscode-descriptionForeground); } #progress { position: relative; height: 22px; margin-bottom: 12px; background: var(--vscode-progressBar-background); overflow: hidden; border-radius: 4px; }
 #progress div { height: 100%; width: 0; background: var(--vscode-button-background); transition: width .2s; } #progress span { position: absolute; inset: 3px 8px; }

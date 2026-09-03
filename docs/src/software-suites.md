@@ -139,7 +139,7 @@ julia --project=perf path/to/PerfChecker/bin/perfchecker-suite.jl \
 
 The repository also ships a composite GitHub Action. A consuming workflow only
 needs to check out its package and any sibling development packages expected by
-the suite, then invoke `JuliaConstraints/PerfChecker.jl@main` with `project`,
+the suite, then invoke `Mirage-Interactive-Fr/PerfChecker.jl@main` with `project`,
 `suite`, `factory`, `profile`, and `reports`. It publishes the JSON, Markdown,
 and JUnit reports even when a performance run fails.
 

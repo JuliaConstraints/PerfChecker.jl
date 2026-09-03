@@ -144,6 +144,59 @@ function renderTargets() {
   }));
 }
 
+function showTargetError(message = '') {
+  const error = byId('target-error');
+  error.textContent = message;
+  error.hidden = !message;
+}
+
+function renderTargetCompatibility() {
+  if (!plan) return;
+  const select = byId('target-compatibility');
+  const previous = select.value;
+  const packageName = byId('target-package').value;
+  const versions = unique(plan.runs.filter(run => run.package === packageName && run.target_kind === 'release')
+    .map(run => run.version)).sort(compareVersion);
+  select.replaceChildren(new Option('Automatic', ''), ...versions.map(version => new Option(version, version)));
+  if (versions.includes(previous)) select.value = previous;
+}
+
+function requestTargetOptions() {
+  const packageName = byId('target-package').value;
+  if (!packageName) return;
+  const select = byId('target-reference');
+  select.disabled = true;
+  select.replaceChildren(new Option('Loading references…', ''));
+  byId('target-source-status').textContent = 'Looking for branches, tags, and recent commits…';
+  showTargetError();
+  vscode.postMessage({type: 'discoverTargets', package: packageName, source: byId('target-source').value.trim()});
+}
+
+function renderTargetOptions(message) {
+  if (message.package !== byId('target-package').value) return;
+  const select = byId('target-reference');
+  const placeholder = new Option(message.error ? 'References unavailable' : 'Choose a reference…', '');
+  const groups = [];
+  for (const [kind, title] of [['branch', 'Branches'], ['tag', 'Tags'], ['commit', 'Recent commits']]) {
+    const options = (message.options || []).filter(option => option.kind === kind);
+    if (!options.length) continue;
+    const group = document.createElement('optgroup');
+    group.label = title;
+    group.replaceChildren(...options.map(reference => {
+      const option = new Option(`${reference.label}${reference.detail ? ` — ${reference.detail}` : ''}`, reference.revision);
+      option.dataset.label = reference.label;
+      option.dataset.kind = reference.kind;
+      return option;
+    }));
+    groups.push(group);
+  }
+  select.replaceChildren(placeholder, ...groups);
+  select.disabled = Boolean(message.error) || !groups.length;
+  byId('target-source-status').textContent = message.error ? 'Repository could not be scanned.' :
+    `${message.options.length} references from ${message.repository}`;
+  showTargetError(message.error || '');
+}
+
 function renderComparisonList() {
   byId('comparison-list').replaceChildren(...comparisons.map((comparison, index) => {
     const item = document.createElement('div');
@@ -214,16 +267,32 @@ byId('select-visible').addEventListener('click', () => { visibleRuns().forEach(r
 byId('clear-visible').addEventListener('click', () => { visibleRuns().forEach(run => selected.delete(run.id)); render(); });
 byId('run').addEventListener('click', () => vscode.postMessage({type: 'run', ids: order.filter(id => selected.has(id)), reveal: byId('open-after-run').checked}));
 byId('save').addEventListener('click', () => vscode.postMessage({type: 'save', configuration: configuration()}));
+byId('target-package').addEventListener('change', () => {
+  renderTargetCompatibility();
+  requestTargetOptions();
+});
+byId('target-reference').addEventListener('change', event => {
+  const option = event.target.selectedOptions[0];
+  if (!option?.value) return;
+  byId('target-revision').value = option.value;
+  if (!byId('target-label').value.trim()) byId('target-label').value = option.dataset.label || option.value;
+  showTargetError();
+});
+byId('refresh-targets').addEventListener('click', requestTargetOptions);
+byId('target-revision').addEventListener('input', () => showTargetError());
 byId('add-target').addEventListener('click', () => {
   const target = {
     package: byId('target-package').value,
     label: byId('target-label').value.trim(),
-    revision: byId('target-revision').value.trim(),
+    reference: byId('target-revision').value.trim() || byId('target-reference').value,
     source: byId('target-source').value.trim(),
     compatibility_version: byId('target-compatibility').value.trim(),
   };
-  if (!target.package || !target.label || !target.revision) return;
-  vscode.postMessage({type: 'targets', targets: [...targets, target]});
+  if (!target.package || !target.reference) {
+    showTargetError('Choose a discovered reference or paste one first.');
+    return;
+  }
+  vscode.postMessage({type: 'addTarget', target});
 });
 byId('comparison-package').addEventListener('change', () => renderComparisonOptions(true));
 byId('comparison-feature').addEventListener('change', () => renderComparisonOptions());
@@ -291,9 +360,13 @@ window.addEventListener('message', event => {
     renderTargets();
     renderComparisonList();
     renderComparisonOptions(true);
+    renderTargetCompatibility();
     for (const id of ['target-label', 'target-revision', 'target-source', 'target-compatibility']) byId(id).value = '';
+    requestTargetOptions();
     render();
   }
+  if (event.data.type === 'targetOptions') renderTargetOptions(event.data);
+  if (event.data.type === 'targetError') showTargetError(event.data.error || 'Unable to add this target.');
   if (event.data.type === 'progress') {
     const value = event.data.value, progress = byId('progress'); progress.hidden = false;
     progress.querySelector('div').style.width = `${value.percent || 0}%`;

@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.parseGitReference = parseGitReference;
 exports.logicalFeature = logicalFeature;
 exports.compareVersions = compareVersions;
 exports.filterRuns = filterRuns;
@@ -7,6 +8,60 @@ exports.moveRun = moveRun;
 exports.outputsForRuns = outputsForRuns;
 exports.seriesForRuns = seriesForRuns;
 exports.comparisonsForRuns = comparisonsForRuns;
+function readableReference(reference) {
+    try {
+        return decodeURIComponent(reference);
+    }
+    catch {
+        return reference;
+    }
+}
+/** Parse the common forms developers paste from GitHub, GitLab, or Git itself. */
+function parseGitReference(input, sourceInput = '') {
+    let value = input.trim();
+    let source = sourceInput.trim() || undefined;
+    if (!value)
+        throw new Error('Choose or paste a branch, tag, or commit.');
+    const sshFragment = value.match(/^(git@[^:]+:[^#]+?\.git)#(.+)$/);
+    if (sshFragment) {
+        source ||= sshFragment[1];
+        value = readableReference(sshFragment[2]);
+    }
+    else if (/^https?:\/\//i.test(value)) {
+        const url = new URL(value);
+        const github = url.pathname.match(/^\/([^/]+)\/([^/]+?)(?:\.git)?\/(tree|commit|releases\/tag|tags)\/(.+)$/);
+        const gitlab = url.pathname.match(/^\/(.+\/[^/]+?)(?:\.git)?\/-\/(tree|commit|tags)\/(.+)$/);
+        if (github) {
+            source ||= `${url.origin}/${github[1]}/${github[2]}.git`;
+            value = readableReference(github[4]);
+        }
+        else if (gitlab) {
+            source ||= `${url.origin}/${gitlab[1]}.git`;
+            value = readableReference(gitlab[3]);
+        }
+        else if (url.hash.length > 1) {
+            value = readableReference(url.hash.slice(1));
+            url.hash = '';
+            source ||= url.toString();
+        }
+        else {
+            throw new Error('This Git URL does not identify a branch, tag, or commit.');
+        }
+    }
+    else {
+        const shorthand = value.match(/^([^/\s]+)\/([^@\s]+)@(.+)$/);
+        if (shorthand) {
+            source ||= `https://github.com/${shorthand[1]}/${shorthand[2].replace(/\.git$/, '')}.git`;
+            value = readableReference(shorthand[3]);
+        }
+    }
+    value = value.replace(/^refs\/heads\//, '').replace(/^refs\/tags\//, '')
+        .replace(/^refs\/remotes\/[^/]+\//, '');
+    if (!value || value === 'HEAD')
+        throw new Error('Choose a concrete branch, tag, or commit.');
+    return { revision: value, ...(source ? { source } : {}),
+        suggestedLabel: /^[0-9a-f]{13,40}$/i.test(value) ? value.slice(0, 12) : value };
+}
 const CHECK_SUFFIXES = {
     profile_alloc: ['_allocations', '_profile_alloc'],
     wall_profile: ['_wall_profile'],

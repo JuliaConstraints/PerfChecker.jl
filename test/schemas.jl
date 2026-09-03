@@ -32,7 +32,7 @@
     for name in actual
         schema = JSON.parsefile(joinpath(root, name); use_mmap = false)
         @test schema["\$schema"] == "https://json-schema.org/draft/2020-12/schema"
-        @test startswith(schema["\$id"], "https://juliaconstraints.github.io/PerfChecker.jl/")
+        @test startswith(schema["\$id"], "https://mirage-interactive-fr.github.io/PerfChecker.jl/")
         @test schema["type"] == "object"
     end
 end

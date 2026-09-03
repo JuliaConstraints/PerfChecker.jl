@@ -22,7 +22,9 @@ REPL, CI, Oxygen, Pluto, Makie and documentation integrations.
   inference and garbage collection.
 - Adds named Git targets for branches, tags and exact commits, then compares one
   or several candidates against either an exact reference or an aggregated
-  reference group.
+  reference group. The target picker scans the package repository for branches,
+  tags and recent commits; pasted GitHub/GitLab URLs and `owner/repository@ref`
+  shorthand are parsed into the same target model.
 - Saves targets, comparison policies, selection order and documentation blocks
   as `perfchecker-ui-config/1`, normally `perf/perfchecker-ui.json`.
 
@@ -51,11 +53,11 @@ The Marketplace pre-release channel requires a numeric `major.minor.patch`
 version, so this candidate uses extension version `0.9.0`; `--pre-release`
 marks the channel. The stable extension can therefore start at `1.0.0`.
 
-1. Create or join the Visual Studio Marketplace publisher whose immutable ID is
-   `juliaconstraints` (it must match `package.json`).
+1. Create or join the Visual Studio Marketplace publisher for Mirage Interactive
+   whose immutable ID is `mirage-interactive-fr` (it must match `package.json`).
 2. For an initial manual publication, create an Azure DevOps token for all
    accessible organizations with only `Marketplace: Manage`, then run
-   `npx vsce login juliaconstraints`.
+   `npx vsce login mirage-interactive-fr`.
 3. Run `npm ci`, `npm test`, and `npm run package:pre-release`. Install and
    inspect that exact VSIX once before publishing it.
 4. Run `npm run publish:pre-release`. This is the only publishing step.

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://juliaconstraints.github.io/PerfChecker.jl/schemas/perfchecker-suite-plan-v1.schema.json",
+  "$id": "https://mirage-interactive-fr.github.io/PerfChecker.jl/schemas/perfchecker-suite-plan-v1.schema.json",
   "title": "PerfChecker suite plan v1",
   "type": "object",
   "required": ["schema_version", "suite", "description", "profile", "plan_revision", "runs"],

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://juliaconstraints.github.io/PerfChecker.jl/schemas/perfchecker-document-block-v1.schema.json",
+  "$id": "https://mirage-interactive-fr.github.io/PerfChecker.jl/schemas/perfchecker-document-block-v1.schema.json",
   "title": "PerfChecker documentation block v1",
   "type": "object",
   "required": ["schema_version", "id", "title", "views", "interactive_url", "provenance", "result"],

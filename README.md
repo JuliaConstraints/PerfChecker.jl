@@ -1,12 +1,12 @@
 # PerfChecker
 
-<!--[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaConstraints.github.io/PerfChecker.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaConstraints.github.io/PerfChecker.jl/dev)-->
-[![Build Status](https://github.com/JuliaConstraints/PerfChecker.jl/workflows/CI/badge.svg)](https://github.com/JuliaConstraints/PerfChecker.jl/actions)
-[![codecov](https://codecov.io/gh/JuliaConstraints/PerfChecker.jl/branch/main/graph/badge.svg?token=YVJhN4dpBp)](https://codecov.io/gh/JuliaConstraints/PerfChecker.jl)
+<!--[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://mirage-interactive-fr.github.io/PerfChecker.jl/stable)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mirage-interactive-fr.github.io/PerfChecker.jl/dev)-->
+[![Build Status](https://github.com/Mirage-Interactive-Fr/PerfChecker.jl/workflows/CI/badge.svg)](https://github.com/Mirage-Interactive-Fr/PerfChecker.jl/actions)
+[![codecov](https://codecov.io/gh/Mirage-Interactive-Fr/PerfChecker.jl/branch/main/graph/badge.svg?token=YVJhN4dpBp)](https://codecov.io/gh/Mirage-Interactive-Fr/PerfChecker.jl)
 [![SciML Code Style](https://img.shields.io/static/v1?label=code%20style&message=SciML&color=9558b2&labelColor=389826)](https://github.com/SciML/SciMLStyle)
 [![Chat: Mattermost](https://img.shields.io/badge/chat-mattermost-blueviolet.svg)](https://nohost.iijlab.net/chat/signup_user_complete/?id=nnuc1g14gtrqtnas6thu193xmr)
-[![Website: JuliaConstraints](https://img.shields.io/badge/website-JuliaConstraints-informational.svg)](https://juliaconstraints.github.io/)
+[![Website: Mirage Interactive](https://img.shields.io/badge/website-Mirage%20Interactive-informational.svg)](https://mirageinteractive.fr/)
 
 `PerfChecker` is a set of performance checking tools for Julia packages. The ultimate aim is to create an environment where the tool can run similarly to a test environment. By doing so, it would be possible to test the performance of a package `P` in separate Julia instances. This would allow for each version of `P`:
 
@@ -102,16 +102,18 @@ CPU views distinguish observed runtime dispatch, non-concrete inferred returns,
 and garbage collection. Network-aware workloads can report explicit payload and
 operation counters without sampling unrelated host traffic.
 
-## Google Summer of Code (2023)
+## Google Summer of Code (2023 archive)
 
-`JuliaConstraints`, including `PerfChecker.jl`, is participating in Google Summer of Code (GSoC) through the Julia language umbrella and is looking for contributors. Complete lists of projects:
+In 2023, `JuliaConstraints`, which included `PerfChecker.jl` at the time,
+participated in Google Summer of Code (GSoC) through the Julia language
+umbrella. The original project lists are retained as historical context:
 
 - [JuliaConstraints](https://julialang.org/jsoc/gsoc/juliaconstraints/)
 - Other [Julia language projects](https://julialang.org/jsoc/projects/)
 
 ### Project Ideas
 
-This package consists of a set of tools designed to check the performance of packages over time and versions. The targeted audience is the whole community of packages' developers in Julia (not only JuliaConstraints).
+This package consists of a set of tools designed to check the performance of packages over time and versions. The targeted audience is the whole community of Julia package developers.
 
 This README provides a short demo on how PerfChecker can be used.
 
@@ -153,7 +155,7 @@ Easy to Medium, depending on the features implemented
 
 ### Getting Started
 
-Although it is part of JuliaConstraints, `PerfChecker` is a standalone project. As such a good start is to understand fully its features and workflow. For instance, one way is to write a small use case in the vein of the small tutorial below. Possible packages could be
+`PerfChecker` was already designed as a standalone project. A good start is to understand fully its features and workflow by writing a small use case in the vein of the tutorial below. Possible packages could be
 
 - A JuliaConstraints package or dependency
 - A package written by the GSoC candidate
@@ -163,7 +165,7 @@ Please bear in mind that, ideally, writing performance checks for such a package
 
 Also, allocation checks generate memory files in the package local folder. Ideally the package should be `dev`ed in a local environment.
 
-To contribute, please fork the repo, create a new branch, make your changes, and submit a pull request. If you are unsure about anything or need any help, please don't hesitate to ask through issues, [JuliaConstraints chat](https://nohost.iijlab.net/chat/signup_user_complete/?id=nnuc1g14gtrqtnas6thu193xmr), or the `#juliaconstraints` channel on Humans-of-Julia's [Discord](https://discord.gg/7KC28q98nP).
+To contribute today, please use the current repository issues and pull requests.
 
 
 We encourage students and other possible GSoC contributors to participate in `PerfChecker`'s development as it would bring a tools for the Julia community as a whole. It would bring them experience and deep understanding of Julia packages development and, more generally, open source development along with performance testing.
@@ -340,4 +342,6 @@ To contribute, please fork the repo, create a new branch, make your changes, and
 
 ## Acknowledgments
 
-This package is part of the [JuliaConstraints](https://juliaconstraints.github.io/) project. We thank the entire community for their contributions.
+This package is maintained by [Mirage Interactive](https://mirageinteractive.fr/).
+We thank the JuliaConstraints and wider Julia communities for their historical
+and ongoing contributions.

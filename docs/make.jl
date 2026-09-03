@@ -5,10 +5,10 @@ using PerfChecker
 makedocs(;
     modules = [PerfChecker],
     authors = "azzaare <jf@baffier.fr>",
-    repo = "https://github.com/JuliaConstraints/PerfChecker.jl",
+    repo = "https://github.com/Mirage-Interactive-Fr/PerfChecker.jl",
     sitename = "PerfChecker.jl",
     format = DocumenterVitepress.MarkdownVitepress(
-        repo = "https://github.com/JuliaConstraints/PerfChecker.jl",
+        repo = "https://github.com/Mirage-Interactive-Fr/PerfChecker.jl",
     ),
     pages = [
         "Home" => "index.md",
@@ -23,6 +23,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo = "github.com/JuliaConstraints/PerfChecker.jl",
+    repo = "github.com/Mirage-Interactive-Fr/PerfChecker.jl",
     push_preview = true
 )

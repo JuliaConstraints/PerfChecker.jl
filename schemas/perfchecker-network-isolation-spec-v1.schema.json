@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://juliaconstraints.github.io/PerfChecker.jl/schemas/perfchecker-network-isolation-spec-v1.schema.json",
+  "$id": "https://mirage-interactive-fr.github.io/PerfChecker.jl/schemas/perfchecker-network-isolation-spec-v1.schema.json",
   "title": "PerfChecker network isolation spec v1",
   "type": "object",
   "required": ["schema_version", "provider", "distribution", "interface", "external_connectivity", "dns_servers", "attribution_scope", "requires_prepared_environment"],

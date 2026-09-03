@@ -3,15 +3,16 @@
   "displayName": "PerfChecker",
   "description": "Explore, configure and launch PerfChecker feature suites.",
   "version": "0.9.0",
-  "publisher": "juliaconstraints",
+  "publisher": "mirage-interactive-fr",
+  "author": "Mirage Interactive",
   "repository": {
     "type": "git",
-    "url": "https://github.com/JuliaConstraints/PerfChecker.jl.git",
+    "url": "https://github.com/Mirage-Interactive-Fr/PerfChecker.jl.git",
     "directory": "editors/vscode"
   },
-  "homepage": "https://github.com/JuliaConstraints/PerfChecker.jl#readme",
+  "homepage": "https://github.com/Mirage-Interactive-Fr/PerfChecker.jl#readme",
   "bugs": {
-    "url": "https://github.com/JuliaConstraints/PerfChecker.jl/issues"
+    "url": "https://github.com/Mirage-Interactive-Fr/PerfChecker.jl/issues"
   },
   "license": "MIT",
   "pricing": "Free",

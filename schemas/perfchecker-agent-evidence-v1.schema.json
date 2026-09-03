@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://juliaconstraints.github.io/PerfChecker.jl/schemas/perfchecker-agent-evidence-v1.schema.json",
+  "$id": "https://mirage-interactive-fr.github.io/PerfChecker.jl/schemas/perfchecker-agent-evidence-v1.schema.json",
   "title": "PerfChecker bounded agent evidence v1",
   "type": "object",
   "required": ["schema_version", "generated_at", "run", "passed", "diagnostic_severities", "query_result", "instructions"],
