@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://juliaconstraints.github.io/PerfChecker.jl/schemas/perfchecker-suite-plan-v1.schema.json",
+  "title": "PerfChecker suite plan v1",
+  "type": "object",
+  "required": ["schema_version", "suite", "description", "profile", "plan_revision", "runs"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-suite-plan/1"},
+    "suite": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "profile": {"enum": ["quick", "ci", "historical", "release"]},
+    "comparisons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "package", "feature", "comparison_key", "baselines", "candidates", "aggregation"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "package": {"type": "string"},
+          "feature": {"type": "string"},
+          "comparison_key": {"type": "string"},
+          "baselines": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+          "candidates": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+          "aggregation": {"enum": ["median", "mean", "minimum", "maximum"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "plan_revision": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "package", "package_id", "feature", "workload", "description", "backend", "entrypoint", "version", "target_kind", "comparison_key", "status", "reason"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
+          "package": {"type": "string", "minLength": 1},
+          "package_id": {"type": "string", "minLength": 1},
+          "feature": {"type": "string", "minLength": 1},
+          "workload": {"type": "string", "minLength": 1},
+          "description": {"type": "string"},
+          "backend": {"type": "string", "minLength": 1},
+          "julia_compatibility": {
+            "type": "object",
+            "required": ["since", "until", "excluded"],
+            "properties": {
+              "since": {"type": ["string", "null"]},
+              "until": {"type": ["string", "null"]},
+              "excluded": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+            },
+            "additionalProperties": false
+          },
+          "entrypoint": {"type": "string", "minLength": 1},
+          "version": {"type": "string", "minLength": 1},
+          "target_kind": {"enum": ["release", "dev", "candidate"]},
+          "target_source": {"type": ["string", "null"]},
+          "target_revision": {"type": ["string", "null"]},
+          "comparison_key": {"type": "string"},
+          "status": {"enum": ["ready", "unavailable"]},
+          "reason": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

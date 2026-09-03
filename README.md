@@ -13,6 +13,23 @@
 - The use of the latest compatible versions of Julia and other dependencies of P
 - Independence of compatibility requirements of `PerfChecker.jl` from the environment used during performance checks.
 
+The `1.0.0-rc2` candidate keeps the existing `@check` interface and adds a
+feature-oriented workflow with one fresh Malt worker per feature/version run.
+The controller, web UI and plotting packages are not loaded in those measured
+workers.
+
+```sh
+julia --project=path/to/PerfChecker bin/perfchecker.jl init --root=path/to/MyPackage
+julia --project=path/to/MyPackage/perf path/to/PerfChecker/bin/perfchecker.jl run \
+  --suite=path/to/MyPackage/perf/suite.jl --profile=ci \
+  --reports=path/to/MyPackage/perf/results/ci
+```
+
+The same CLI provides `plan`, `preflight`, `compare`, `check`, `verify`,
+`migrate`, `julia-campaign`, `network`, and `capabilities`. New run bundles are
+digest-protected and remain consumable by REPL, CI, Documenter, Pluto, Makie,
+WGLMakie and Oxygen adapters through the common query and plot grammar.
+
 ## Feature and software suites
 
 PerfChecker can now define performance contracts per feature, map different
@@ -35,7 +52,8 @@ Pluto, Makie, DrWatson, Supposition, maintained PropCheck compatibility, and
 PProf/FlameGraphs integrations. External command
 providers can emit the same observations from Python, Rust, R, or a mixed
 stack without loading PerfChecker in the measured process. `action.yml`,
-`bin/perfchecker-suite.jl`, and `bin/perfchecker-provider.jl` provide
+`bin/perfchecker.jl`, `bin/perfchecker-suite.jl`, and
+`bin/perfchecker-provider.jl` provide
 the same workflow to CI without putting those controller dependencies inside
 the measured workers. See the software-suite documentation for version windows,
 dependency pins, and multi-package examples.
@@ -47,6 +65,22 @@ run-count progress bar. Loading UnicodePlots adds `terminal_plot`. Loading
 Documenter or DocumenterVitepress adds static performance pages and VitePress
 builds from the same portable bundle; none of these UI packages enter measured
 workers.
+
+The candidate VS Code extension in `editors/vscode` is the local developer
+cockpit. It presents package → business feature → check type → version in the
+native Test Explorer and its visual editor, opens the exact workload script,
+launches selected nodes with progress, and provides output/log icons at every
+level. BenchmarkTools and Chairmarks distributions, version curves,
+comparisons, allocation pies and typed flame graphs are interactive and
+filterable. Named branches, tags and commits can be measured together, with
+exact or grouped reference policies. Its saved `perfchecker-ui-config/1` file
+also drives the CLI and Documenter blocks; it complements the Oxygen Studio
+rather than replacing it.
+
+PerfChecker also ships a non-recursive self-measurement suite in `perf/suite.jl`.
+It exercises planning, bundle comparison and query execution in isolated
+workers, including allocation attribution and CPU flame-graph evidence for the
+comparison engine.
 
 The Oxygen extension includes a responsive Performance Studio for selecting
 semantic version ranges, filtering, colour-labelling, sorting, configuring and

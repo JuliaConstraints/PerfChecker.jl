@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://juliaconstraints.github.io/PerfChecker.jl/schemas/perfchecker-query-v1.schema.json",
+  "title": "PerfChecker report query v1",
+  "type": "object",
+  "required": ["schema_version", "id", "resources", "where", "order_by", "limit"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-query/1"},
+    "id": {"type": "string", "minLength": 1},
+    "resources": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["observations", "diagnostics", "artifacts", "plots", "comparison"]}
+    },
+    "where": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "operator", "value"],
+        "properties": {
+          "field": {"type": "string", "minLength": 1},
+          "operator": {"enum": ["equals", "not_equals", "one_of", "contains", "prefix", "greater_or_equal", "less_or_equal", "exists"]},
+          "value": {}
+        },
+        "additionalProperties": false
+      }
+    },
+    "order_by": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "direction"],
+        "properties": {
+          "field": {"type": "string", "minLength": 1},
+          "direction": {"enum": ["asc", "desc"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "limit": {"type": "integer", "minimum": 0}
+  },
+  "additionalProperties": false
+}

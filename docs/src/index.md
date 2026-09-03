@@ -4,6 +4,12 @@ PerfChecker runs performance checks for Julia packages in isolated Julia
 processes. The public entry point is `@check`; new code should prefer
 `PerfConfig`, while the older dictionary form remains supported.
 
+Version `1.0.0-rc2` adds the feature-suite workflow, a unified CLI, immutable
+run bundles with integrity metadata, compatibility preflight, Julia runtime
+campaigns, attributed network accounting, and shared report/query contracts.
+See [V1 candidate](v1-candidate.md) for the supported surface and migration
+rules.
+
 ```julia
 using PerfChecker, BenchmarkTools
 
@@ -82,7 +88,7 @@ For feature-level, multi-version and multi-package checks, see
 interfaces in the controller process: isolated Malt workers load only the
 benchmark backend, the package under test and its explicitly pinned peers.
 
-PerfChecker also ships `action.yml` and `bin/perfchecker-suite.jl` so the same
+PerfChecker also ships `action.yml` and `bin/perfchecker.jl` so the same
 suite factory and report grammar can be used in GitHub Actions or another CI
 without duplicating orchestration code.
 

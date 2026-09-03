@@ -47,11 +47,12 @@ runs:
         PERFCHECKER_REPORTS: ${{ inputs.reports }}
       run: >-
         julia --project="$PERFCHECKER_PROJECT"
-        "$PERFCHECKER_ACTION_PATH/bin/perfchecker-suite.jl"
+        "$PERFCHECKER_ACTION_PATH/bin/perfchecker.jl" run
         "--suite=$PERFCHECKER_SUITE"
         "--profile=$PERFCHECKER_PROFILE"
         "--factory=$PERFCHECKER_FACTORY"
         "--reports=$PERFCHECKER_REPORTS"
+        "--progress=jsonl"
     - name: Publish performance reports
       if: always()
       uses: actions/upload-artifact@v4

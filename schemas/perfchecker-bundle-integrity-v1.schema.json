@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://juliaconstraints.github.io/PerfChecker.jl/schemas/perfchecker-bundle-integrity-v1.schema.json",
+  "title": "PerfChecker bundle integrity v1",
+  "type": "object",
+  "required": ["schema_version", "algorithm", "files"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-bundle-integrity/1"},
+    "algorithm": {"const": "sha256"},
+    "files": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256", "bytes"],
+        "properties": {
+          "path": {"enum": ["manifest.json", "measurement-definitions.json", "observations.jsonl", "diagnostics.jsonl", "artifacts.json"]},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "bytes": {"type": "integer", "minimum": 0}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

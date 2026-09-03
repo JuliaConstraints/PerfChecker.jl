@@ -40,7 +40,8 @@ function PerfChecker.register_oxygen_routes!(bundle::PerfChecker.RunBundle;
             "schema_version" => "perfchecker-capabilities/1",
             "read_only" => true,
             "resources" => ["manifest", "measurement-definitions", "observations",
-                "diagnostics", "artifacts", "version-comparison", "plots"]))
+                "diagnostics", "artifacts", "version-comparison", "plots", "query",
+                "agent-evidence"]))
     end
     Oxygen.get(api("/manifest")) do
         Oxygen.json(bundle.manifest)
@@ -104,7 +105,54 @@ function PerfChecker.register_oxygen_routes!(bundle::PerfChecker.RunBundle;
                 status = 400)
         end
     end
+    _register_query_routes!(api, request -> bundle)
     return api
+end
+
+function _query_request_payload(request; max_bytes::Integer = 65_536)
+    length(request.body) <= max_bytes || throw(ArgumentError(
+        "query body exceeds $(max_bytes) bytes"))
+    payload = JSON.parse(String(request.body))
+    payload isa AbstractDict || throw(ArgumentError("query body must be a JSON object"))
+    return payload
+end
+
+function _bounded_query(payload; max_records::Integer = 5_000)
+    query = PerfChecker.performance_query(payload)
+    limit = query.limit == 0 ? Int(max_records) : min(query.limit, Int(max_records))
+    return PerfChecker.PerformanceQuery(; id = query.id, resources = query.resources,
+        predicates = query.predicates, order_by = query.order_by, limit)
+end
+
+function _register_query_routes!(api, bundle_provider)
+    Oxygen.post(api("/query")) do request
+        try
+            payload = _query_request_payload(request)
+            bundle = bundle_provider(request)
+            bundle === nothing && return Oxygen.json(Dict("error" => "unknown run");
+                status = 404)
+            query_payload = get(payload, "query", payload)
+            return Oxygen.json(PerfChecker.query_bundle(bundle,
+                _bounded_query(query_payload)))
+        catch error
+            return Oxygen.json(Dict("error" => first(sprint(showerror, error), 1_000));
+                status = 400)
+        end
+    end
+    Oxygen.post(api("/agent-evidence")) do request
+        try
+            payload = _query_request_payload(request)
+            bundle = bundle_provider(request)
+            bundle === nothing && return Oxygen.json(Dict("error" => "unknown run");
+                status = 404)
+            query_payload = get(payload, "query", payload)
+            return Oxygen.json(PerfChecker.agent_evidence(bundle,
+                _bounded_query(query_payload)))
+        catch error
+            return Oxygen.json(Dict("error" => first(sprint(showerror, error), 1_000));
+                status = 400)
+        end
+    end
 end
 
 function _public_manifests(store::String)
@@ -195,10 +243,20 @@ function _register_result_routes!(api, store::String)
                 status = 400)
         end
     end
+    _register_query_routes!(api, request -> begin
+        payload = try
+            JSON.parse(String(request.body))
+        catch
+            Dict{String, Any}()
+        end
+        _bundle_by_id(store, String(get(payload, "id", "")))
+    end)
 end
 
 function PerfChecker.register_oxygen_routes!(root::AbstractString;
-        prefix::AbstractString = "/perfchecker/v1", allow_ingest::Bool = false)
+        prefix::AbstractString = "/perfchecker/v1", allow_ingest::Bool = false,
+        max_ingest_bytes::Integer = 10 * 1024 * 1024)
+    max_ingest_bytes > 0 || throw(ArgumentError("max_ingest_bytes must be positive"))
     store = abspath(String(root))
     allow_ingest ? mkpath(store) :
     isdir(store) || throw(ArgumentError("bundle store does not exist: $store"))
@@ -211,20 +269,33 @@ function PerfChecker.register_oxygen_routes!(root::AbstractString;
         Oxygen.json(Dict(
             "schema_version" => "perfchecker-capabilities/1",
             "read_only" => !allow_ingest,
-            "resources" => allow_ingest ?
-                           ["results", "version-comparison", "plots", "ingest"] :
-                           ["results", "version-comparison", "plots"],
+            "resources" =>
+                allow_ingest ?
+                ["results", "version-comparison", "plots", "query",
+                    "agent-evidence", "ingest"] :
+                ["results", "version-comparison", "plots", "query",
+                    "agent-evidence"],
             "protocol" => "perfchecker-run-bundle/1"))
     end
     _register_result_routes!(api, store)
     if allow_ingest
         Oxygen.post(api("/ingest")) do request
-            payload = JSON.parse(String(request.body))
-            bundle = PerfChecker._provider_result(payload)
-            destination = joinpath(store, "run-$(bundle.manifest["run_id"])")
-            PerfChecker.write_run_bundle(bundle, destination)
-            return Oxygen.json(PerfChecker.bundle_dict(bundle; include_records = false);
-                status = 201)
+            length(request.body) <= max_ingest_bytes || return Oxygen.json(
+                Dict("error" => "ingest body exceeds $max_ingest_bytes bytes"); status = 413)
+            try
+                payload = JSON.parse(String(request.body))
+                payload isa AbstractDict || throw(ArgumentError(
+                    "ingest body must be a JSON object"))
+                bundle = PerfChecker._provider_result(payload)
+                destination = joinpath(store, "run-$(bundle.manifest["run_id"])")
+                PerfChecker.write_run_bundle(bundle, destination)
+                return Oxygen.json(
+                    PerfChecker.bundle_dict(bundle; include_records = false);
+                    status = 201)
+            catch error
+                return Oxygen.json(
+                    Dict("error" => first(sprint(showerror, error), 1_000)); status = 400)
+            end
         end
     end
     return api
@@ -270,7 +341,12 @@ function PerfChecker.serve_suite(root::AbstractString;
         host::AbstractString = "127.0.0.1", port::Integer = 8080,
         async::Bool = false, prefix::AbstractString = "/perfchecker/v1",
         allow_ingest::Bool = false, kwargs...)
-    PerfChecker.register_oxygen_routes!(root; prefix, allow_ingest)
+    normalized_host = lowercase(String(host))
+    loopback = normalized_host in ("127.0.0.1", "localhost", "::1")
+    allow_ingest && !loopback &&
+        throw(ArgumentError(
+            "unauthenticated bundle ingestion is restricted to loopback"))
+    PerfChecker.register_oxygen_routes!(root; prefix, allow_ingest, kwargs...)
     return Oxygen.serve(; host = String(host), port = Int(port), async, kwargs...)
 end
 

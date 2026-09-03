@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://juliaconstraints.github.io/PerfChecker.jl/schemas/perfchecker-version-comparison-v1.schema.json",
+  "title": "PerfChecker version comparison v1",
+  "type": "object",
+  "required": ["schema_version", "run_id", "input_passed", "passed", "warnings", "availability", "series", "records"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-version-comparison/1"},
+    "run_id": {"type": "string"}, "input_passed": {"type": "boolean"},
+    "passed": {"type": "boolean"},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "availability": {"type": "array", "items": {"type": "object"}},
+    "series": {"type": "array", "items": {"type": "object"}},
+    "records": {"type": "array", "items": {"type": "object"}}
+  },
+  "additionalProperties": false
+}

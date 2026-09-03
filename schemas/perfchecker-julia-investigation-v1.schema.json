@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://juliaconstraints.github.io/PerfChecker.jl/schemas/perfchecker-julia-investigation-v1.schema.json",
+  "title": "PerfChecker Julia regression investigation v1",
+  "type": "object",
+  "required": ["schema_version", "campaign_id", "generated_at", "comparisons"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-julia-investigation/1"},
+    "campaign_id": {"type": "string"},
+    "generated_at": {"type": "string"},
+    "comparisons": {"type": "array", "items": {"type": "object"}}
+  },
+  "additionalProperties": false
+}

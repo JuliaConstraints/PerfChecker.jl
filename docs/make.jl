@@ -12,7 +12,11 @@ makedocs(;
     ),
     pages = [
         "Home" => "index.md",
+        "V1 candidate" => "v1-candidate.md",
         "Software suites" => "software-suites.md",
+        "Measurement model" => "measurement-model.md",
+        "Network measurement" => "network-measurement.md",
+        "Report queries" => "report-queries.md",
         "Architecture roadmap" => "architecture-roadmap.md"
     ],
     warnonly = true

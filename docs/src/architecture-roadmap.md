@@ -1,7 +1,7 @@
 # Architecture and ecosystem roadmap
 
 Status: design proposal, not an implementation report.  
-Snapshot date: 2026-08-28.
+Snapshot date: 2026-09-03.
 
 ## Product thesis
 
@@ -12,9 +12,12 @@ to REPL, notebook, terminal, plotting, forge, and web interfaces.
 
 The Julia package remains the reference engine and the easiest entry point for
 Julia package authors. A separate Oxygen-powered service may orchestrate and
-render the same protocol. The protocol and server must not assume that every
-runner is Julia: after the Julia contract is stable, external runners can add
-Python, Rust, or mixed-stack workloads without changing the UI or storage model.
+render the same protocol. Julia itself is also a first-class performance target.
+Beyond Julia, it is crucial that the same measurement, comparison, profiling,
+attribution, reporting, and orchestration tools can evaluate other programming
+languages, runtimes, native executables, services, databases, and mixed
+application stacks. The Julia implementation is the reference, not a boundary
+in the protocol or user interfaces.
 
 The initial adoption wedge is narrower than this long-term thesis: an author
 with an existing PkgBenchmark or PerfChecker suite should obtain a trustworthy
@@ -22,7 +25,7 @@ Markdown/JUnit CI verdict in less than ten minutes, without Oxygen and without
 rewriting the suite. Protocol and platform work that does not shorten or
 strengthen that path is not an early priority.
 
-This leads to five invariants:
+This leads to six invariants:
 
 1. Supported PerfChecker 0.2.x features keep working during the migration;
    accidental bugs and import-time side effects are not compatibility promises.
@@ -31,6 +34,9 @@ This leads to five invariants:
 4. A result always states its unit, provenance, collection method, and
    comparability limits.
 5. The Oxygen service is a control plane, not a sandbox for arbitrary code.
+6. Package-source, dependency-graph, runtime, and machine changes are separate
+   experimental factors; PerfChecker never attributes a regression to one of
+   them unless the others were controlled or the report states the ambiguity.
 
 ## What exists today
 
@@ -96,7 +102,7 @@ belong in a separate CI tier from fast unit and schema-contract tests.
 | --- | --- | --- | --- |
 | Rewrite PerfChecker as one larger package | A clean slate can look simple initially | High regression risk, one dependency graph, presentation and execution remain coupled | Reject |
 | Evolve the package around explicit domain and port contracts, then add optional adapters | Preserves users and permits incremental verification | Requires temporary adapters and dual formats | **Recommend** |
-| Build the polyglot Oxygen platform first and make Julia one remote agent | Starts with the final deployment shape | Delays the package-author experience and freezes a protocol before it is proven | Defer |
+| Build the Oxygen platform first and make Julia one remote agent | Starts with the final deployment shape | Delays the package-author experience and freezes a protocol before it is proven | Defer |
 
 The recommended option keeps one repository and package while the core contract
 is moving. A separate `PerfCheckerOxygen.jl` package/service should be created
@@ -114,7 +120,7 @@ Julia API / suite file / CLI / CI / Oxygen HTTP
       SuiteSpec -> RunPlan -> RunAttempt lifecycle
                     |
         Runner port (local Julia, juliaup, container,
-                     remote agent, external language)
+                     remote agent, external command)
                     |
        Collector ports + capability negotiation
                     |
@@ -327,11 +333,23 @@ Network observations must record direction, capture layer, loopback handling,
 children inclusion, retransmission/overhead semantics, privilege, and sampling
 method. Packet payloads and endpoint names are not retained by default.
 
-All network collectors remain experimental and non-blocking initially. A
-network budget may fail CI only inside a hermetic runner with controlled
-endpoints, fixed child/loopback semantics, and measured background noise.
-Otherwise network evidence is diagnostic. Application-reported bytes describe
-the workload's semantic payload, not automatically the package's total traffic.
+Network byte and packet accounting is a required candidate capability, not an
+optional future experiment. The built-in path must expose explicit application
+counters and operating-system interface deltas on supported platforms;
+the candidate now also exposes Linux/WSL2 namespace providers with nftables
+process-tree accounting, a `:network_isolated` Malt backend, loopback-only mode,
+and outbound IPv4/DNS through `slirp4netns`. Native Windows process attribution
+still deepens the same contract. A network budget may fail CI only inside a hermetic runner with
+controlled endpoints, fixed child/loopback semantics, and measured background
+noise. Otherwise host-interface and remote-latency evidence is informative.
+Application-reported bytes or packets describe the workload's semantic layer,
+not automatically the package's total wire traffic.
+
+The initial network schema records at least bytes and packets sent/received,
+operations, connections, discards, interface, capture layer and attribution
+scope. Retransmissions, DNS/TLS phases, socket lifecycle, endpoint class and
+protocol overhead are provider capabilities rather than zero-filled portable
+fields. Raw packet payload is never captured by default.
 
 ### Comparison and CI policy
 
@@ -361,6 +379,194 @@ to paired or serially correlated measurements.
 The outcome vocabulary is `pass`, `warn`, `fail`, `incomparable`, `unavailable`,
 or `error`. CI reporters map it to exit codes, Markdown, JUnit XML, and SARIF
 without embedding forge-specific logic in the analysis engine.
+
+### Dependency compatibility diagnostics
+
+Performance campaigns must expose dependency compatibility blockers before
+starting measurement workers. Planning therefore resolves each requested
+package/runtime combination in a disposable environment and records both the
+declared `[compat]` constraints and the effective dependency graph.
+
+A compatibility diagnostic distinguishes at least:
+
+- `supported`: the requested graph resolves inside every declared compat bound;
+- `constrained`: one or more packages prevent selecting a newer dependency or
+  Julia version, with the blocking package, declared constraint, requested
+  version, and shortest known dependency path;
+- `resolvable_outside_declared_compat`: resolution would require violating a
+  package's published compatibility contract and is never used silently;
+- `unsatisfiable`: Pkg cannot construct a graph, with a normalized explanation
+  and the original resolver log retained as an artifact;
+- `unknown`: registry, source, or metadata evidence is insufficient.
+
+Policies decide whether `constrained` is informational, warning, or blocking.
+An unresolved graph is a planning failure, not a performance regression. The
+Studio, REPL, CI, and Documenter reporters consume the same structured
+diagnostic and can filter by blocking package or compatibility class.
+
+The first implementation should build on Julia/Pkg's resolver and dependency
+metadata instead of maintaining a second solver. It must add contract fixtures
+for direct constraints, transitive constraints, weak dependencies/extensions,
+unregistered path packages, pinned revisions, yanked releases, and Julia
+compatibility. Suggested compat edits remain advisory and are never applied to
+package files automatically.
+
+### Julia language implementation regression attribution
+
+Julia itself is an explicit test target and matrix axis, separate from package
+versions. The tested surface includes the compiler, runtime, GC, scheduler,
+type inference, method invalidation, code-generation backend, Base, standard
+libraries, bundled package manager, system image, startup, and compilation
+latency. A controlled comparison keeps the application/package source revision,
+dependency graph, workload, measurement definition, environment, threading,
+CPU target, and runner fixed while changing only the Julia version, executable,
+build, or commit. If the dependency graph cannot be reproduced on both Julia
+versions, the result is `incomparable` or a compatibility diagnostic rather
+than evidence of a Julia-language regression.
+
+When a statistically credible runtime regression is detected, an attribution
+pipeline should progressively narrow the evidence:
+
+1. repeat paired A/B runs with alternated runtime order;
+2. diff CPU, allocation, compilation, invalidation, and inference profiles;
+3. rank changed stack frames and source locations by absolute and relative
+   contribution, preserving frames from Base, stdlibs, packages, and generated
+   code rather than assigning blame from namespace alone;
+4. rerun the smallest stable feature fixture around the leading frame;
+5. optionally bisect Julia builds or commits when suitable binaries and a
+   bounded search interval are available;
+6. emit a minimal working example only when the reduction is reproducible and
+   its semantic preconditions are known.
+
+The MWE is a reviewable artifact, not an automatic accusation. It contains the
+smallest reproduced input, exact Julia versions/commits and flags, frozen
+environment, commands, measured distributions, profile excerpts, and expected
+versus observed behavior. If automatic reduction cannot preserve the effect,
+PerfChecker emits a ranked investigation bundle instead of a misleading MWE.
+Potential source lines are hypotheses until a reduced run or profiler evidence
+confirms them.
+
+The first goal is to extend as many PerfChecker capabilities as possible to
+Julia itself as the software under test: version histories, feature-level
+benchmarks, allocation and heap views, CPU and wall-time flame graphs,
+inference and invalidation diagnostics,
+compilation and startup measurements, source-line attribution, compatibility
+warnings, regression gates, and reproducible MWE artifacts. Julia subsystems
+and stdlibs use the same suite/feature grammar as packages where practical, with
+additional collectors for compiler/runtime evidence.
+
+### Measurement support beyond Julia
+
+The common grammar and interfaces must also serve software not implemented in
+Julia. A provider may target a programming-language runtime, a native
+executable, a process tree, a service endpoint, a database workload, or a
+mixed-stack scenario. The Oxygen, REPL, CI, Makie, Pluto, and Documenter views
+consume capability and result records without parsing language-specific output.
+
+The portable capability floor is process isolation, warmup-aware timing,
+throughput, CPU usage, current and peak memory, file and network I/O, child
+process accounting, stdout/stderr artifacts, exit state, environment and
+lockfile provenance, version matrices, progress, budgets, comparisons, and CI
+gates. Providers then expose as many deeper capabilities as their ecosystems
+support reliably:
+
+- allocation and heap attribution;
+- CPU and wall-time profiles with interactive flame graphs;
+- source file, line, symbol, module, and package attribution;
+- compiler, JIT, startup, cache, and code-generation diagnostics;
+- type-instability or equivalent static/runtime diagnostics;
+- runtime/compiler version regression detection and bounded bisection;
+- reproducible reduced examples or ranked investigation bundles;
+- GPU, network, database, distributed-task, and external-service evidence.
+
+Each provider publishes a versioned capability manifest covering platforms,
+runtime/tool versions, privileges, overhead, sampling semantics, units, child
+process behavior, and unsupported reasons. Language-specific evidence keeps its
+own metric namespace and native artifacts. A common UI does not imply that two
+measurements are numerically comparable: cross-runtime comparison requires an
+explicit workload contract and compatible measurement definitions.
+
+PerfChecker is declined for requested setups one at a time. A setup is a
+versioned combination of language/runtime or toolchain, workload boundary,
+operating system, process/container/remote execution model, hardware, and
+relevant services. Likely requests include Python, Node/V8, JVM tooling,
+Rust/C/C++ native profilers, databases, HTTP services, GPU jobs, distributed
+workers, and mixed application stacks, but none is hard-coded as the universal
+next target.
+
+Every requested setup follows the same delivery loop:
+
+1. inventory the ecosystem's trustworthy measurement and profiling tools;
+2. define its capability manifest and semantic mapping to the common grammar;
+3. implement an isolated runner plus the maximum reliable collector set;
+4. expose configuration, selection, progress, plots, profiles, comparisons, and
+   CI policy through the existing interfaces;
+5. validate overhead, failure modes, source attribution, version matrices, and
+   unavailable fallbacks on representative workloads;
+6. publish conformance fixtures and maintenance/version-support policy before
+   accepting the setup as supported.
+
+The objective is depth per setup, not a shallow simultaneous compatibility
+claim. Unsupported features stay explicit, and a setup is extended as its
+underlying ecosystem gains reliable tools. Shared protocol, storage, analysis,
+and UI code remains in the core; ecosystem-specific runners and collectors live
+behind extensions or separately released provider packages when their
+dependency graph justifies it. A provider template and conformance harness make
+new on-demand setup work repeatable without forking PerfChecker.
+
+### Native C/C++ and Julia FFI qualification profile
+
+Native dependencies need two distinct lanes. An instrumented correctness lane
+finds undefined behavior, ownership errors, races, leaks, and ABI mistakes. A
+representative release lane measures performance without pretending that
+sanitizer or Valgrind overhead is application cost.
+
+The initial Linux capability manifest should distinguish:
+
+- compiler-instrumented AddressSanitizer, UndefinedBehaviorSanitizer,
+  ThreadSanitizer, and coverage; MemorySanitizer only when the relevant
+  dependency closure can be rebuilt with a compatible toolchain;
+- Valgrind Memcheck for invalid accesses and leaks, Cachegrind/Callgrind for
+  cache/instruction evidence, Massif for heap evolution, and Helgrind or DRD for
+  supported threading cases;
+- a non-instrumented native profiler lane for CPU, wall time, symbols, process
+  trees, resident memory, I/O, and hardware counters when privileges allow it.
+
+Windows and macOS providers expose their native alternatives instead of
+emulating Linux tools. For example, a Windows provider may qualify compiler ASan
+and ETW/WPR collectors, while a macOS provider may expose Clang sanitizers and
+Instruments. A missing tool yields `unavailable` with the platform/toolchain
+reason. Merely starting the executable or finding the command in `PATH` does not
+constitute support.
+
+Every native result records compiler and linker identities, flags, optimization,
+target triple, CPU target, debug-symbol state, build IDs, C/C++ runtime, allocator,
+sanitizer runtime, environment, loaded libraries, source revisions, artifacts,
+and ABI contract version. The provider retains raw logs and symbolization
+artifacts while reports expose normalized findings with stable identities.
+
+The Julia-to-native boundary has a dedicated conformance fixture covering:
+
+- ownership and exactly-once release of handles and buffers;
+- pointer length/alignment/null/aliasing contracts;
+- callbacks, rooted Julia objects, cancellation, and shutdown/reload;
+- thread affinity and calls arriving from unmanaged native threads;
+- errors and C++ exceptions translated before crossing a C ABI;
+- allocator matching, partial initialization, injected failures, and leaks;
+- parsers/importers fuzzed with bounded inputs and hostile archives;
+- concurrent load/unload and process termination behavior.
+
+Sanitized binaries are compared only with baselines carrying the same collector,
+toolchain, flags, and measurement definition. Cachegrind counts may form their
+own comparable series; they are not merged with wall-clock release timings.
+ThreadSanitizer and ASan profiles usually require separate binaries and runs.
+Collector conflicts, unsupported combinations, symbolization failure, and
+privilege loss are explicit outcomes rather than silently degraded evidence.
+
+The first exit gate requires one pure native fixture and one Julia/C boundary
+fixture to produce reproducible pass and intentionally failing evidence on every
+claimed platform. Only then can an Etendue or other mixed-stack dependency use
+this provider as a release gate.
 
 ## Ecosystem adoption matrix
 
@@ -525,8 +731,8 @@ Markdown/JUnit summary that still links to package-specific profiles.
 
 The Julia macro API remains convenient, but the persisted suite contains stable
 case IDs and entrypoint references rather than serialized `Expr` values. Remote
-and polyglot runners never receive arbitrary Julia expressions through the
-public HTTP API.
+and external-command runners never receive arbitrary Julia expressions through
+the public HTTP API.
 
 Before a 1.0 release, the project also needs a metric namespace registry,
 extension-author contract tests, compatibility/deprecation policy, release
@@ -534,7 +740,7 @@ cadence, and documented startup/installation budgets. Otherwise independent
 extensions will create semantically overlapping metrics that the common UI
 cannot safely compare.
 
-## Oxygen service and polyglot boundary
+## Oxygen service and runner boundary
 
 The first Oxygen service keeps result ingestion and browsing separate from
 execution. The local Studio now persists its bounded queue and browser sessions
@@ -559,7 +765,7 @@ Oxygen can publish OpenAPI documentation, but OpenAPI describes the control
 plane rather than the full high-volume artifact format. JSON Schema versions
 the run grammar; artifact media types version specialized data.
 
-For external languages, a runner adapter is an executable that accepts a
+For external commands, a runner adapter is an executable that accepts a
 validated run-plan JSON document and emits JSON Lines events plus a final
 bundle. The server should authenticate agents, enforce quotas, bound log and
 artifact sizes, verify digests, and keep source execution outside its own
@@ -596,11 +802,10 @@ filesystem layout, symbols, or code. Producers mark artifacts `public`,
 `internal`, or `sensitive`; server publication of internal/sensitive artifacts
 is an explicit authorized action, not a consequence of ingesting the bundle.
 
-A polyglot envelope enables common transport, storage, and presentation, not
-automatic semantic equality across languages. Each comparator lists accepted
-measurement-definition IDs. Mixed-stack runs additionally need parent/child or
-span correlation and clock/causality metadata; those records are added only
-when a real mixed-stack prototype demonstrates their requirements.
+A language-neutral envelope enables current external-command providers to share
+transport, storage, and presentation. It does not create a roadmap commitment
+to other programming languages or imply semantic equality between unrelated
+measurement definitions. Each comparator lists the definitions it accepts.
 
 ## Migration plan
 
@@ -614,7 +819,8 @@ current engine:
   BibInternal reference suite, which has no dedicated performance setup,
   through the proposed happy path;
 - prototype one BenchmarkTools distribution, one stdlib CPU profile, one JET
-  diagnostic, and one unsupported network capability in the candidate grammar;
+  diagnostic, explicit application network counters, and one interface packet
+  counter with an honest attribution scope in the candidate grammar;
 - display those same records in REPL, JSON, Markdown, and a minimal read-only
   Oxygen endpoint without interface-specific parsing;
 - run a paired baseline/candidate experiment on Windows and Linux, including
@@ -698,12 +904,19 @@ Deliverables:
 - `JuliaMaltRunner` wrapping current behavior;
 - matrices for package versions/revisions, Julia executable/version, thread
   configuration, and environment variables;
+- preflight compatibility resolution with structured direct/transitive blocker
+  diagnostics, dependency paths, Julia compat evidence, and resolver artifacts;
+- controlled-runtime plans that vary Julia itself independently while freezing
+  source, workload, measurement definition, and the dependency graph where
+  compatible;
 - capability negotiation, timeouts, cancellation, retries, partial results,
   deterministic cleanup, and bounded parallelism;
 - worker-side environment capture and comparability fingerprint.
 
 Exit gate: current `@check` calls route through the adapters and match Phase 1
-fixtures; failed workers leave no process or temporary environment behind.
+fixtures; failed workers leave no process or temporary environment behind; a
+compatibility blocker names the responsible package and constraint before any
+measurement worker starts.
 
 Rollback: select the legacy orchestrator while keeping the protocol/store.
 
@@ -725,7 +938,7 @@ run locally, and gate a CI job without Oxygen.
 Rollback: generated files can invoke the legacy adapter; reporters consume the
 stable protocol independently of the runner.
 
-### Phase 4 — deep Julia and system collectors
+### Phase 4 — deep Julia-language and system collectors
 
 Order:
 
@@ -736,7 +949,24 @@ Order:
 4. PProf, Chrome profile, static profile, and Arrow artifact exporters;
 5. LinuxPerf/LIKWID and thread-pinning controls;
 6. CUDA and AMDGPU collectors;
-7. experimental network providers with isolated integration tests.
+7. required network byte/packet accounting, including the implemented
+   Linux/WSL2 isolated-interface provider, followed by native Windows
+   process attribution.
+
+After the underlying profile and inference collectors are stable, make Julia
+itself a first-class suite target: paired Julia-version runs, profile
+differencing, ranked Base/stdlib/compiler source-frame attribution, reduced
+feature reruns, optional Julia-build bisection, and reviewable MWE or
+investigation-bundle artifacts. This workflow must preserve uncertainty when
+dependency graphs or environments differ.
+
+The candidate now contains an executable vertical slice of this workflow:
+`run_julia_runtime_campaign` and the unified CLI run one suite
+under a baseline plus RC/nightly selectors, probe the exact Julia commit and
+LLVM version, retain independent bundles, emit definition-aware comparisons,
+and rank source-attributed positive sample deltas in Base, stdlib, compiler, or
+package code. Automated build bisection and minimized-MWE synthesis remain
+subsequent gates rather than being implied by source ranking.
 
 Each extension has platform/Julia-version matrices, capability tests, overhead
 metadata, and a fallback that reports `unavailable` without failing unrelated
@@ -764,21 +994,31 @@ uploaded source inside the Oxygen process.
 Rollback: the server is optional; bundles, CLI, CI, REPL, and notebooks remain
 fully usable without it.
 
-### Phase 6 — validate and extract the polyglot protocol
+### Phase 6 — deliver requested setup providers one by one
 
 Deliverables:
 
-- one non-Julia runner and one mixed-stack example;
-- cross-language conformance fixtures;
-- protocol compatibility policy and independent specification release;
-- decision on extracting `PerfCheckerProtocol` and `PerfCheckerOxygen` packages.
+- provider template, capability-manifest schema, and conformance harness;
+- a documented intake checklist that defines the requested setup, workload
+  boundary, target platforms, required features, acceptable overhead, and
+  maintenance owner;
+- one deeply integrated provider selected from an actual user request, with all
+  reliable collectors and every common interface;
+- a second materially different requested setup to prove that runner,
+  collector, artifact, and UI contracts are not Julia-specific;
+- a feature-parity report showing supported, partial, unavailable, and
+  ecosystem-impossible capabilities for each maintained setup;
+- criteria for keeping an adapter as an extension or releasing it as a separate
+  provider package.
 
-Exit gate: Julia and the second runner produce bundles consumed unchanged by
-the same storage/UI; comparisons occur only where an accepted measurement
-definition and comparator make their semantics compatible.
+Exit gate: each accepted setup produces conforming bundles, survives lifecycle
+and overhead tests, exposes unsupported capabilities honestly, and is usable
+from CI plus at least one interactive interface without setup-specific parsing
+in the core UI.
 
-Rollback: keep the protocol version embedded in PerfChecker.jl until the second
-implementation is credible.
+Rollback: disable or unpublish one provider without changing historical bundle
+readability or the Julia engine. No unsupported setup is advertised merely
+because an external command can be launched.
 
 ## Verification strategy
 
@@ -790,6 +1030,17 @@ implementation is credible.
   timeout, worker crash, disk full, and duplicate writer scenarios.
 - **Platforms:** Julia LTS/stable/pre on Linux, Windows, and macOS; platform-only
   collectors run only where their capability can be established.
+- **Dependency compatibility:** satisfiable, constrained, transitive-blocker,
+  path-package, weak-dependency, Julia-compat, and intentionally unsatisfiable
+  fixture graphs, with no measurement worker launched for invalid plans.
+- **Julia-language attribution:** unchanged-version controls, injected
+  compiler/runtime/Base/stdlib regressions, intentionally changed dependency
+  graphs, profile-diff ranking, reduction success/failure, and MWE
+  reproducibility from a clean environment.
+- **Setup-provider conformance:** capability discovery, runner isolation,
+  common-interface rendering, progress/cancellation, native artifact retention,
+  unsupported reasons, overhead budgets, and clean failure for every maintained
+  on-demand provider.
 - **Statistical:** deterministic synthetic distributions, paired A/B order
   tests, unchanged-run false-positive estimation, injected-regression power,
   and repeated physical smoke tests; CI does not assert exact timings.
@@ -803,6 +1054,17 @@ implementation is credible.
 
 ## Critical decisions still to validate
 
+The breaking work is packaged as `1.0.0-rc2`; it is not the stable V1 promise.
+Promotion to `1.0.0` requires schema freeze, real legacy-bundle migrations,
+downstream consumer validation, and measured reliability/security gates. A
+later RC may tighten a contract, but any already consumed `/1` schema follows
+the compatibility rule below.
+
+Existing `/1` schemas are never silently redefined once an external consumer is
+confirmed. An incompatible correction becomes `/2` with an explicit migrator.
+The package prerelease version identifies these contracts for review without
+claiming stable V1 status.
+
 1. What is the smallest Julia case-registration API that supports stable IDs,
    fixtures, interpolation, and workload digests without serializing closures?
 2. Should the first comparison estimator build on BenchmarkTools judgement or a
@@ -812,9 +1074,16 @@ implementation is credible.
 4. Which store should the first Oxygen deployment use after local bundles:
    filesystem plus SQLite index, or PostgreSQL plus object storage? This is a
    deployment decision and should not leak into the protocol.
-5. Which non-Julia runner is the best transport/storage/UI conformance test?
-   Python has the largest
-   adoption value; Rust provides a stricter low-level and artifact-format test.
+5. Which compatibility states block CI by default, and which remain warnings
+   until an explicit policy promotes them?
+6. What minimum effect size and attribution confidence permit PerfChecker to
+   emit an MWE rather than only a ranked investigation bundle?
+7. Which Julia build service or artifact index can support bounded runtime
+   bisection without making ordinary package CI download an unbounded matrix?
+8. What minimum capability subset and maintenance commitment make an on-demand
+   setup officially supported rather than an experimental provider?
+9. When does a setup adapter remain a PerfChecker extension, and when does its
+   dependency graph justify a separately versioned provider package?
 
 The experiments and measurable gates that precede broad implementation are in
 Phase 0A. They are product and statistical evidence, not ceremonial prototypes.

@@ -86,26 +86,42 @@ jobs:
         with:
           node-version: "22"
       - run: node --check ext/OxygenExt/assets/perfchecker-studio.js
-  # docs:
-  #   name: Documentation
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: julia-actions/setup-julia@v1
-  #       with:
-  #         version: '1'
-  #     - run: |
-  #         julia --project=docs -e '
-  #           using Pkg
-  #           Pkg.develop(PackageSpec(path=pwd()))
-  #           Pkg.instantiate()'
-  #     - run: |
-  #         julia --project=docs -e '
-  #           using Documenter: DocMeta, doctest
-  #           using PerfChecker
-  #           DocMeta.setdocmeta!(PerfChecker, :DocTestSetup, :(using PerfChecker); recursive=true)
-  #           doctest(PerfChecker)'
-  #     - run: julia --project=docs docs/make.jl
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #         DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+      - run: node --check editors/vscode/media/designer.js
+      - run: >-
+          node -e "const fs=require('fs');
+          for(const file of fs.readdirSync('schemas').filter(file=>file.endsWith('.json')))
+          JSON.parse(fs.readFileSync('schemas/'+file, 'utf8'))"
+  vscode-extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+      - run: npm ci
+        working-directory: editors/vscode
+      - run: npm test
+        working-directory: editors/vscode
+      - run: npx --yes @vscode/vsce package --no-dependencies
+        working-directory: editors/vscode
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: |
+          julia --project=docs -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path=pwd()))
+            Pkg.instantiate()'
+      - run: julia --project=docs docs/make.jl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

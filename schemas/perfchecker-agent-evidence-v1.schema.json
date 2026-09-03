@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://juliaconstraints.github.io/PerfChecker.jl/schemas/perfchecker-agent-evidence-v1.schema.json",
+  "title": "PerfChecker bounded agent evidence v1",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "run", "passed", "diagnostic_severities", "query_result", "instructions"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-agent-evidence/1"},
+    "generated_at": {"type": "string", "minLength": 1},
+    "run": {"type": "object"}, "passed": {"type": "boolean"},
+    "diagnostic_severities": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "query_result": {"type": "object"},
+    "instructions": {"type": "object", "additionalProperties": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

@@ -29,6 +29,15 @@ parse_feature = FeatureSpec(
     options = Dict(:tags => [:parser, :io]),
 )
 
+task_profile = FeatureSpec(
+    :parse_file_wall_profile;
+    workload = :parse_file,
+    backend = :wall_profile,
+    entrypoint = joinpath(@__DIR__, "features", "parse_file.jl"),
+    since = v"0.1.0",
+    julia_since = v"1.12",
+)
+
 parser = PackageSuite(
     "BibParser";
     environment = joinpath(@__DIR__, "runner"),
@@ -49,6 +58,38 @@ old releases expose a newer entry point. Unsupported pairs are reported as
 `:unavailable`, not as regressions. `release_pins` makes historical dependency
 graphs reproducible; `dev_sources` selects coherent local branches for the
 current-development run.
+
+`FeatureSpec.id` identifies the concrete check, while `FeatureSpec.workload`
+identifies the business feature across collectors. Thus a suite can retain
+stable internal IDs such as `parse_file_wall_profile`, while every interface
+groups it under `parse_file` and lets the user choose wall-time profiling as an
+evaluation option.
+
+Named Git alternatives are first-class targets:
+
+```julia
+candidate = SuiteCandidate("fast-parser", "feature/fast-parser";
+    source = "https://github.com/acme/Parser.jl",
+    compatibility_version = v"2.1")
+parser = PackageSuite("Parser"; environment, source, features,
+    candidates = [candidate])
+policy = ComparisonPolicy("parse-candidates";
+    package = "Parser", comparison_key = "parse/v1",
+    baselines = ["2.0.0", "2.1.0"],
+    candidates = ["fast-parser"], aggregation = :median)
+suite = SoftwareSuite(:parser, [parser]; comparisons = [policy])
+```
+
+One baseline label is an exact comparison; several labels build an explicitly
+aggregated reference group. Multiple candidate labels can be evaluated in the
+same campaign. VS Code writes the same targets and policies into
+`perfchecker-ui-config/1`, and the CLI replays them with `--config`.
+
+Package and Julia compatibility are independent axes. `since`, `until` and
+`excluded` constrain package releases; `julia_since`, `julia_until` and
+`julia_excluded` constrain the runtime executing that feature. The resolved
+`perfchecker-suite-plan/1` includes both the selected package target and the
+Julia window, so every interface explains a skipped pair consistently.
 
 Built-in profiles are:
 
@@ -134,8 +175,17 @@ run-<id>/
   observations.jsonl
   diagnostics.jsonl
   artifacts.json
+  integrity.json
   artifacts/
 ```
+
+New bundles contain a SHA-256 integrity manifest covering every protocol
+document. `read_run_bundle` verifies it before parsing. Older `/1` bundles
+without this manifest remain readable as `legacy_unverified`; hosted ingestion
+or CI can require verification with
+`verify_run_bundle(path; require_integrity=true)`. `migrate_run_bundle` rewrites
+an older bundle atomically into a digest-protected destination without changing
+the source.
 
 The normative manifest and provider contracts are shipped in
 `schemas/perfchecker-run-bundle-v1.schema.json` and
@@ -184,7 +234,8 @@ at its prefix root; it reads the same `/runs` resource used by other clients.
 
 `write_suite_reports` additionally writes `version-series.json`,
 `version-comparison.json`, and `version-comparison.md`. Series are grouped by
-package, feature, comparison key, metric, definition, and unit. PerfChecker
+package, business workload, concrete check, comparison key, metric, definition,
+and unit. PerfChecker
 compares adjacent compatible releases and then the development checkout against
 the latest compatible release. The plan is embedded in the bundle, so an
 unavailable, failed, or unexpectedly missing target is visible and cannot be
@@ -296,6 +347,14 @@ payload throughput and operation rate without confusing package traffic with
 registry downloads or host-wide interface noise. It is appropriate for HTTP,
 database and distributed features; suites without network semantics should not
 enable it.
+
+The `:network_interface` backend records operating-system byte, packet and drop
+deltas, but labels them `host_interface`; they are not package-attributable on a
+shared machine. The `:network_isolated` backend is the blocking-CI variant. It
+requires the suite controller and its Malt workers to be launched by
+`measure_isolated_network_command`, then records the dedicated namespace
+counters around each feature workload. See [Network measurement](network-measurement.md)
+for native Linux and WSL2 setup.
 
 `drwatson_run_suite` caches a complete suite result through DrWatson and writes
 the normal report tree. `prepare_pluto_dashboard` prepares a suite job or loads

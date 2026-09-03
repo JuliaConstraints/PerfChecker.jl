@@ -327,8 +327,38 @@
   function plotLabel(plot) {
     return `${plot.label} — ${plot.package || ''} · ${plot.feature || ''} · ${plot.metric || ''}`;
   }
+  function plotMatches(plot) {
+    const query = ($('#plot-filter')?.value || '').trim().toLowerCase();
+    if (query && !plotLabel(plot).toLowerCase().includes(query)) return false;
+    for (const [id, key] of [['#plot-package-filter', 'package'], ['#plot-feature-filter', 'feature'], ['#plot-metric-filter', 'metric'], ['#plot-kind-filter', 'kind']]) {
+      const value = $(id)?.value || ''; if (value && String(plot[key] || '') !== value) return false;
+    }
+    return true;
+  }
+  function populatePlotFilters() {
+    const unique = key => Array.from(new Set(state.plots.map(plot => String(plot[key] || '')).filter(Boolean))).sort();
+    setOptions($('#plot-package-filter'), unique('package'), 'All packages');
+    setOptions($('#plot-feature-filter'), unique('feature'), 'All features');
+    setOptions($('#plot-metric-filter'), unique('metric'), 'All metrics');
+    setOptions($('#plot-kind-filter'), unique('kind'), 'All views');
+  }
+  function renderPlotPicker(preferredId = '', initialVersion = '') {
+    const plots = state.plots.filter(plotMatches);
+    const picker = $('#plot-picker');
+    picker.replaceChildren(...plots.map(plot => { const option = document.createElement('option'); option.value = plot.id; option.textContent = plotLabel(plot); return option; }));
+    if (preferredId && plots.some(plot => plot.id === preferredId)) picker.value = preferredId;
+    $('#plot-picker-label').hidden = !plots.length;
+    $('#plot-count').textContent = `${plots.length}/${state.plots.length} plots`;
+    if (plots.length) {
+      if (initialVersion) {
+        const option = document.createElement('option'); option.value = initialVersion; option.textContent = initialVersion;
+        $('#plot-version').replaceChildren(option); $('#plot-version').value = initialVersion;
+      }
+      showPlot(!initialVersion);
+    } else { $('#makie-frame').hidden = true; $('#comparison-table').replaceChildren(); }
+  }
   async function showPlot(resetVersion = false) {
-    const picker = $('#plot-picker'); const plot = state.plots[Number(picker.value)];
+    const picker = $('#plot-picker'); const plot = state.plots.find(item => item.id === picker.value);
     if (!plot || !state.currentRun) return;
     const versionPicker = $('#plot-version');
     if (resetVersion) versionPicker.value = '';
@@ -350,6 +380,9 @@
       }
       const frame = $('#makie-frame'); frame.hidden = false;
       frame.src = `${base}/plot?${query}`;
+      const hash = new URLSearchParams({ run: state.currentRun, plot: plot.id });
+      if (versionPicker.value) hash.set('version', versionPicker.value);
+      history.replaceState(null, '', `#${hash.toString()}`);
       $('#series-chart').hidden = true;
       const series = state.series.find(item => item.series_id === plot.series_id);
       if (series) renderComparisonTable(series); else $('#comparison-table').replaceChildren();
@@ -363,15 +396,14 @@
       renderResults();
       const summary = document.createElement('div'); summary.className = 'result-summary';
       [`${bundle.manifest.suite}`, `${state.series.length} series`, `${comparison.records.length} comparisons`, `${state.plots.length} Makie plots`, `${bundle.observations.length} observations`].forEach(text => { const strong = document.createElement('strong'); strong.textContent = text; summary.append(strong); }); $('#result-summary').replaceWith(summary); summary.id = 'result-summary';
-      const picker = $('#plot-picker'); picker.replaceChildren(...state.plots.map((plot, index) => { const option = document.createElement('option'); option.value = index; option.textContent = plotLabel(plot); return option; }));
-      const preferred = state.plots.findIndex(plot => plot.kind === 'version_series' && plot.metric === 'julia.wall.time');
-      picker.value = String(preferred >= 0 ? preferred : 0);
-      $('#plot-picker-label').hidden = !state.plots.length;
+      populatePlotFilters();
+      const hash = new URLSearchParams(location.hash.slice(1));
+      const preferred = hash.get('run') === id ? hash.get('plot') : state.plots.find(plot => plot.kind === 'version_series' && plot.metric === 'julia.wall.time')?.id;
+      const picker = $('#plot-picker');
       picker.onchange = () => showPlot(true);
       $('#plot-version').onchange = () => showPlot(false);
-      if (state.plots.length) showPlot(true); else {
-        $('#makie-frame').hidden = true; $('#comparison-table').replaceChildren();
-      }
+      const initialVersion = hash.get('run') === id ? hash.get('version') || '' : '';
+      renderPlotPicker(preferred || state.plots[0]?.id || '', initialVersion);
     } catch (error) { toast(error.message); }
   }
 
@@ -394,6 +426,13 @@
     $('#refresh-results').addEventListener('click', loadResults);
     $('#result-filter').addEventListener('input', renderResults);
     ['#result-suite-filter', '#result-profile-filter', '#result-state-filter', '#result-sort'].forEach(id => $(id).addEventListener('change', renderResults));
+    $('#plot-filter').addEventListener('input', () => renderPlotPicker());
+    ['#plot-package-filter', '#plot-feature-filter', '#plot-metric-filter', '#plot-kind-filter'].forEach(id => $(id).addEventListener('change', () => renderPlotPicker()));
+    $('#clear-plot-filters').addEventListener('click', () => {
+      $('#plot-filter').value = '';
+      ['#plot-package-filter', '#plot-feature-filter', '#plot-metric-filter', '#plot-kind-filter'].forEach(id => $(id).value = '');
+      renderPlotPicker(); $('#plot-filter').focus();
+    });
     $('#clear-result-filters').addEventListener('click', () => {
       $('#result-filter').value = '';
       ['#result-suite-filter', '#result-profile-filter', '#result-state-filter'].forEach(id => $(id).value = '');

@@ -1,4 +1,59 @@
-const SuiteVersion = Union{VersionNumber, Symbol}
+const SuiteVersion = Union{VersionNumber, Symbol, String}
+
+"A named Git branch, tag, or commit evaluated beside releases and the working tree."
+struct SuiteCandidate
+    label::String
+    revision::String
+    source::Union{Nothing, String}
+    compatibility_version::Union{Nothing, VersionNumber}
+    dependencies::Vector{Any}
+end
+
+function SuiteCandidate(label::AbstractString, revision::AbstractString;
+        source = nothing, compatibility_version = nothing,
+        dependencies::AbstractVector = Any[])
+    isempty(strip(String(label))) && throw(ArgumentError("candidate label cannot be empty"))
+    isempty(strip(String(revision))) && throw(ArgumentError("candidate revision cannot be empty"))
+    normalized_source = source === nothing ? nothing : String(source)
+    compatibility = compatibility_version === nothing ? nothing :
+                    VersionNumber(compatibility_version)
+    return SuiteCandidate(String(label), String(revision), normalized_source,
+        compatibility, Any[item for item in dependencies])
+end
+
+"An exact or grouped reference used to compare several candidate targets."
+struct ComparisonPolicy
+    id::String
+    package::String
+    feature::String
+    comparison_key::String
+    baselines::Vector{String}
+    candidates::Vector{String}
+    aggregation::Symbol
+end
+
+function ComparisonPolicy(id::AbstractString; package::AbstractString = "",
+        feature::AbstractString = "", comparison_key::AbstractString = "",
+        baselines::AbstractVector{<:AbstractString},
+        candidates::AbstractVector{<:AbstractString}, aggregation::Symbol = :median)
+    isempty(strip(String(id))) && throw(ArgumentError("comparison policy id cannot be empty"))
+    isempty(feature) && isempty(comparison_key) && throw(ArgumentError(
+        "comparison policy requires a feature or comparison_key"))
+    isempty(baselines) && throw(ArgumentError("comparison policy requires a baseline"))
+    isempty(candidates) && throw(ArgumentError("comparison policy requires a candidate"))
+    aggregation in (:median, :mean, :minimum, :maximum) || throw(ArgumentError(
+        "comparison aggregation must be :median, :mean, :minimum, or :maximum"))
+    return ComparisonPolicy(String(id), String(package), String(feature),
+        String(comparison_key), unique!(String.(baselines)),
+        unique!(String.(candidates)), aggregation)
+end
+
+function comparison_policy_dict(policy::ComparisonPolicy)
+    return Dict{String, Any}("id" => policy.id, "package" => policy.package,
+        "feature" => policy.feature, "comparison_key" => policy.comparison_key,
+        "baselines" => policy.baselines, "candidates" => policy.candidates,
+        "aggregation" => string(policy.aggregation))
+end
 
 struct VersionWindow
     since::Union{Nothing, VersionNumber}
@@ -46,16 +101,21 @@ end
 "A feature-level performance contract."
 struct FeatureSpec
     id::Symbol
+    workload::Symbol
     description::String
     backend::Symbol
     variants::Vector{FeatureVariant}
+    julia_window::VersionWindow
     options::Dict{Symbol, Any}
 end
 
 function FeatureSpec(id::Symbol; description::AbstractString = "",
         backend::Symbol = :benchmark, variants = nothing, entrypoint = nothing,
+        workload = nothing,
         since = nothing, until = nothing,
         excluded::AbstractVector{VersionNumber} = VersionNumber[],
+        julia_since = nothing, julia_until = nothing,
+        julia_excluded::AbstractVector{VersionNumber} = VersionNumber[],
         comparison_key::AbstractString = string(id), options = Dict{Symbol, Any}())
     implementations = if variants === nothing
         entrypoint isa AbstractString ||
@@ -70,8 +130,14 @@ function FeatureSpec(id::Symbol; description::AbstractString = "",
         key isa Symbol || throw(ArgumentError("feature option keys must be symbols"))
         normalized[key] = value
     end
-    return FeatureSpec(id, String(description), backend, implementations, normalized)
+    business_feature = workload === nothing ? id : Symbol(workload)
+    return FeatureSpec(id, business_feature, String(description), backend, implementations,
+        VersionWindow(; since = julia_since, until = julia_until,
+            excluded = julia_excluded), normalized)
 end
+
+"Stable business-feature identifier shared by plans, reports, and user interfaces."
+workload_id(feature::FeatureSpec) = feature.workload
 
 "All feature measurements owned by one package."
 struct PackageSuite
@@ -84,13 +150,15 @@ struct PackageSuite
     versions::Union{Symbol, Vector{VersionNumber}}
     features::Vector{FeatureSpec}
     include_dev::Bool
+    candidates::Vector{SuiteCandidate}
 end
 
 function PackageSuite(package::AbstractString; id::Symbol = Symbol(package),
         environment::AbstractString = pwd(), source = nothing, versions = :all,
         dev_sources::AbstractVector{<:AbstractString} = String[],
         release_pins::AbstractDict = Dict{VersionNumber, Vector{Any}}(),
-        features::AbstractVector{FeatureSpec}, include_dev::Bool = true)
+        features::AbstractVector{FeatureSpec}, include_dev::Bool = true,
+        candidates::AbstractVector{SuiteCandidate} = SuiteCandidate[])
     selection = if versions isa Symbol
         versions in (:all, :latest) ||
             throw(ArgumentError("package versions must be :all, :latest, or a vector"))
@@ -111,8 +179,10 @@ function PackageSuite(package::AbstractString; id::Symbol = Symbol(package),
     pins = Dict{VersionNumber, Vector{Any}}(
         VersionNumber(version) => Any[spec for spec in specs]
     for (version, specs) in pairs(release_pins))
+    allunique(candidate.label for candidate in candidates) ||
+        throw(ArgumentError("candidate labels must be unique within a package suite"))
     return PackageSuite(id, String(package), env, src, local_sources, pins,
-        selection, collect(features), include_dev)
+        selection, collect(features), include_dev, collect(candidates))
 end
 
 "The measurable surface of one software, composed from package suites."
@@ -120,14 +190,18 @@ struct SoftwareSuite
     id::Symbol
     description::String
     packages::Vector{PackageSuite}
+    comparisons::Vector{ComparisonPolicy}
 end
 
 function SoftwareSuite(id::Symbol, packages::AbstractVector{PackageSuite};
-        description::AbstractString = "")
+        description::AbstractString = "",
+        comparisons::AbstractVector{ComparisonPolicy} = ComparisonPolicy[])
     isempty(packages) && throw(ArgumentError("software suite $id has no packages"))
     allunique(getfield.(packages, :id)) ||
         throw(ArgumentError("package-suite IDs must be unique"))
-    return SoftwareSuite(id, String(description), collect(packages))
+    allunique(policy.id for policy in comparisons) || throw(ArgumentError(
+        "comparison policy ids must be unique within a software suite"))
+    return SoftwareSuite(id, String(description), collect(packages), collect(comparisons))
 end
 
 struct SuiteTarget
@@ -135,6 +209,9 @@ struct SuiteTarget
     version::SuiteVersion
     compatibility_version::VersionNumber
     kind::Symbol
+    source::Union{Nothing, String}
+    revision::Union{Nothing, String}
+    dependencies::Vector{Any}
 end
 
 struct PlannedFeatureRun
@@ -148,10 +225,13 @@ struct PlannedFeatureRun
     reason::String
 end
 
+workload_id(run::PlannedFeatureRun) = workload_id(run.feature)
+
 struct SuitePlan
     suite::SoftwareSuite
     profile::Symbol
     runs::Vector{PlannedFeatureRun}
+    comparisons::Vector{ComparisonPolicy}
 end
 
 function planned_run_id(run::PlannedFeatureRun)
@@ -199,7 +279,8 @@ function _representative_versions(versions::Vector{VersionNumber})
 end
 
 function suite_targets(package::PackageSuite, profile::Symbol;
-        version_provider = get_pkg_versions)
+        version_provider = get_pkg_versions,
+        candidates::AbstractVector{SuiteCandidate} = SuiteCandidate[])
     profile in (:quick, :ci, :historical, :release) ||
         throw(ArgumentError("unknown suite profile $profile"))
     declared = profile === :quick && package.include_dev ? VersionNumber[] :
@@ -212,34 +293,70 @@ function suite_targets(package::PackageSuite, profile::Symbol;
     else
         declared
     end
-    targets = SuiteTarget[SuiteTarget(string(version), version, version, :release)
+    targets = SuiteTarget[SuiteTarget(string(version), version, version, :release,
+                              nothing, nothing, Any[])
                           for version in releases]
     if package.include_dev && profile !== :release
         current = _project_version(package)
-        push!(targets, SuiteTarget("dev@$(current)", :dev, current, :dev))
+        push!(targets, SuiteTarget("dev@$(current)", :dev, current, :dev,
+            package.source, nothing, Any[]))
     end
+    all_candidates = vcat(package.candidates, collect(candidates))
+    if profile !== :release
+        current = isempty(all_candidates) ? nothing : _project_version(package)
+        for candidate in all_candidates
+            source = something(candidate.source, package.source)
+            source === nothing && throw(ArgumentError(
+                "candidate $(candidate.label) for $(package.package) requires a source or URL"))
+            compatibility = something(candidate.compatibility_version, current)
+            push!(targets, SuiteTarget(candidate.label, candidate.revision,
+                compatibility, :candidate, source, candidate.revision,
+                copy(candidate.dependencies)))
+        end
+    end
+    allunique(target.label for target in targets) || throw(ArgumentError(
+        "release, development, and candidate target labels must be unique"))
     return targets
 end
 
 function _variant_for(feature::FeatureSpec, version::VersionNumber)
+    supports(feature.julia_window, VERSION) || return nothing
     matches = [variant for variant in feature.variants if supports(variant.window, version)]
     length(matches) <= 1 || throw(ArgumentError(
         "feature $(feature.id) has overlapping variants for version $version"))
     return isempty(matches) ? nothing : only(matches)
 end
 
+function _feature_unavailable_reason(feature::FeatureSpec, target::SuiteTarget)
+    window = feature.julia_window
+    if !supports(window, VERSION)
+        bounds = String[]
+        window.since === nothing || push!(bounds, ">=$(window.since)")
+        window.until === nothing || push!(bounds, "<=$(window.until)")
+        VERSION in window.excluded && push!(bounds, "excluding $(VERSION)")
+        requirement = isempty(bounds) ? "declared Julia compatibility" : join(bounds, ", ")
+        return "feature requires Julia $requirement; controller uses $(VERSION)"
+    end
+    return "feature is not defined for package version $(target.label)"
+end
+
 function plan_suite(suite::SoftwareSuite; profile::Symbol = :quick,
-        version_provider = get_pkg_versions)
+        version_provider = get_pkg_versions,
+        candidates::AbstractDict = Dict{String, Vector{SuiteCandidate}}(),
+        comparisons::AbstractVector{ComparisonPolicy} = ComparisonPolicy[])
     planned = PlannedFeatureRun[]
     for package in suite.packages
-        for target in suite_targets(package, profile; version_provider)
+        requested = get(candidates, package.package,
+            get(candidates, string(package.id), SuiteCandidate[]))
+        for target in suite_targets(package, profile; version_provider,
+                candidates = SuiteCandidate[item for item in requested])
             for feature in package.features
                 variant = _variant_for(feature, target.compatibility_version)
                 if variant === nothing
                     push!(planned,
                         PlannedFeatureRun(suite.id, package, feature, target,
                             nothing, "", :unavailable,
-                            "feature is not defined for package version $(target.label)"))
+                            _feature_unavailable_reason(feature, target)))
                 else
                     key = isempty(variant.comparison_key) ? string(feature.id) :
                           variant.comparison_key
@@ -250,7 +367,11 @@ function plan_suite(suite::SoftwareSuite; profile::Symbol = :quick,
             end
         end
     end
-    return SuitePlan(suite, profile, planned)
+    policies = isempty(comparisons) ? suite.comparisons :
+               vcat(suite.comparisons, collect(comparisons))
+    allunique(policy.id for policy in policies) || throw(ArgumentError(
+        "comparison policy ids must be unique after applying overrides"))
+    return SuitePlan(suite, profile, planned, policies)
 end
 
 function suite_plan_dict(plan::SuitePlan)
@@ -259,18 +380,35 @@ function suite_plan_dict(plan::SuitePlan)
         "suite" => string(plan.suite.id),
         "description" => plan.suite.description,
         "profile" => string(plan.profile),
+        "comparisons" => comparison_policy_dict.(plan.comparisons),
         "runs" => [Dict{String, Any}(
-                       "id" => planned_run_id(run),
-                       "package" => run.package_suite.package,
-                       "package_id" => string(run.package_suite.id),
-                       "feature" => string(run.feature.id),
-                       "description" => run.feature.description,
-                       "backend" => string(run.feature.backend),
-                       "version" => run.target.label,
-                       "target_kind" => string(run.target.kind),
-                       "comparison_key" => run.comparison_key,
-                       "status" => string(run.planned_status),
-                       "reason" => run.reason) for run in plan.runs])
+             "id" => planned_run_id(run),
+             "package" => run.package_suite.package,
+             "package_id" => string(run.package_suite.id),
+             "feature" => string(run.feature.id),
+             "workload" => string(workload_id(run)),
+             "description" => run.feature.description,
+             "backend" => string(run.feature.backend),
+             "julia_compatibility" => Dict{String, Any}(
+                 "since" =>
+                     run.feature.julia_window.since === nothing ? nothing :
+                     string(run.feature.julia_window.since),
+                 "until" =>
+                     run.feature.julia_window.until === nothing ? nothing :
+                     string(run.feature.julia_window.until),
+                 "excluded" =>
+                     sort!(string.(collect(run.feature.julia_window.excluded)))),
+             "entrypoint" =>
+                 run.variant === nothing ?
+                 first(run.feature.variants).entrypoint :
+                 (run.variant::FeatureVariant).entrypoint,
+             "version" => run.target.label,
+             "target_kind" => string(run.target.kind),
+             "target_source" => run.target.source,
+             "target_revision" => run.target.revision,
+             "comparison_key" => run.comparison_key,
+             "status" => string(run.planned_status),
+             "reason" => run.reason) for run in plan.runs])
     payload["plan_revision"] = _content_digest(payload)
     return payload
 end
@@ -285,7 +423,20 @@ function select_suite_plan(plan::SuitePlan, run_ids::AbstractVector{<:AbstractSt
     isempty(unknown) || throw(ArgumentError(
         "unknown selected run identifiers: $(join(unknown, ", "))"))
     selected = PlannedFeatureRun[available[id] for id in requested]
-    return SuitePlan(plan.suite, plan.profile, selected)
+    return SuitePlan(plan.suite, plan.profile, selected, plan.comparisons)
+end
+
+"Apply the ordered selection from a shared UI configuration."
+function select_suite_plan(plan::SuitePlan, configuration::AbstractDict)
+    get(configuration, "schema_version", nothing) == "perfchecker-ui-config/1" ||
+        throw(ArgumentError("unsupported UI configuration schema"))
+    selection = get(configuration, "selection", nothing)
+    selection isa AbstractDict || throw(ArgumentError(
+        "UI configuration requires a selection object"))
+    run_ids = get(selection, "run_ids", nothing)
+    run_ids isa AbstractVector && all(id -> id isa AbstractString, run_ids) ||
+        throw(ArgumentError("UI configuration selection requires string run_ids"))
+    return select_suite_plan(plan, String.(run_ids))
 end
 
 struct FeatureRun
@@ -334,9 +485,11 @@ function _suite_progress(plan::SuitePlan, runs::Vector{FeatureRun};
         "id" => planned_run_id(current),
         "package" => current.package_suite.package,
         "feature" => string(current.feature.id),
+        "workload" => string(workload_id(current)),
         "backend" => string(current.feature.backend),
         "version" => current.target.label)
     return Dict{String, Any}(
+        "schema_version" => "perfchecker-progress/1", "stage" => "measurement",
         "state" => string(state), "total" => total, "completed" => completed,
         "remaining" => max(total - completed, 0),
         "fraction" => total == 0 ? 1.0 : completed / total,
@@ -389,7 +542,7 @@ function _run_config(planned::PlannedFeatureRun, overrides::AbstractDict)
             existing = existing isa AbstractVector ? collect(existing) : Any[existing]
             options[:extra_pkgs] = vcat(existing, pins)
         end
-    else
+    elseif planned.target.kind === :dev
         source = planned.package_suite.source
         source === nothing && throw(ArgumentError(
             "dev target for $(planned.package_suite.package) requires a source path"))
@@ -399,8 +552,39 @@ function _run_config(planned::PlannedFeatureRun, overrides::AbstractDict)
             (options[:extra_devops] = [PackageSpec(path = path)
                                        for path in planned.package_suite.dev_sources])
         options[:include_current] = false
+    elseif planned.target.kind === :candidate
+        source = something(planned.target.source, planned.package_suite.source)
+        source === nothing && throw(ArgumentError(
+            "candidate target $(planned.target.label) requires a Git source"))
+        options[:devops] = PackageSpec(name = planned.package_suite.package,
+            url = source, rev = something(planned.target.revision, planned.target.label))
+        options[:target_install] = :add
+        isempty(planned.target.dependencies) || begin
+            existing = get(options, :extra_pkgs, Any[])
+            existing = existing isa AbstractVector ? collect(existing) : Any[existing]
+            options[:extra_pkgs] = vcat(existing, planned.target.dependencies)
+        end
+        options[:include_current] = false
+    else
+        throw(ArgumentError("unsupported suite target kind $(planned.target.kind)"))
     end
     return PerfConfig(planned.feature.backend, options)
+end
+
+"Identity of the package graph prepared for one feature worker."
+function _suite_environment_key(planned::PlannedFeatureRun, config::PerfConfig)
+    options = config.options
+    requirements = Dict{String, Any}(
+        "package_suite" => string(planned.package_suite.id),
+        "target" => planned.target.label,
+        "path" => abspath(String(options[:path])),
+        "packages" => repr(get(options, :pkgs, nothing)),
+        "devops" => repr(get(options, :devops, nothing)),
+        "extra_packages" => repr(get(options, :extra_pkgs, nothing)),
+        "extra_devops" => repr(get(options, :extra_devops, nothing)),
+        "target_install" => repr(get(options, :target_install, :develop)),
+        "include_current" => Bool(get(options, :include_current, true)))
+    return _content_digest(requirements)
 end
 
 function _unavailable_exception(error)
@@ -438,8 +622,8 @@ function _execute_suite_plan(plan::SuitePlan; executor = _default_suite_executor
     executor === _default_suite_executor && _ensure_suite_backends(plan)
     started = string(Dates.now(Dates.UTC))
     runs = FeatureRun[]
-    prepared = Dict{Tuple{Symbol, String}, String}()
-    preparation_errors = Dict{Tuple{Symbol, String}, Any}()
+    prepared = Dict{String, String}()
+    preparation_errors = Dict{String, Any}()
     preparation_roots = String[]
     _notify_suite_progress(progress_callback,
         _suite_progress(plan, runs; state = :running))
@@ -458,7 +642,7 @@ function _execute_suite_plan(plan::SuitePlan; executor = _default_suite_executor
             try
                 config = _run_config(planned, overrides)
                 if executor === _default_suite_executor
-                    key = (planned.package_suite.id, planned.target.label)
+                    key = _suite_environment_key(planned, config)
                     haskey(preparation_errors, key) && throw(preparation_errors[key])
                     environment = get(prepared, key, nothing)
                     if environment === nothing
@@ -650,8 +834,8 @@ function _first_summary_row(run::FeatureRun)
     table = summary_table(run.result)
     isempty(table) && return Dict{String, Any}()
     return Dict{String, Any}(string(name) => (ismissing(getproperty(table, name)[1]) ?
-                                              nothing :
-                                              getproperty(table, name)[1])
+                              nothing :
+                              getproperty(table, name)[1])
     for name in propertynames(table))
 end
 
@@ -665,15 +849,16 @@ function suite_dict(result::SoftwareSuiteResult)
         "finished_at" => result.finished_at,
         "passed" => suite_passed(result),
         "runs" => [Dict{String, Any}(
-                       "package" => run.planned.package_suite.package,
-                       "feature" => string(run.planned.feature.id),
-                       "version" => run.planned.target.label,
-                       "target_kind" => string(run.planned.target.kind),
-                       "comparison_key" => run.planned.comparison_key,
-                       "status" => string(run.status),
-                       "elapsed_seconds" => run.elapsed_seconds,
-                       "message" => run.message,
-                       "summary" => _first_summary_row(run)) for run in result.runs])
+             "package" => run.planned.package_suite.package,
+             "feature" => string(run.planned.feature.id),
+             "workload" => string(workload_id(run.planned)),
+             "version" => run.planned.target.label,
+             "target_kind" => string(run.planned.target.kind),
+             "comparison_key" => run.planned.comparison_key,
+             "status" => string(run.status),
+             "elapsed_seconds" => run.elapsed_seconds,
+             "message" => run.message,
+             "summary" => _first_summary_row(run)) for run in result.runs])
 end
 
 function write_suite_json(result::SoftwareSuiteResult, path::AbstractString)

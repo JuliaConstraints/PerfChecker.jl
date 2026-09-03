@@ -13,6 +13,8 @@
   ],
   "properties": {
     "schema_version": {"const": "perfchecker-provider-result/1"},
+    "run_id": {"type": "string", "format": "uuid"},
+    "attempt_id": {"type": "string", "format": "uuid"},
     "suite": {"type": "string", "minLength": 1},
     "case_id": {"type": "string", "minLength": 1},
     "state": {"enum": ["complete", "failed", "partial"]},

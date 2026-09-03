@@ -33,6 +33,7 @@ version = "0.2.0"
             entrypoint = always_case,
             options = Dict(:samples => 1, :seconds => 0.01))
         recent = FeatureSpec(:recent;
+            workload = :recent_business_feature,
             entrypoint = recent_case, since = v"0.2.0",
             comparison_key = "recent/v1",
             options = Dict(:samples => 1, :seconds => 0.01))
@@ -46,16 +47,80 @@ version = "0.2.0"
         @test length(plan.runs) == 6
         plan_payload = suite_plan_dict(plan)
         @test length(plan_payload["plan_revision"]) == 64
+        @test plan_payload["runs"][1]["entrypoint"] == always_case
+        @test any(run -> run["workload"] == "recent_business_feature",
+            plan_payload["runs"])
+        @test workload_id(recent) === :recent_business_feature
         @test length(unique(run["id"] for run in plan_payload["runs"])) == 6
         selected_ids = reverse([run["id"] for run in plan_payload["runs"][1:2]])
         selected = select_suite_plan(plan, selected_ids)
         @test planned_run_id.(selected.runs) == selected_ids
+        selected_from_ui = select_suite_plan(plan,
+            Dict{String, Any}(
+                "schema_version" => "perfchecker-ui-config/1",
+                "selection" => Dict("run_ids" => selected_ids)))
+        @test planned_run_id.(selected_from_ui.runs) == selected_ids
         @test_throws ArgumentError select_suite_plan(plan,
             [selected_ids[1], selected_ids[1]])
         @test_throws ArgumentError select_suite_plan(plan, ["unknown"])
         @test count(run -> run.planned_status === :unavailable, plan.runs) == 1
         @test any(run -> run.target.label == "dev@0.2.0", plan.runs)
         @test any(run -> run.comparison_key == "recent/v1", plan.runs)
+
+        candidate = SuiteCandidate("branch-fast-parser", "feature/fast-parser";
+            source = dir, compatibility_version = v"0.2.0")
+        candidate_package = PackageSuite("Example";
+            environment = dir, source = dir, versions = VersionNumber[],
+            include_dev = false, candidates = [candidate], features = [always])
+        candidate_plan = plan_suite(SoftwareSuite(:candidate, [candidate_package]);
+            profile = :historical, version_provider = provider)
+        candidate_run = only(candidate_plan.runs)
+        @test candidate_run.target.kind === :candidate
+        @test candidate_run.target.label == "branch-fast-parser"
+        @test candidate_run.target.revision == "feature/fast-parser"
+        candidate_payload = only(suite_plan_dict(candidate_plan)["runs"])
+        @test candidate_payload["target_kind"] == "candidate"
+        @test candidate_payload["target_revision"] == "feature/fast-parser"
+        ui_target = Dict{String, Any}("package" => "Example",
+            "label" => "ui-candidate", "revision" => "abc123",
+            "source" => dir, "compatibility_version" => "0.2.0")
+        ui_comparison = Dict{String, Any}("id" => "ui-comparison",
+            "package" => "Example", "feature" => "always",
+            "comparison_key" => "always", "baselines" => ["dev@0.2.0"],
+            "candidates" => ["ui-candidate"], "aggregation" => "median")
+        configuration = Dict{String, Any}("targets" => [ui_target],
+            "comparisons" => [ui_comparison])
+        requested_candidates = PerfChecker._requested_candidates(
+            Dict{String, Vector{String}}(), configuration)
+        @test only(requested_candidates["Example"]).revision == "abc123"
+        @test only(PerfChecker._requested_comparisons(
+            Dict{String, Vector{String}}(), configuration)).id == "ui-comparison"
+        candidate_config = Ref{Any}(nothing)
+        function fake_candidate_runner(planned, config, setup, workload)
+            candidate_config[] = config
+            return PerfChecker.CheckerResult(
+                [PerfChecker.Table(times = [1.0], gctimes = [0.0],
+                    bytes_or_memory = [8], memory = [8], allocs = [1])],
+                nothing, [:candidate],
+                [Pkg.Types.PackageSpec(name = "Example", version = v"0.2.0")])
+        end
+        candidate_result = run_suite(candidate_plan; executor = fake_candidate_runner)
+        @test suite_passed(candidate_result)
+        @test candidate_config[].options[:target_install] === :add
+        @test candidate_config[].options[:devops].rev == "feature/fast-parser"
+
+        future_runtime = FeatureSpec(:future_runtime; entrypoint = always_case,
+            julia_since = v"999")
+        runtime_package = PackageSuite("Example";
+            environment = dir, source = dir, versions = [v"0.2.0"],
+            include_dev = false, features = [future_runtime])
+        runtime_plan = plan_suite(SoftwareSuite(:runtime_window, [runtime_package]);
+            profile = :release, version_provider = provider)
+        runtime_run = only(runtime_plan.runs)
+        @test runtime_run.planned_status === :unavailable
+        @test occursin("requires Julia >=999.0.0", runtime_run.reason)
+        runtime_payload = only(suite_plan_dict(runtime_plan)["runs"])
+        @test runtime_payload["julia_compatibility"]["since"] == "999.0.0"
 
         executed = PlannedFeatureRun[]
         function fake_runner(planned, config, setup, workload)
@@ -92,6 +157,7 @@ version = "0.2.0"
             use_mmap = false)
         @test parsed["schema_version"] == "perfchecker-suite-result/1"
         @test parsed["passed"]
+        @test all(haskey(run, "workload") for run in parsed["runs"])
         @test occursin(
             "<testsuite", read(joinpath(dir, "reports", "suite-junit.xml"), String))
         bundle_path = only(filter(isdir, reports))
@@ -241,6 +307,9 @@ end
             @test occursin("result-filter", studio_html)
             @test occursin("result-profile-filter", studio_html)
             @test occursin("result-sort", studio_html)
+            @test occursin("plot-package-filter", studio_html)
+            @test occursin("plot-metric-filter", studio_html)
+            @test occursin("sandbox=\"allow-scripts\"", studio_html)
             state_file = joinpath(dir, "studio-results", "studio-state.json")
             @test isfile(state_file)
             @test any(job -> job["job_id"] == launch_body["job_id"],
@@ -362,6 +431,14 @@ token_sha256 = "$(bytes2hex(sha256(token)))"
             @test bundle_response.status == 200
             @test length(JSON.parse(String(bundle_response.body))) ==
                   length(bundle.observations)
+            query_response = Oxygen.internalrequest(HTTP.Request("POST",
+                "/test/perfchecker/bundle/query", ["Content-Type" => "application/json"],
+                JSON.json(performance_query_dict(PerformanceQuery(
+                    resources = [:observations], predicates = [
+                        QueryPredicate("metric", :equals, "julia.wall.time")])))))
+            @test query_response.status == 200
+            @test JSON.parse(String(query_response.body))["schema_version"] ==
+                  "perfchecker-query-result/1"
             Oxygen.resetstate()
 
             store = joinpath(dir, "reports", "bundles")
@@ -393,7 +470,8 @@ token_sha256 = "$(bytes2hex(sha256(token)))"
 
             ingest_store = joinpath(dir, "ingested-bundles")
             register_oxygen_routes!(ingest_store;
-                prefix = "/test/perfchecker/ingest", allow_ingest = true)
+                prefix = "/test/perfchecker/ingest", allow_ingest = true,
+                max_ingest_bytes = 4_096)
             provider_payload = Dict(
                 "schema_version" => "perfchecker-provider-result/1",
                 "suite" => "mixed", "case_id" => "external",
@@ -407,6 +485,16 @@ token_sha256 = "$(bytes2hex(sha256(token)))"
                 JSON.json(provider_payload)))
             @test ingest_response.status == 201
             @test length(list_run_bundles(ingest_store)) == 1
+            unsafe_payload = copy(provider_payload)
+            unsafe_payload["run_id"] = "../../outside"
+            unsafe_response = Oxygen.internalrequest(HTTP.Request("POST",
+                "/test/perfchecker/ingest/ingest", ["Content-Type" => "application/json"],
+                JSON.json(unsafe_payload)))
+            @test unsafe_response.status == 400
+            oversized_response = Oxygen.internalrequest(HTTP.Request("POST",
+                "/test/perfchecker/ingest/ingest", ["Content-Type" => "application/json"],
+                repeat("x", 4_097)))
+            @test oversized_response.status == 413
             Oxygen.resetstate()
         end
 
@@ -437,6 +525,16 @@ token_sha256 = "$(bytes2hex(sha256(token)))"
             documenter_path = documenter_page(bundle,
                 joinpath(dir, "docs", "performance.md"))
             @test occursin("# Performance", read(documenter_path, String))
+            query = PerformanceQuery(; resources = [:observations, :plots],
+                predicates = [QueryPredicate("metric", :equals, "julia.wall.time")],
+                limit = 5)
+            block = PerformanceDocumentBlock("runtime", "Runtime evidence", query;
+                views = [:observations, :plots], interactive_url = "/runs/example")
+            filtered_documenter_path = documenter_page(bundle,
+                joinpath(dir, "docs", "filtered-performance.md"); blocks = [block])
+            filtered_documenter = read(filtered_documenter_path, String)
+            @test occursin("## Runtime evidence", filtered_documenter)
+            @test occursin("Open the interactive PerfChecker view", filtered_documenter)
             @test hasmethod(documenter_vitepress_makedocs, Tuple{RunBundle})
             terminal = terminal_plot(compare_suite_versions(bundle))
             @test occursin("median", sprint(show, "text/plain", terminal))

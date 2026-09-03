@@ -141,7 +141,9 @@ function _install_target!(worker, target::RunTarget, options::Dict{Symbol, Any})
                     Pkg.rm(target_label; io = pkg_io)
                 catch
                 end
-                if pkg isa Tuple
+                if get(d, :target_install, :develop) === :add
+                    Pkg.add(pkg; io = pkg_io)
+                elseif pkg isa Tuple
                     Pkg.develop(pkg[1]; pkg[2]..., io = pkg_io)
                     haskey(d, :extra_devops) &&
                         Pkg.develop(d[:extra_devops]; io = pkg_io)

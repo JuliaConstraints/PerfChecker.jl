@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://juliaconstraints.github.io/PerfChecker.jl/schemas/perfchecker-dependency-evidence-v1.schema.json",
+  "title": "PerfChecker dependency evidence v1",
+  "type": "object",
+  "required": ["schema_version", "captured_at", "phase", "packages", "artifact_files", "loaded_libraries", "warnings", "coverage"],
+  "properties": {
+    "schema_version": {"const": "perfchecker-dependency-evidence/1"},
+    "captured_at": {"type": "string"},
+    "phase": {"type": "string", "minLength": 1},
+    "packages": {"type": "array", "items": {"type": "object"}},
+    "artifact_files": {"type": "array", "items": {"type": "object"}},
+    "loaded_libraries": {"type": "array", "items": {"type": "object"}},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "coverage": {
+      "type": "object",
+      "required": ["declared_packages", "declared_artifact_bindings", "loaded_current_process", "child_process_tree", "services", "native_heap"],
+      "additionalProperties": {"type": "boolean"}
+    }
+  },
+  "additionalProperties": false
+}

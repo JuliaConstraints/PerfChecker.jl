@@ -39,6 +39,7 @@ function _version_series_figure(plot)
     xs = [index[String(item["version"])] for item in plot.data]
     ys = Float64[item["value"] for item in plot.data]
     colors = [item["target_kind"] == "dev" ? RGBf(0.93, 0.43, 0.18) :
+              item["target_kind"] == "candidate" ? RGBf(0.56, 0.31, 0.82) :
               RGBf(0.04, 0.52, 0.57) for item in plot.data]
     lines!(axis, xs, ys; color = RGBf(0.04, 0.52, 0.57), linewidth = 3)
     scatter!(axis, xs, ys; color = colors, markersize = 15, strokewidth = 2,
@@ -61,7 +62,10 @@ function _distribution_figure(plot)
     ys = Float64[item["value"] for item in plot.data]
     boxplot!(axis, xs, ys; color = (RGBf(0.04, 0.52, 0.57), 0.68),
         strokecolor = RGBf(0.02, 0.31, 0.35), show_outliers = true)
-    scatter!(axis, xs, ys; color = (RGBf(0.08, 0.14, 0.24), 0.28), markersize = 4)
+    scatter!(axis, xs, ys; color = (RGBf(0.08, 0.14, 0.24), 0.28), markersize = 6,
+        inspector_label = (self,
+            sample,
+            position) -> "$(labels[Int(round(position[1]))])\n$(round(position[2]; sigdigits = 6)) $(plot.options["unit"])\nsample $(sample)")
     axis.xticks = (collect(eachindex(labels)), labels)
     axis.xticklabelrotation = pi / 4
     axis.xlabel = "package version"
@@ -82,7 +86,11 @@ function _delta_figure(plot)
               value < 0 ?
               RGBf(0.05, 0.49, 0.25) : RGBf(0.36, 0.42, 0.50) for value in values]
     barplot!(axis, eachindex(values), values; color = colors, strokecolor = :white,
-        strokewidth = 1)
+        strokewidth = 1, inspector_label = (self, index, position) -> begin
+            item = records[index]
+            delta = round(100 * Float64(item["relative_delta"]); digits = 3)
+            "$(labels[index])\nchange: $(delta)%\nstatus: $(get(item, "status", "unknown"))"
+        end)
     hlines!(axis, [0.0]; color = RGBf(0.08, 0.14, 0.24), linewidth = 2)
     axis.xticks = (collect(eachindex(labels)), labels)
     axis.xticklabelrotation = pi / 3
@@ -101,7 +109,11 @@ function _allocation_files_figure(plot)
     ys = Float64[item["bytes"] for item in plot.data]
     stacks = [file_index[String(item["file"])] for item in plot.data]
     colors = make_colors(length(files))
-    barplot!(axis, xs, ys; stack = stacks, color = colors[stacks])
+    barplot!(axis, xs, ys; stack = stacks, color = colors[stacks],
+        inspector_label = (self, index, position) -> begin
+            item = plot.data[index]
+            "$(item["version"])\n$(item["file"])\n$(round(Float64(item["bytes"]); sigdigits = 6)) bytes"
+        end)
     axis.xticks = (collect(eachindex(versions)), versions)
     axis.xticklabelrotation = pi / 4
     axis.xlabel = "package version"
@@ -122,7 +134,10 @@ function _allocation_pie_figure(plot)
     values = Float64[item["bytes"] for item in plot.data]
     percentages = Float64[item["percentage"] for item in plot.data]
     colors = make_colors(length(labels))
-    pie!(axis, values; color = colors, strokecolor = :white, strokewidth = 2)
+    pie!(axis, values; color = colors, strokecolor = :white, strokewidth = 2,
+        inspector_label = (self,
+            index,
+            position) -> "$(labels[index])\n$(round(values[index]; sigdigits = 6)) bytes\n$(round(percentages[index]; digits = 3))%")
     hidedecorations!(axis)
     hidespines!(axis)
     legend_labels = ["$(labels[index]) · $(round(percentages[index]; digits = 1))%"
@@ -144,7 +159,11 @@ function _allocation_lines_figure(plot)
     palette = make_colors(length(unique_files))
     color_index = Dict(file => index for (index, file) in pairs(unique_files))
     colors = [palette[color_index[file]] for file in files]
-    barplot!(axis, eachindex(values), values; color = colors)
+    barplot!(axis, eachindex(values), values; color = colors,
+        inspector_label = (self, index, position) -> begin
+            item = plot.data[index]
+            "$(item["file"]):$(item["line"])\n$(round(Float64(item["bytes"]); sigdigits = 6)) bytes"
+        end)
     axis.xticks = (collect(eachindex(labels)), labels)
     axis.xticklabelrotation = pi / 2.7
     axis.xlabel = "source file and line"
@@ -166,7 +185,12 @@ function _allocation_heatmap_figure(plot)
     height = max(650, 20 * length(labels))
     figure, axis = _performance_figure(plot.title; size = (1250, height))
     heat = heatmap!(axis, eachindex(versions), eachindex(labels), matrix;
-        colorscale = Makie.pseudolog10, colormap = :thermal)
+        colorscale = Makie.pseudolog10, colormap = :thermal,
+        inspector_label = (self, index, position) -> begin
+            x = clamp(Int(round(position[1])), 1, length(versions))
+            y = clamp(Int(round(position[2])), 1, length(labels))
+            "$(versions[x])\n$(labels[y])\n$(round(matrix[x, y]; sigdigits = 6)) bytes"
+        end)
     axis.xticks = (collect(eachindex(versions)), versions)
     axis.yticks = (collect(eachindex(labels)), labels)
     axis.xticklabelrotation = pi / 4
@@ -276,7 +300,11 @@ function _tradeoff_figure(plot)
     ys = Float64[item["time"] for item in plot.data]
     colors = 1:length(plot.data)
     scatterlines!(axis, xs, ys; color = colors, colormap = :viridis,
-        markersize = 16, linewidth = 2)
+        markersize = 16, linewidth = 2,
+        inspector_label = (self, index, position) -> begin
+            item = plot.data[index]
+            "$(item["version"])\n$(round(Float64(item["bytes"]); sigdigits = 6)) bytes\n$(round(Float64(item["time"]); sigdigits = 6)) seconds"
+        end)
     for (index, item) in pairs(plot.data)
         text!(axis, xs[index], ys[index]; text = String(item["version"]),
             align = (:left, :bottom), offset = (7, 5), fontsize = 12)

@@ -14,7 +14,7 @@ end
 
 function _suite_run_sort_key(run::PlannedFeatureRun, mode::Symbol)
     package = lowercase(run.package_suite.package)
-    feature = lowercase(string(run.feature.id))
+    feature = lowercase(string(workload_id(run)))
     version = run.target.compatibility_version
     backend = lowercase(string(run.feature.backend))
     mode === :package_version && return (package, version, feature, backend)
@@ -44,7 +44,8 @@ function filter_suite_plan(plan::SuitePlan; packages = nothing, features = nothi
     for run in plan.runs
         package = lowercase(run.package_suite.package)
         package_filter === nothing || package in package_filter || continue
-        feature_filter === nothing || run.feature.id in feature_filter || continue
+        feature_filter === nothing || run.feature.id in feature_filter ||
+            workload_id(run) in feature_filter || continue
         backend_filter === nothing || run.feature.backend in backend_filter || continue
         status_filter === nothing || run.planned_status in status_filter || continue
         include_unavailable || run.planned_status === :ready || continue
@@ -52,7 +53,7 @@ function filter_suite_plan(plan::SuitePlan; packages = nothing, features = nothi
         lower === nothing || version >= lower || continue
         upper === nothing || version <= upper || continue
         haystack = lowercase(join(
-            (run.package_suite.package, string(run.feature.id),
+            (run.package_suite.package, string(workload_id(run)), string(run.feature.id),
                 string(run.feature.backend), run.target.label, run.comparison_key,
                 run.reason),
             " "))
@@ -60,7 +61,7 @@ function filter_suite_plan(plan::SuitePlan; packages = nothing, features = nothi
         push!(selected, run)
     end
     sort === :plan || sort!(selected; by = run -> _suite_run_sort_key(run, sort))
-    return SuitePlan(plan.suite, plan.profile, selected)
+    return SuitePlan(plan.suite, plan.profile, selected, plan.comparisons)
 end
 
 function print_suite_plan(io::IO, plan::SuitePlan; limit::Integer = typemax(Int))
@@ -75,7 +76,7 @@ function print_suite_plan(io::IO, plan::SuitePlan; limit::Integer = typemax(Int)
             rpad(first(run.package_suite.package, 16), 17),
             rpad(first(run.target.label, 15), 16),
             rpad(first(string(run.feature.backend), 15), 16),
-            rpad(first(string(run.feature.id), 31), 32), run.planned_status)
+            rpad(first(string(workload_id(run)), 31), 32), run.planned_status)
     end
     length(plan.runs) > limit && println(io, "… ", length(plan.runs) - limit,
         " additional runs")
@@ -100,9 +101,11 @@ function configure_suite_repl(suite::SoftwareSuite; profile::Symbol = :historica
         version_provider = get_pkg_versions, input::IO = stdin, output::IO = stdout)
     full_plan = plan_suite(suite; profile, version_provider)
     packages = sort!(unique(run.package_suite.package for run in full_plan.runs))
+    features = sort!(unique(string(workload_id(run)) for run in full_plan.runs))
     backends = sort!(unique(string(run.feature.backend) for run in full_plan.runs))
     versions = sort!(unique(run.target.compatibility_version for run in full_plan.runs))
     println(output, "Packages: ", join(packages, ", "))
+    println(output, "Business features: ", join(features, ", "))
     println(output, "Backends: ", join(backends, ", "))
     println(output, "Version range: ", first(versions), " … ", last(versions))
     package_text = _repl_prompt(input, output, "Packages (comma-separated, blank=all)")

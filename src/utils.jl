@@ -4,6 +4,18 @@ uuid_seed(seed) = replace(String(seed), '\\' => '/')
 stable_uuid(seed) = uuid5(get_uuid() |> Base.UUID, uuid_seed(seed))
 stable_uuid_string(seed) = string(stable_uuid(seed))
 
+"Terminate a controller process and, where supported, its complete child tree."
+function _terminate_process_tree(process)
+    process_running(process) || return nothing
+    if Sys.iswindows()
+        result = run(ignorestatus(`taskkill /PID $(getpid(process)) /T /F`); wait = true)
+        success(result) || kill(process)
+    else
+        kill(process)
+    end
+    return nothing
+end
+
 function flatten_parameters(
         x::Symbol, pkg::AbstractString, version, tags::Vector{Symbol})
     return join(vcat([x, pkg, string("v", version)], tags), "_")

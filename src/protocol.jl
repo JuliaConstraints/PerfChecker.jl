@@ -1,5 +1,8 @@
 const RUN_BUNDLE_SCHEMA = "perfchecker-run-bundle/1"
 const PROVIDER_RESULT_SCHEMA = "perfchecker-provider-result/1"
+const BUNDLE_INTEGRITY_SCHEMA = "perfchecker-bundle-integrity/1"
+const _BUNDLE_DOCUMENTS = ("manifest.json", "measurement-definitions.json",
+    "observations.jsonl", "diagnostics.jsonl", "artifacts.json")
 
 "A self-contained, language-neutral performance result bundle."
 struct RunBundle
@@ -120,6 +123,69 @@ function _read_jsonl(path::AbstractString)
     return records
 end
 
+function _file_digest(path::AbstractString)
+    return open(path, "r") do io
+        bytes2hex(SHA.sha256(io))
+    end
+end
+
+function _bundle_integrity(root::AbstractString)
+    files = [Dict{String, Any}(
+                 "path" => name,
+                 "sha256" => _file_digest(joinpath(root, name)),
+                 "bytes" => filesize(joinpath(root, name)))
+             for name in _BUNDLE_DOCUMENTS]
+    return Dict{String, Any}(
+        "schema_version" => BUNDLE_INTEGRITY_SCHEMA,
+        "algorithm" => "sha256",
+        "files" => files)
+end
+
+"Verify the immutable protocol documents of a run bundle."
+function verify_run_bundle(directory::AbstractString; require_integrity::Bool = false)
+    root = abspath(String(directory))
+    isdir(root) || throw(ArgumentError("bundle directory does not exist: $root"))
+    integrity_path = joinpath(root, "integrity.json")
+    if !isfile(integrity_path)
+        require_integrity && throw(ArgumentError(
+            "bundle has no integrity manifest: $root"))
+        return Dict{String, Any}(
+            "schema_version" => BUNDLE_INTEGRITY_SCHEMA,
+            "status" => "legacy_unverified",
+            "verified" => false,
+            "files" => String[])
+    end
+    payload = JSON.parsefile(integrity_path; use_mmap = false)
+    get(payload, "schema_version", nothing) == BUNDLE_INTEGRITY_SCHEMA ||
+        throw(ArgumentError("unsupported bundle integrity schema"))
+    get(payload, "algorithm", nothing) == "sha256" ||
+        throw(ArgumentError("unsupported bundle integrity algorithm"))
+    records = get(payload, "files", nothing)
+    records isa AbstractVector || throw(ArgumentError("invalid integrity file list"))
+    found = Set{String}()
+    for record in records
+        record isa AbstractDict || throw(ArgumentError("invalid integrity record"))
+        name = String(get(record, "path", ""))
+        name in _BUNDLE_DOCUMENTS || throw(ArgumentError(
+            "integrity manifest references an unexpected path: $name"))
+        name in found && throw(ArgumentError("duplicate integrity record: $name"))
+        push!(found, name)
+        path = joinpath(root, name)
+        isfile(path) || throw(ArgumentError("bundle document is missing: $name"))
+        filesize(path) == Int(get(record, "bytes", -1)) || throw(ArgumentError(
+            "bundle document size mismatch: $name"))
+        _file_digest(path) == String(get(record, "sha256", "")) ||
+            throw(ArgumentError("bundle document digest mismatch: $name"))
+    end
+    found == Set(_BUNDLE_DOCUMENTS) || throw(ArgumentError(
+        "integrity manifest does not cover every protocol document"))
+    return Dict{String, Any}(
+        "schema_version" => BUNDLE_INTEGRITY_SCHEMA,
+        "status" => "verified",
+        "verified" => true,
+        "files" => sort!(collect(found)))
+end
+
 function _measurement_definition(backend::Symbol, column::Symbol)
     if backend === :benchmark
         column === :times && return ("julia.wall.time/benchmarktools-v1", "ns")
@@ -154,6 +220,33 @@ function _measurement_definition(backend::Symbol, column::Symbol)
             return ("network.throughput/network-explicit-v1", "By/s")
         column === :operations_per_second &&
             return ("network.operations.rate/network-explicit-v1", "1/s")
+        column === :packets_sent &&
+            return ("network.packets.sent/network-explicit-v1", "1")
+        column === :packets_received &&
+            return ("network.packets.received/network-explicit-v1", "1")
+        column === :connections &&
+            return ("network.connections/network-explicit-v1", "1")
+        column === :retransmissions &&
+            return ("network.retransmissions/network-explicit-v1", "1")
+    elseif backend in (:network_interface, :network_isolated)
+        collector = backend === :network_isolated ? "isolated-interface-v1" :
+                    "interface-delta-v1"
+        column === :bytes_sent &&
+            return ("network.io.sent/$collector", "By")
+        column === :bytes_received &&
+            return ("network.io.received/$collector", "By")
+        column === :packets_sent &&
+            return ("network.packets.sent/$collector", "1")
+        column === :packets_received &&
+            return ("network.packets.received/$collector", "1")
+        column === :discarded_sent &&
+            return ("network.packets.discarded.sent/$collector", "1")
+        column === :discarded_received &&
+            return ("network.packets.discarded.received/$collector", "1")
+        column === :seconds &&
+            return ("network.capture.window/$collector", "s")
+        column === :workload_seconds &&
+            return ("process.wall.time/$collector", "s")
     end
     return nothing
 end
@@ -174,10 +267,15 @@ function _definition_dict(id::String, unit::String, backend::Symbol)
             "higher" : "lower",
         "warmup_policy" =>
             backend in (:alloc, :profile_alloc, :profile,
-                :wall_profile, :network) ?
+                :wall_profile, :network, :network_isolated) ?
             "explicit feature setup" : "collector controlled",
         "includes_compilation" => false,
-        "includes_children" => false,
+        "includes_children" => backend === :network_isolated,
+        "attribution_scope" =>
+            backend === :network_isolated ?
+            "isolated_worker_group" :
+            backend === :network_interface ? "host_interface" :
+            backend === :network ? "workload" : "current_process",
         "version" => 1)
 end
 
@@ -196,7 +294,11 @@ function _metric_columns(backend::Symbol, names)
         (:samples,)
     elseif backend === :network
         (:bytes_sent, :bytes_received, :operations, :seconds,
-            :throughput_bytes_per_second, :operations_per_second)
+            :throughput_bytes_per_second, :operations_per_second,
+            :packets_sent, :packets_received, :connections, :retransmissions)
+    elseif backend in (:network_interface, :network_isolated)
+        (:bytes_sent, :bytes_received, :packets_sent, :packets_received,
+            :discarded_sent, :discarded_received, :seconds, :workload_seconds)
     else
         Tuple(names)
     end
@@ -246,6 +348,7 @@ function _result_protocol_records(result::SoftwareSuiteResult, run_id::String,
                     attributes = Dict{String, Any}(
                         "package" => planned.package_suite.package,
                         "feature" => string(planned.feature.id),
+                        "workload" => string(workload_id(planned)),
                         "version" => planned.target.label,
                         "target_kind" => string(planned.target.kind),
                         "table_index" => table_index)
@@ -258,6 +361,12 @@ function _result_protocol_records(result::SoftwareSuiteResult, run_id::String,
                             (attributes["stack"] = getproperty(table, :stack)[sample_index])
                         for field in (:runtime_dispatch, :gc_event, :inference_status,
                             :inferred_return_type)
+                            field in names || continue
+                            attributes[string(field)] = getproperty(table, field)[sample_index]
+                        end
+                    elseif backend in (:network, :network_interface, :network_isolated)
+                        for field in (:capture_layer, :attribution_scope, :interface,
+                            :latency_context)
                             field in names || continue
                             attributes[string(field)] = getproperty(table, field)[sample_index]
                         end
@@ -274,7 +383,11 @@ function _result_protocol_records(result::SoftwareSuiteResult, run_id::String,
                             "unit" => unit,
                             "aggregation" => "sample",
                             "sample_index" => sample_index,
-                            "scope" => "workload",
+                            "scope" =>
+                                backend === :network_isolated ?
+                                "isolated_worker_group" :
+                                backend === :network_interface ? "host_interface" :
+                                "workload",
                             "attributes" => attributes,
                             "measurement_definition" => definition_id,
                             "comparison_key" => "$(planned.comparison_key)::$definition_id"))
@@ -362,6 +475,8 @@ function write_run_bundle(bundle::RunBundle, directory::AbstractString)
         _write_jsonl(joinpath(temporary, "diagnostics.jsonl"), bundle.diagnostics)
         _write_json(joinpath(temporary, "artifacts.json"), bundle.artifacts;
             canonical = true)
+        _write_json(joinpath(temporary, "integrity.json"),
+            _bundle_integrity(temporary); canonical = true)
         mkpath(joinpath(temporary, "artifacts"))
         mv(temporary, destination)
     finally
@@ -377,9 +492,11 @@ function write_suite_bundle(result::SoftwareSuiteResult, root::AbstractString;
     return write_run_bundle(bundle, directory)
 end
 
-function read_run_bundle(directory::AbstractString)
+function read_run_bundle(directory::AbstractString; verify_integrity::Bool = true,
+        require_integrity::Bool = false)
     root = abspath(String(directory))
     isdir(root) || throw(ArgumentError("bundle directory does not exist: $root"))
+    verify_integrity && verify_run_bundle(root; require_integrity)
     manifest = JSON.parsefile(joinpath(root, "manifest.json"); use_mmap = false)
     get(manifest, "schema_version", nothing) == RUN_BUNDLE_SCHEMA ||
         throw(ArgumentError("unsupported run bundle schema"))
@@ -392,6 +509,12 @@ function read_run_bundle(directory::AbstractString)
         _read_jsonl(joinpath(root, "observations.jsonl")),
         _read_jsonl(joinpath(root, "diagnostics.jsonl")),
         Dict{String, Any}.(artifacts))
+end
+
+"Rewrite a legacy/unverified bundle into a new digest-protected destination."
+function migrate_run_bundle(source::AbstractString, destination::AbstractString)
+    bundle = read_run_bundle(source; verify_integrity = false)
+    return write_run_bundle(bundle, destination)
 end
 
 function list_run_bundles(root::AbstractString; recursive::Bool = false)
@@ -487,8 +610,16 @@ function _provider_result(payload::AbstractDict)
     definition_index = Dict(definition["id"] => definition for definition in definitions)
     length(definition_index) == length(definitions) ||
         throw(ArgumentError("provider definition identifiers must be unique"))
-    run_id = string(get(payload, "run_id", uuid4()))
-    attempt_id = string(get(payload, "attempt_id", uuid4()))
+    run_id = try
+        string(UUID(string(get(payload, "run_id", uuid4()))))
+    catch
+        throw(ArgumentError("provider run_id must be a UUID"))
+    end
+    attempt_id = try
+        string(UUID(string(get(payload, "attempt_id", uuid4()))))
+    catch
+        throw(ArgumentError("provider attempt_id must be a UUID"))
+    end
     case_id = string(get(payload, "case_id", "external"))
     target_id = string(get(payload, "target_id", case_id))
     observations = [_validate_provider_observation(observation, definition_index,
@@ -632,7 +763,7 @@ function run_external_command(spec::ExternalCommandSpec; bundle_root = nothing,
         wait_status = timedwait(() -> !process_running(process), spec.timeout_seconds;
             pollint = 0.05)
         if wait_status === :timed_out
-            kill(process)
+            _terminate_process_tree(process)
             wait(process)
             close(process)
             finalize(process)
@@ -699,6 +830,10 @@ end
             joinpath(pkgdir(PerfChecker), "schemas",
                 "perfchecker-provider-result-v1.schema.json");
             use_mmap = false)["type"] == "object"
+        @test JSON.parsefile(
+            joinpath(pkgdir(PerfChecker), "schemas",
+                "perfchecker-bundle-integrity-v1.schema.json");
+            use_mmap = false)["type"] == "object"
         entrypoint = joinpath(dir, "feature.jl")
         write(entrypoint, "perf_workload(state) = nothing\n")
         feature = FeatureSpec(:portable; entrypoint,
@@ -725,6 +860,23 @@ end
         @test all(occursin("::", observation["comparison_key"])
         for observation in bundle.observations)
         @test isdir(joinpath(bundle_path, "artifacts"))
+        @test verify_run_bundle(bundle_path; require_integrity = true)["verified"]
+
+        legacy_path = joinpath(dir, "legacy-bundle")
+        cp(bundle_path, legacy_path)
+        rm(joinpath(legacy_path, "integrity.json"))
+        @test verify_run_bundle(legacy_path)["status"] == "legacy_unverified"
+        @test_throws ArgumentError verify_run_bundle(
+            legacy_path; require_integrity = true)
+        migrated_path = migrate_run_bundle(legacy_path, joinpath(dir, "migrated-bundle"))
+        @test verify_run_bundle(migrated_path; require_integrity = true)["verified"]
+
+        corrupt_path = joinpath(dir, "corrupt-bundle")
+        cp(bundle_path, corrupt_path)
+        open(joinpath(corrupt_path, "observations.jsonl"), "a") do io
+            println(io, "{}")
+        end
+        @test_throws ArgumentError read_run_bundle(corrupt_path)
 
         provider_path = joinpath(dir, "provider.json")
         write(provider_path,
