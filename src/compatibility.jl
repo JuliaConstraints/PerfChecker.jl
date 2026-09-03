@@ -168,7 +168,7 @@ end
 
     failed = preflight_suite(plan;
         resolver = (_,
-            _) -> throw(Pkg.Types.PkgError("Unsatisfiable requirements detected for package Demo")))
+        _) -> throw(Pkg.Types.PkgError("Unsatisfiable requirements detected for package Demo")))
     @test !preflight_passed(failed)
     diagnostic = only(failed.diagnostics)
     @test diagnostic["status"] == "unsatisfiable"

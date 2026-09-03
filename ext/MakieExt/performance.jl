@@ -44,8 +44,8 @@ function _version_series_figure(plot)
     lines!(axis, xs, ys; color = RGBf(0.04, 0.52, 0.57), linewidth = 3)
     scatter!(axis, xs, ys; color = colors, markersize = 15, strokewidth = 2,
         strokecolor = :white, inspector_label = (self,
-            index,
-            position) -> "$(labels[index])\n$(round(position[2]; sigdigits = 5)) $(plot.options["unit"])")
+        index,
+        position) -> "$(labels[index])\n$(round(position[2]; sigdigits = 5)) $(plot.options["unit"])")
     axis.xticks = (collect(eachindex(labels)), labels)
     axis.xticklabelrotation = pi / 4
     axis.xlabel = "package version"
@@ -64,8 +64,8 @@ function _distribution_figure(plot)
         strokecolor = RGBf(0.02, 0.31, 0.35), show_outliers = true)
     scatter!(axis, xs, ys; color = (RGBf(0.08, 0.14, 0.24), 0.28), markersize = 6,
         inspector_label = (self,
-            sample,
-            position) -> "$(labels[Int(round(position[1]))])\n$(round(position[2]; sigdigits = 6)) $(plot.options["unit"])\nsample $(sample)")
+        sample,
+        position) -> "$(labels[Int(round(position[1]))])\n$(round(position[2]; sigdigits = 6)) $(plot.options["unit"])\nsample $(sample)")
     axis.xticks = (collect(eachindex(labels)), labels)
     axis.xticklabelrotation = pi / 4
     axis.xlabel = "package version"
@@ -136,8 +136,8 @@ function _allocation_pie_figure(plot)
     colors = make_colors(length(labels))
     pie!(axis, values; color = colors, strokecolor = :white, strokewidth = 2,
         inspector_label = (self,
-            index,
-            position) -> "$(labels[index])\n$(round(values[index]; sigdigits = 6)) bytes\n$(round(percentages[index]; digits = 3))%")
+        index,
+        position) -> "$(labels[index])\n$(round(values[index]; sigdigits = 6)) bytes\n$(round(percentages[index]; digits = 3))%")
     hidedecorations!(axis)
     hidespines!(axis)
     legend_labels = ["$(labels[index]) · $(round(percentages[index]; digits = 1))%"

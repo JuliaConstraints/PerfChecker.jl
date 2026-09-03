@@ -34,7 +34,8 @@ function Base.show(io::IO, v::PerfChecker.CheckerResult)
         println(io, "Machine name: ", v.hwinfo.machine)
         println(io, "Word Size: ", v.hwinfo.word)
         println(io, "SIMD Bytes: ", v.hwinfo.simdbytes)
-        println(io, "Core count (physical, total and threads per core): ", v.hwinfo.corecount)
+        println(
+            io, "Core count (physical, total and threads per core): ", v.hwinfo.corecount)
     end
 
     println(io, "Tags used: ", v.tags)

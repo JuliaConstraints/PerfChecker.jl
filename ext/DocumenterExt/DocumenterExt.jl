@@ -42,7 +42,8 @@ function _write_table(io, records, columns)
     println(io, "| ", join(fill("---", length(columns)), " | "), " |")
     for record in records
         println(
-            io, "| ", join((_md(get(record, field, "")) for (_, field) in columns),
+            io, "| ",
+            join((_md(get(record, field, "")) for (_, field) in columns),
                 " | "), " |")
     end
     println(io)

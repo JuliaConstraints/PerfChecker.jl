@@ -176,8 +176,8 @@ function _expected_points(series, availability)
                     "reason" => item["reason"])
                 for item in availability
                 if item["package"] == series["package"] &&
-                       item["feature"] == series["feature"] &&
-                       item["comparison_key"] == base_key]
+                   item["feature"] == series["feature"] &&
+                   item["comparison_key"] == base_key]
     unique!(item -> (item["version"], item["target_kind"]), matching)
     sort!(matching; by = _version_point_key)
     return matching
@@ -212,8 +212,10 @@ end
 
 function _aggregate_reference(points, policy)
     labels = String.(get(policy, "baselines", String[]))
-    missing = [label for label in labels if !haskey(points, label) ||
-               !haskey(points[label], "median")]
+    missing = [label
+               for label in labels
+               if !haskey(points, label) ||
+                  !haskey(points[label], "median")]
     label = length(labels) == 1 ? only(labels) :
             "$(get(policy, "id", "reference"))[$(join(labels, ", "))]"
     if !isempty(missing)
@@ -228,7 +230,8 @@ function _aggregate_reference(points, policy)
             aggregation === :minimum ? minimum(values) :
             aggregation === :maximum ? maximum(values) : _median(values)
     return Dict{String, Any}("version" => label, "target_kind" => "reference",
-        "median" => value, "samples" => sum(Int(get(item, "samples", 0)) for item in selected),
+        "median" => value, "samples" => sum(Int(get(item, "samples", 0))
+        for item in selected),
         "aggregation" => string(aggregation), "reference_versions" => labels)
 end
 
@@ -249,9 +252,11 @@ function _comparison_pairs(series, availability, policies = AbstractDict[])
         relation = length(get(policy, "baselines", [])) == 1 ?
                    "candidate-vs-exact-reference" : "candidate-vs-reference-group"
         return [(baseline,
-                    get(points, String(candidate), Dict{String, Any}(
-                        "version" => String(candidate), "target_kind" => "candidate",
-                        "availability" => "missing", "reason" => "candidate target was not planned")),
+                    get(points,
+                        String(candidate),
+                        Dict{String, Any}(
+                            "version" => String(candidate), "target_kind" => "candidate",
+                            "availability" => "missing", "reason" => "candidate target was not planned")),
                     relation)
                 for candidate in get(policy, "candidates", String[])]
     end
@@ -354,7 +359,8 @@ function compare_suite_versions(bundle::RunBundle;
             push!(warnings, "missing definition $(item["measurement_definition"])")
             continue
         end
-        for (baseline, candidate, relation) in _comparison_pairs(item, availability, policies)
+        for (baseline, candidate, relation) in _comparison_pairs(
+            item, availability, policies)
             record = haskey(baseline, "median") && haskey(candidate, "median") ?
                      _version_comparison_record(item, baseline, candidate,
                 relation, definition, relative_limits, min_samples) :

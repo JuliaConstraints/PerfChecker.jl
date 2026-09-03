@@ -13,7 +13,8 @@ function SuiteCandidate(label::AbstractString, revision::AbstractString;
         source = nothing, compatibility_version = nothing,
         dependencies::AbstractVector = Any[])
     isempty(strip(String(label))) && throw(ArgumentError("candidate label cannot be empty"))
-    isempty(strip(String(revision))) && throw(ArgumentError("candidate revision cannot be empty"))
+    isempty(strip(String(revision))) &&
+        throw(ArgumentError("candidate revision cannot be empty"))
     normalized_source = source === nothing ? nothing : String(source)
     compatibility = compatibility_version === nothing ? nothing :
                     VersionNumber(compatibility_version)
@@ -36,9 +37,11 @@ function ComparisonPolicy(id::AbstractString; package::AbstractString = "",
         feature::AbstractString = "", comparison_key::AbstractString = "",
         baselines::AbstractVector{<:AbstractString},
         candidates::AbstractVector{<:AbstractString}, aggregation::Symbol = :median)
-    isempty(strip(String(id))) && throw(ArgumentError("comparison policy id cannot be empty"))
-    isempty(feature) && isempty(comparison_key) && throw(ArgumentError(
-        "comparison policy requires a feature or comparison_key"))
+    isempty(strip(String(id))) &&
+        throw(ArgumentError("comparison policy id cannot be empty"))
+    isempty(feature) && isempty(comparison_key) &&
+        throw(ArgumentError(
+            "comparison policy requires a feature or comparison_key"))
     isempty(baselines) && throw(ArgumentError("comparison policy requires a baseline"))
     isempty(candidates) && throw(ArgumentError("comparison policy requires a candidate"))
     aggregation in (:median, :mean, :minimum, :maximum) || throw(ArgumentError(
@@ -55,6 +58,7 @@ function comparison_policy_dict(policy::ComparisonPolicy)
         "aggregation" => string(policy.aggregation))
 end
 
+"A closed package-version interval with explicit exclusions."
 struct VersionWindow
     since::Union{Nothing, VersionNumber}
     until::Union{Nothing, VersionNumber}
@@ -298,8 +302,9 @@ function suite_targets(package::PackageSuite, profile::Symbol;
                           for version in releases]
     if package.include_dev && profile !== :release
         current = _project_version(package)
-        push!(targets, SuiteTarget("dev@$(current)", :dev, current, :dev,
-            package.source, nothing, Any[]))
+        push!(targets,
+            SuiteTarget("dev@$(current)", :dev, current, :dev,
+                package.source, nothing, Any[]))
     end
     all_candidates = vcat(package.candidates, collect(candidates))
     if profile !== :release
@@ -309,9 +314,10 @@ function suite_targets(package::PackageSuite, profile::Symbol;
             source === nothing && throw(ArgumentError(
                 "candidate $(candidate.label) for $(package.package) requires a source or URL"))
             compatibility = something(candidate.compatibility_version, current)
-            push!(targets, SuiteTarget(candidate.label, candidate.revision,
-                compatibility, :candidate, source, candidate.revision,
-                copy(candidate.dependencies)))
+            push!(targets,
+                SuiteTarget(candidate.label, candidate.revision,
+                    compatibility, :candidate, source, candidate.revision,
+                    copy(candidate.dependencies)))
         end
     end
     allunique(target.label for target in targets) || throw(ArgumentError(
@@ -340,6 +346,12 @@ function _feature_unavailable_reason(feature::FeatureSpec, target::SuiteTarget)
     return "feature is not defined for package version $(target.label)"
 end
 
+"""
+    plan_suite(suite; profile=:quick, candidates=Dict(), comparisons=[])
+
+Resolve package releases, development sources, Git candidates, feature variants,
+and comparison policies into an immutable `SuitePlan` without running workloads.
+"""
 function plan_suite(suite::SoftwareSuite; profile::Symbol = :quick,
         version_provider = get_pkg_versions,
         candidates::AbstractDict = Dict{String, Vector{SuiteCandidate}}(),
@@ -349,7 +361,7 @@ function plan_suite(suite::SoftwareSuite; profile::Symbol = :quick,
         requested = get(candidates, package.package,
             get(candidates, string(package.id), SuiteCandidate[]))
         for target in suite_targets(package, profile; version_provider,
-                candidates = SuiteCandidate[item for item in requested])
+            candidates = SuiteCandidate[item for item in requested])
             for feature in package.features
                 variant = _variant_for(feature, target.compatibility_version)
                 if variant === nothing
@@ -382,33 +394,29 @@ function suite_plan_dict(plan::SuitePlan)
         "profile" => string(plan.profile),
         "comparisons" => comparison_policy_dict.(plan.comparisons),
         "runs" => [Dict{String, Any}(
-             "id" => planned_run_id(run),
-             "package" => run.package_suite.package,
-             "package_id" => string(run.package_suite.id),
-             "feature" => string(run.feature.id),
-             "workload" => string(workload_id(run)),
-             "description" => run.feature.description,
-             "backend" => string(run.feature.backend),
-             "julia_compatibility" => Dict{String, Any}(
-                 "since" =>
-                     run.feature.julia_window.since === nothing ? nothing :
-                     string(run.feature.julia_window.since),
-                 "until" =>
-                     run.feature.julia_window.until === nothing ? nothing :
-                     string(run.feature.julia_window.until),
-                 "excluded" =>
-                     sort!(string.(collect(run.feature.julia_window.excluded)))),
-             "entrypoint" =>
-                 run.variant === nothing ?
-                 first(run.feature.variants).entrypoint :
-                 (run.variant::FeatureVariant).entrypoint,
-             "version" => run.target.label,
-             "target_kind" => string(run.target.kind),
-             "target_source" => run.target.source,
-             "target_revision" => run.target.revision,
-             "comparison_key" => run.comparison_key,
-             "status" => string(run.planned_status),
-             "reason" => run.reason) for run in plan.runs])
+                       "id" => planned_run_id(run),
+                       "package" => run.package_suite.package,
+                       "package_id" => string(run.package_suite.id),
+                       "feature" => string(run.feature.id),
+                       "workload" => string(workload_id(run)),
+                       "description" => run.feature.description,
+                       "backend" => string(run.feature.backend),
+                       "julia_compatibility" => Dict{String, Any}(
+                           "since" => run.feature.julia_window.since === nothing ? nothing :
+                                      string(run.feature.julia_window.since),
+                           "until" => run.feature.julia_window.until === nothing ? nothing :
+                                      string(run.feature.julia_window.until),
+                           "excluded" => sort!(string.(collect(run.feature.julia_window.excluded)))),
+                       "entrypoint" => run.variant === nothing ?
+                                       first(run.feature.variants).entrypoint :
+                                       (run.variant::FeatureVariant).entrypoint,
+                       "version" => run.target.label,
+                       "target_kind" => string(run.target.kind),
+                       "target_source" => run.target.source,
+                       "target_revision" => run.target.revision,
+                       "comparison_key" => run.comparison_key,
+                       "status" => string(run.planned_status),
+                       "reason" => run.reason) for run in plan.runs])
     payload["plan_revision"] = _content_digest(payload)
     return payload
 end
@@ -757,6 +765,14 @@ function wait_suite(job::SuiteJob; strict::Bool = true)
     return result
 end
 
+"""
+    run_suite(plan; executor=_default_suite_executor, strict=true,
+              progress_callback=identity)
+
+Execute the runnable leaves of a resolved suite plan and return their isolated
+worker results. When `strict` is false, individual failures are retained in the
+result instead of aborting the complete suite.
+"""
 function run_suite(plan::SuitePlan; executor = _default_suite_executor,
         overrides::AbstractDict = Dict{Symbol, Any}(), strict::Bool = true,
         progress_callback = _ -> nothing)
@@ -834,8 +850,8 @@ function _first_summary_row(run::FeatureRun)
     table = summary_table(run.result)
     isempty(table) && return Dict{String, Any}()
     return Dict{String, Any}(string(name) => (ismissing(getproperty(table, name)[1]) ?
-                              nothing :
-                              getproperty(table, name)[1])
+                                              nothing :
+                                              getproperty(table, name)[1])
     for name in propertynames(table))
 end
 
@@ -849,16 +865,16 @@ function suite_dict(result::SoftwareSuiteResult)
         "finished_at" => result.finished_at,
         "passed" => suite_passed(result),
         "runs" => [Dict{String, Any}(
-             "package" => run.planned.package_suite.package,
-             "feature" => string(run.planned.feature.id),
-             "workload" => string(workload_id(run.planned)),
-             "version" => run.planned.target.label,
-             "target_kind" => string(run.planned.target.kind),
-             "comparison_key" => run.planned.comparison_key,
-             "status" => string(run.status),
-             "elapsed_seconds" => run.elapsed_seconds,
-             "message" => run.message,
-             "summary" => _first_summary_row(run)) for run in result.runs])
+                       "package" => run.planned.package_suite.package,
+                       "feature" => string(run.planned.feature.id),
+                       "workload" => string(workload_id(run.planned)),
+                       "version" => run.planned.target.label,
+                       "target_kind" => string(run.planned.target.kind),
+                       "comparison_key" => run.planned.comparison_key,
+                       "status" => string(run.status),
+                       "elapsed_seconds" => run.elapsed_seconds,
+                       "message" => run.message,
+                       "summary" => _first_summary_row(run)) for run in result.runs])
 end
 
 function write_suite_json(result::SoftwareSuiteResult, path::AbstractString)

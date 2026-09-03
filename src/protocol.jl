@@ -262,20 +262,17 @@ function _definition_dict(id::String, unit::String, backend::Symbol)
         "unit" => unit,
         "collector" => string(backend),
         "sample_semantics" => "one backend sample",
-        "preference" =>
-            occursin("throughput", id) || occursin(".rate/", id) ?
-            "higher" : "lower",
-        "warmup_policy" =>
-            backend in (:alloc, :profile_alloc, :profile,
-                :wall_profile, :network, :network_isolated) ?
-            "explicit feature setup" : "collector controlled",
+        "preference" => occursin("throughput", id) || occursin(".rate/", id) ?
+                        "higher" : "lower",
+        "warmup_policy" => backend in (:alloc, :profile_alloc, :profile,
+            :wall_profile, :network, :network_isolated) ?
+                           "explicit feature setup" : "collector controlled",
         "includes_compilation" => false,
         "includes_children" => backend === :network_isolated,
-        "attribution_scope" =>
-            backend === :network_isolated ?
-            "isolated_worker_group" :
-            backend === :network_interface ? "host_interface" :
-            backend === :network ? "workload" : "current_process",
+        "attribution_scope" => backend === :network_isolated ?
+                               "isolated_worker_group" :
+                               backend === :network_interface ? "host_interface" :
+                               backend === :network ? "workload" : "current_process",
         "version" => 1)
 end
 
@@ -383,11 +380,10 @@ function _result_protocol_records(result::SoftwareSuiteResult, run_id::String,
                             "unit" => unit,
                             "aggregation" => "sample",
                             "sample_index" => sample_index,
-                            "scope" =>
-                                backend === :network_isolated ?
-                                "isolated_worker_group" :
-                                backend === :network_interface ? "host_interface" :
-                                "workload",
+                            "scope" => backend === :network_isolated ?
+                                       "isolated_worker_group" :
+                                       backend === :network_interface ? "host_interface" :
+                                       "workload",
                             "attributes" => attributes,
                             "measurement_definition" => definition_id,
                             "comparison_key" => "$(planned.comparison_key)::$definition_id"))
@@ -492,6 +488,13 @@ function write_suite_bundle(result::SoftwareSuiteResult, root::AbstractString;
     return write_run_bundle(bundle, directory)
 end
 
+"""
+    read_run_bundle(directory; verify_integrity=true, require_integrity=false)
+
+Read and validate a `perfchecker-run-bundle/1` directory. Integrity metadata is
+verified by default when present and can be made mandatory with
+`require_integrity=true`.
+"""
 function read_run_bundle(directory::AbstractString; verify_integrity::Bool = true,
         require_integrity::Bool = false)
     root = abspath(String(directory))

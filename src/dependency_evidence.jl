@@ -18,9 +18,8 @@ function _dependency_package_record(uuid, info)
     path = path === nothing ? nothing : String(path)
     artifact_path = path === nothing ? nothing : joinpath(path, "Artifacts.toml")
     return Dict{String, Any}(
-        "kind" =>
-            endswith(String(_property(info, :name, "")), "_jll") ?
-            "jll_wrapper" : "julia_package",
+        "kind" => endswith(String(_property(info, :name, "")), "_jll") ?
+                  "jll_wrapper" : "julia_package",
         "state" => "resolved",
         "uuid" => string(uuid),
         "name" => String(_property(info, :name, "unknown")),
@@ -30,9 +29,8 @@ function _dependency_package_record(uuid, info)
         "is_tracking_path" => Bool(_property(info, :is_tracking_path, false)),
         "is_tracking_repo" => Bool(_property(info, :is_tracking_repo, false)),
         "source_path" => path,
-        "artifacts_file" =>
-            artifact_path !== nothing && isfile(artifact_path) ?
-            artifact_path : nothing)
+        "artifacts_file" => artifact_path !== nothing && isfile(artifact_path) ?
+                            artifact_path : nothing)
 end
 
 "Inventory the active Pkg dependency graph without loading dependency modules."
@@ -42,8 +40,9 @@ function package_dependency_inventory()
     dependencies = try
         Pkg.dependencies()
     catch error
-        push!(warnings, "Pkg dependency inventory unavailable: " *
-                        first(sprint(showerror, error), 500))
+        push!(warnings,
+            "Pkg dependency inventory unavailable: " *
+            first(sprint(showerror, error), 500))
         Dict()
     end
     for (uuid, info) in dependencies
@@ -105,8 +104,9 @@ function loaded_library_inventory(; digest::Bool = false)
         try
             push!(libraries, _library_record(library; digest))
         catch error
-            push!(warnings, "could not inspect $(basename(library)): " *
-                            first(sprint(showerror, error), 300))
+            push!(warnings,
+                "could not inspect $(basename(library)): " *
+                first(sprint(showerror, error), 300))
         end
     end
     sort!(libraries; by = record -> lowercase(String(record["path"])))

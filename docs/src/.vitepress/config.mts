@@ -1,48 +1,37 @@
 import { defineConfig } from 'vitepress'
 import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs'
-import mathjax3 from "markdown-it-mathjax3";
-import footnote from "markdown-it-footnote";
+import footnote from 'markdown-it-footnote'
 
-// https://vitepress.dev/reference/site-config
 export default defineConfig({
-  base: 'REPLACE_ME_DOCUMENTER_VITEPRESS',// TODO: replace this in makedocs!
+  base: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
   title: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
-  description: "A VitePress Site",
+  description: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
+  outDir: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
   lastUpdated: true,
   cleanUrls: true,
-  outDir: 'REPLACE_ME_DOCUMENTER_VITEPRESS', // This is required for MarkdownVitepress to work correctly...
-  head: [['link', { rel: 'icon', href: 'REPLACE_ME_DOCUMENTER_VITEPRESS_FAVICON' }]],
-  ignoreDeadLinks: true,
-
+  ignoreDeadLinks: false,
   markdown: {
-    math: true,
     config(md) {
-      md.use(tabsMarkdownPlugin),
-      md.use(mathjax3),
+      md.use(tabsMarkdownPlugin)
       md.use(footnote)
     },
-    theme: {
-      light: "github-light",
-      dark: "github-dark"}
+    theme: { light: 'github-light', dark: 'github-dark' },
   },
   themeConfig: {
-    outline: 'deep',
-    logo: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
+    outline: { level: 'deep', label: 'On this page' },
     search: {
       provider: 'local',
-      options: {
-        detailedView: true
-      }
+      options: { detailedView: true },
     },
     nav: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
     sidebar: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
     editLink: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
     socialLinks: [
-      { icon: 'github', link: 'REPLACE_ME_DOCUMENTER_VITEPRESS' }
+      { icon: 'github', link: 'https://github.com/Mirage-Interactive-Fr/PerfChecker.jl' },
     ],
     footer: {
-      message: 'Made with <a href="https://luxdl.github.io/DocumenterVitepress.jl/dev/" target="_blank"><strong>DocumenterVitepress.jl</strong></a><br>',
-      copyright: `© Copyright ${new Date().getUTCFullYear()}.`
-    }
-  }
+      message: 'PerfChecker is open-source software maintained by <a href="https://mirageinteractive.fr/">Mirage Interactive</a>.',
+      copyright: `© ${new Date().getUTCFullYear()} Mirage Interactive and PerfChecker contributors`,
+    },
+  },
 })

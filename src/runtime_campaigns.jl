@@ -63,15 +63,15 @@ function _runtime_failure_summary(execution, status::AbstractString)
              if !isempty(strip(line))]
     preferred = findfirst(
         line -> startswith(line, "ERROR:") ||
-                startswith(line, "Exception:") ||
-                occursin("segmentation fault", lowercase(line)) ||
-                occursin("signal (11)", lowercase(line)),
+                    startswith(line, "Exception:") ||
+                    occursin("segmentation fault", lowercase(line)) ||
+                    occursin("signal (11)", lowercase(line)),
         lines)
     fallback = findfirst(
         line -> !startswith(line, "[") &&
-                !startswith(line, "┌") &&
-                !startswith(line, "│") &&
-                !startswith(line, "└"),
+                    !startswith(line, "┌") &&
+                    !startswith(line, "│") &&
+                    !startswith(line, "└"),
         lines)
     selected = preferred === nothing ? fallback : preferred
     selected === nothing && return "runtime process exited without a diagnostic"
@@ -168,14 +168,12 @@ function _runtime_campaign_run(spec::JuliaRuntimeSpec; suite::String, reports::S
         "stderr" => first(execution.stderr, 16_384),
         "failure_kind" => failure_kind,
         "failure_summary" => failure_summary,
-        "failure_frames" =>
-            status == "passed" ? Dict{String, Any}[] :
-            _runtime_failure_frames(execution),
-        "error" =>
-            status == "passed" ? "" :
-            status == "missing_bundle" ? "suite emitted no run bundle" :
-            status == "timeout" ? "suite exceeded $(timeout_seconds) seconds" :
-            "suite command failed")
+        "failure_frames" => status == "passed" ? Dict{String, Any}[] :
+                            _runtime_failure_frames(execution),
+        "error" => status == "passed" ? "" :
+                   status == "missing_bundle" ? "suite emitted no run bundle" :
+                   status == "timeout" ? "suite exceeded $(timeout_seconds) seconds" :
+                   "suite command failed")
 end
 
 const _RUNTIME_BACKEND_PACKAGES = Dict{Symbol, Pair{String, String}}(
@@ -218,9 +216,9 @@ function _resumable_runtime_run(previous, spec::JuliaRuntimeSpec;
     candidates = [run
                   for run in get(previous, "runs", Any[])
                   if String(get(run, "runtime_id", "")) == string(spec.id) &&
-                         String(get(run, "role", "")) == string(spec.role) &&
-                         String(get(get(run, "spec", Dict()), "selector", "")) ==
-                         spec.selector && String(get(run, "status", "")) == "passed"]
+                     String(get(run, "role", "")) == string(spec.role) &&
+                     String(get(get(run, "spec", Dict()), "selector", "")) ==
+                     spec.selector && String(get(run, "status", "")) == "passed"]
     length(candidates) == 1 || return nothing
     record = only(candidates)
     bundle_path = get(record, "bundle_path", nothing)

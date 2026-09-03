@@ -2,7 +2,6 @@
     import Aqua
     import PerfChecker
 
-    # TODO: Fix the broken tests and remove the `broken = true` flag
     Aqua.test_all(
         PerfChecker;
         ambiguities = (broken = false,),

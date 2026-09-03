@@ -39,7 +39,7 @@ function post(d::Dict, ::Val{:alloc})
         end
         myallocs = analyze_malloc_files(files; skip_zeros = true)
         if isempty(myallocs)
-            @warn "Allocation files do not contain non-zero allocation entries" targets = d[:targets]
+            @warn "Allocation files do not contain non-zero allocation entries" targets=d[:targets]
         end
         return myallocs
     finally
@@ -52,7 +52,7 @@ function rm_malloc_files(paths)
         try
             rm(file; force = true)
         catch err
-            @debug "failed to remove allocation tracking file" file exception = (
+            @debug "failed to remove allocation tracking file" file exception=(
                 err, catch_backtrace())
         end
     end

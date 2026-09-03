@@ -25,7 +25,7 @@ end
 _cli_values(options, name) = get(options, name, String[])
 function _cli_bool(options, name, default = false)
     lowercase(String(
-        _cli_value(options, name, string(default)))) in ("true", "1", "yes", "on")
+    _cli_value(options, name, string(default)))) in ("true", "1", "yes", "on")
 end
 
 function _cli_profile(options)
@@ -68,8 +68,10 @@ function _candidates_from_payloads(items, context::AbstractString)
     return candidates
 end
 
-_cli_candidates(options) = _candidates_from_payloads(
-    (JSON.parse(item) for item in _cli_values(options, "candidate")), "--candidate")
+function _cli_candidates(options)
+    _candidates_from_payloads(
+        (JSON.parse(item) for item in _cli_values(options, "candidate")), "--candidate")
+end
 
 function _comparison_from_payload(payload, context::AbstractString)
     payload isa AbstractDict || throw(ArgumentError(
@@ -83,9 +85,11 @@ function _comparison_from_payload(payload, context::AbstractString)
         aggregation = Symbol(get(payload, "aggregation", "median")))
 end
 
-_cli_comparisons(options) = ComparisonPolicy[
-    _comparison_from_payload(JSON.parse(item), "--comparison")
-    for item in _cli_values(options, "comparison")]
+function _cli_comparisons(options)
+    ComparisonPolicy[
+                     _comparison_from_payload(JSON.parse(item), "--comparison")
+                     for item in _cli_values(options, "comparison")]
+end
 
 function _cli_ui_configuration(options)
     path = _cli_value(options, "config")
@@ -95,7 +99,7 @@ end
 function _requested_candidates(options, configuration)
     result = configuration === nothing ? Dict{String, Vector{SuiteCandidate}}() :
              _candidates_from_payloads(get(configuration, "targets", Any[]),
-                 "UI configuration target")
+        "UI configuration target")
     for (package, candidates) in _cli_candidates(options)
         append!(get!(result, package, SuiteCandidate[]), candidates)
     end
@@ -105,7 +109,7 @@ end
 function _requested_comparisons(options, configuration)
     result = configuration === nothing ? ComparisonPolicy[] :
              ComparisonPolicy[_comparison_from_payload(payload,
-                 "UI configuration comparison")
+                                  "UI configuration comparison")
                               for payload in get(configuration, "comparisons", Any[])]
     append!(result, _cli_comparisons(options))
     return result
@@ -185,8 +189,9 @@ function perfchecker_main(args = ARGS; stdout::IO = Base.stdout,
             println(stdout, project["version"])
             return 0
         elseif command == "init"
-            root = abspath(_cli_value(options, "root", isempty(positional) ? pwd() :
-                                                       first(positional)))
+            root = abspath(_cli_value(
+                options, "root", isempty(positional) ? pwd() :
+                                 first(positional)))
             paths = write_software_suite_template(root;
                 force = _cli_bool(options, "force"))
             foreach(path -> println(stdout, path), paths)
@@ -258,7 +263,8 @@ function perfchecker_main(args = ARGS; stdout::IO = Base.stdout,
             comparison = compare_bundles(baseline, candidate;
                 relative_limits = _cli_limits(options),
                 min_samples = Base.parse(Int, _cli_value(options, "min-samples", "1")))
-            reports = abspath(_cli_value(options, "reports", joinpath("perf", "comparison")))
+            reports = abspath(_cli_value(
+                options, "reports", joinpath("perf", "comparison")))
             mkpath(reports)
             write_comparison_json(comparison, joinpath(reports, "comparison.json"))
             write_comparison_markdown(comparison, joinpath(reports, "comparison.md"))
@@ -289,12 +295,14 @@ function perfchecker_main(args = ARGS; stdout::IO = Base.stdout,
                 baseline = _cli_value(options, "baseline", "release"); candidates)
             campaign = run_julia_runtime_campaign(specs;
                 suite = _cli_required(options, "suite"),
-                reports = _cli_value(options, "reports", joinpath("perf", "julia-campaign")),
+                reports = _cli_value(
+                    options, "reports", joinpath("perf", "julia-campaign")),
                 profile = _cli_profile(options),
                 factory = Symbol(_cli_value(options, "factory", "build_suite")),
                 relative_limits = _cli_limits(options),
                 min_samples = Base.parse(Int, _cli_value(options, "min-samples", "1")),
-                timeout_seconds = Base.parse(Float64, _cli_value(options, "timeout", "3600")),
+                timeout_seconds = Base.parse(
+                    Float64, _cli_value(options, "timeout", "3600")),
                 progress_callback = _cli_progress_callback(options, stdout),
                 resume = _cli_bool(options, "resume", false),
                 strict = false)
@@ -315,9 +323,11 @@ function perfchecker_main(args = ARGS; stdout::IO = Base.stdout,
                 dns_servers = dns_value === nothing ? nothing : split(dns_value, ','))
             result = measure_isolated_network_command(passthrough; spec,
                 directory = _cli_value(options, "directory", pwd()),
-                timeout_seconds = Base.parse(Float64, _cli_value(options, "timeout", "300")),
+                timeout_seconds = Base.parse(
+                    Float64, _cli_value(options, "timeout", "300")),
                 strict = false)
-            output = abspath(_cli_value(options, "output", "perfchecker-network-result.json"))
+            output = abspath(_cli_value(
+                options, "output", "perfchecker-network-result.json"))
             mkpath(dirname(output))
             _write_json(output,
                 isolated_network_result_dict(result;

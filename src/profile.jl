@@ -106,8 +106,8 @@ function check(d::Dict, block::Expr, ::Val{:profile})
             end
             julia_indices = findall(
                 candidate -> candidate.line > 0 &&
-                             !candidate.from_c &&
-                             !isempty(String(candidate.file)),
+                                 !candidate.from_c &&
+                                 !isempty(String(candidate.file)),
                 expanded)
             isempty(julia_indices) && return
             julia_frames = expanded[julia_indices]

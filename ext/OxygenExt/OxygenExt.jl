@@ -243,14 +243,15 @@ function _register_result_routes!(api, store::String)
                 status = 400)
         end
     end
-    _register_query_routes!(api, request -> begin
-        payload = try
-            JSON.parse(String(request.body))
-        catch
-            Dict{String, Any}()
-        end
-        _bundle_by_id(store, String(get(payload, "id", "")))
-    end)
+    _register_query_routes!(
+        api, request -> begin
+            payload = try
+                JSON.parse(String(request.body))
+            catch
+                Dict{String, Any}()
+            end
+            _bundle_by_id(store, String(get(payload, "id", "")))
+        end)
 end
 
 function PerfChecker.register_oxygen_routes!(root::AbstractString;
@@ -269,12 +270,11 @@ function PerfChecker.register_oxygen_routes!(root::AbstractString;
         Oxygen.json(Dict(
             "schema_version" => "perfchecker-capabilities/1",
             "read_only" => !allow_ingest,
-            "resources" =>
-                allow_ingest ?
-                ["results", "version-comparison", "plots", "query",
-                    "agent-evidence", "ingest"] :
-                ["results", "version-comparison", "plots", "query",
-                    "agent-evidence"],
+            "resources" => allow_ingest ?
+                           ["results", "version-comparison", "plots", "query",
+                "agent-evidence", "ingest"] :
+                           ["results", "version-comparison", "plots", "query",
+                "agent-evidence"],
             "protocol" => "perfchecker-run-bundle/1"))
     end
     _register_result_routes!(api, store)

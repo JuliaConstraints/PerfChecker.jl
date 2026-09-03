@@ -139,14 +139,15 @@ function performance_query_dict(query::PerformanceQuery)
         "resources" => string.(query.resources),
         "where" => performance_query_dict.(query.predicates),
         "order_by" => [Dict("field" => first(item), "direction" => string(last(item)))
-         for item in query.order_by],
+                       for item in query.order_by],
         "limit" => query.limit)
 end
 
 "Parse and validate the language-neutral dictionary form of a report query."
 function performance_query(payload::AbstractDict)
-    schema = get(payload, "schema_version", get(payload, :schema_version,
-        PERFORMANCE_QUERY_SCHEMA))
+    schema = get(
+        payload, "schema_version", get(payload, :schema_version,
+            PERFORMANCE_QUERY_SCHEMA))
     schema == PERFORMANCE_QUERY_SCHEMA || throw(ArgumentError(
         "unsupported performance query schema $schema"))
     value(key, default) = get(payload, key, get(payload, Symbol(key), default))

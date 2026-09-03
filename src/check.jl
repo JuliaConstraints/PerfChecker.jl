@@ -149,7 +149,7 @@ function _install_target!(worker, target::RunTarget, options::Dict{Symbol, Any})
                         Pkg.develop(d[:extra_devops]; io = pkg_io)
                 else
                     dev_specs = haskey(d, :extra_devops) ?
-                        vcat([pkg], d[:extra_devops]) : [pkg]
+                                vcat([pkg], d[:extra_devops]) : [pkg]
                     Pkg.develop(dev_specs; io = pkg_io)
                 end
             elseif !isnothing(target_spec.name)

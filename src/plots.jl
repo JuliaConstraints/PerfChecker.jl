@@ -68,8 +68,8 @@ function _allocation_observations(bundle::RunBundle)
             if get(observation, "measurement_definition", "") in (
         "julia.alloc.bytes/line-tracking-v1",
         "julia.alloc.bytes/profile-allocs-v1") &&
-        get(get(observation, "attributes", Dict()), "source_file", nothing) !==
-        nothing]
+               get(get(observation, "attributes", Dict()), "source_file", nothing) !==
+               nothing]
 end
 
 function _allocation_catalog(bundle::RunBundle)
@@ -134,20 +134,16 @@ function _profile_catalog(bundle::RunBundle)
                         definition == "julia.cpu.samples/profile-v1" ?
                         :cpu_flamegraph : :wall_flamegraph,
                         case_id),
-                    "kind" =>
-                        definition == "julia.cpu.samples/profile-v1" ?
-                        "cpu_flamegraph" : "wall_flamegraph",
-                    "title" =>
-                        "$package · $feature · " *
-                        (definition == "julia.cpu.samples/profile-v1" ? "CPU" :
-                         "wall-time") *
-                        " flame graph",
-                    "label" =>
-                        definition == "julia.cpu.samples/profile-v1" ?
-                        "CPU flame graph" : "Wall-time flame graph",
-                    "metric" =>
-                        definition == "julia.cpu.samples/profile-v1" ?
-                        "julia.cpu.samples" : "julia.wall.samples",
+                    "kind" => definition == "julia.cpu.samples/profile-v1" ?
+                              "cpu_flamegraph" : "wall_flamegraph",
+                    "title" => "$package · $feature · " *
+                               (definition == "julia.cpu.samples/profile-v1" ? "CPU" :
+                                "wall-time") *
+                               " flame graph",
+                    "label" => definition == "julia.cpu.samples/profile-v1" ?
+                               "CPU flame graph" : "Wall-time flame graph",
+                    "metric" => definition == "julia.cpu.samples/profile-v1" ?
+                                "julia.cpu.samples" : "julia.wall.samples",
                     "unit" => "samples"))
             for ((package, feature, case_id, definition), common) in sort!(
         collect(identities); by = first)]
@@ -208,13 +204,13 @@ function _series_observations(bundle::RunBundle, series)
             for observation in bundle.observations
             if
             get(observation, "comparison_key", "") == series["comparison_key"] &&
-                get(observation, "metric", "") == series["metric"] &&
-                get(observation, "measurement_definition", "") ==
-                series["measurement_definition"] &&
-                get(get(observation, "attributes", Dict()), "package", "") ==
-                series["package"] &&
-                get(get(observation, "attributes", Dict()), "feature", "") ==
-                series["feature"]]
+            get(observation, "metric", "") == series["metric"] &&
+            get(observation, "measurement_definition", "") ==
+            series["measurement_definition"] &&
+            get(get(observation, "attributes", Dict()), "package", "") ==
+            series["package"] &&
+            get(get(observation, "attributes", Dict()), "feature", "") ==
+            series["feature"]]
 end
 
 function _version_records(series)
@@ -357,7 +353,7 @@ function _flame_records(observations; version = nothing, top::Integer = 40)
         labels = Tuple(String.(stack))
         isempty(labels) && continue
         count = length(labels)
-        vector_attribute(name, fallback) = begin
+        function vector_attribute(name, fallback)
             values = get(attributes, name, nothing)
             values isa AbstractVector && length(values) == count ? collect(values) :
             fill(fallback, count)
@@ -436,13 +432,11 @@ function _flame_records(observations; version = nothing, top::Integer = 40)
                     "percentage" => total == 0 ? 0.0 : 100 * value / total,
                     "status" => status,
                     "runtime_dispatch_value" => runtime_dispatch_value,
-                    "runtime_dispatch_percentage" =>
-                        value == 0 ? 0.0 :
-                        100 * runtime_dispatch_value / value,
+                    "runtime_dispatch_percentage" => value == 0 ? 0.0 :
+                                                     100 * runtime_dispatch_value / value,
                     "gc_event_value" => gc_event_value,
-                    "gc_event_percentage" =>
-                        value == 0 ? 0.0 :
-                        100 * gc_event_value / value,
+                    "gc_event_percentage" => value == 0 ? 0.0 :
+                                             100 * gc_event_value / value,
                     "inference_status" => inference_status,
                     "inferred_return_type" => inferred_return_type))
             visit(child["children"], depth + 1, cursor, child_path)
@@ -457,8 +451,8 @@ function _tradeoff_records(bundle, entry)
     matching = [series
                 for series in suite_version_series(bundle)
                 if series["package"] == entry["package"] &&
-                       series["feature"] == entry["feature"] &&
-                       _plot_base_comparison_key(series) == entry["comparison_key"]]
+                   series["feature"] == entry["feature"] &&
+                   _plot_base_comparison_key(series) == entry["comparison_key"]]
     time = only(filter(series -> series["metric"] == "julia.wall.time", matching))
     bytes = only(filter(series -> series["metric"] == "julia.alloc.bytes", matching))
     times = Dict(String(point["version"]) => point for point in time["points"])
@@ -467,8 +461,7 @@ function _tradeoff_records(bundle, entry)
         by = item -> _version_point_key(times[item]))
     return [Dict{String, Any}("version" => version,
                 "target_kind" => times[version]["target_kind"],
-                "time" => times[version]["median"], "bytes" =>
-                    allocations[version]["median"])
+                "time" => times[version]["median"], "bytes" => allocations[version]["median"])
             for version in versions]
 end
 
@@ -529,8 +522,8 @@ function performance_plot(bundle::RunBundle, id::AbstractString; version = nothi
         observations = [observation
                         for observation in bundle.observations
                         if get(observation, "case_id", "") == entry["case_id"] &&
-            get(observation, "measurement_definition", "") ==
-            "julia.cpu.samples/profile-v1"]
+                           get(observation, "measurement_definition", "") ==
+                           "julia.cpu.samples/profile-v1"]
         data, versions, selected, total = _flame_records(observations; version, top)
         options["versions"] = versions
         options["selected_version"] = selected
@@ -543,8 +536,8 @@ function performance_plot(bundle::RunBundle, id::AbstractString; version = nothi
         observations = [observation
                         for observation in bundle.observations
                         if get(observation, "case_id", "") == entry["case_id"] &&
-            get(observation, "measurement_definition", "") ==
-            "julia.wall.samples/profile-walltime-v1"]
+                           get(observation, "measurement_definition", "") ==
+                           "julia.wall.samples/profile-walltime-v1"]
         data, versions, selected, total = _flame_records(observations; version, top)
         options["versions"] = versions
         options["selected_version"] = selected
@@ -664,11 +657,11 @@ end
                             "inferred_return_type" => return_types))
                     for (samples, stack, dispatch, gc, inference, return_types) in (
         (8, ["parse", "tokenize"], [false, true], [false, false],
-        ["concrete", "union"], ["Nothing", "Union{String, Nothing}"]),
+            ["concrete", "union"], ["Nothing", "Union{String, Nothing}"]),
         (2, ["parse", "normalize"], [false, false], [false, false],
-        ["concrete", "abstract"], ["Nothing", "AbstractString"]),
+            ["concrete", "abstract"], ["Nothing", "AbstractString"]),
         (1, ["parse", "cleanup"], [false, false], [false, true],
-        ["concrete", "concrete"], ["Nothing", "Nothing"]))]
+            ["concrete", "concrete"], ["Nothing", "Nothing"]))]
     bundle = RunBundle(
         Dict{String, Any}("run_id" => "profile-plot-run",
             "suite" => "demo", "state" => "complete"),

@@ -41,7 +41,7 @@ function check(d::Dict, block::Expr, ::Val{:network})
             end
             any(
                 name -> haskey(payload, name) ||
-                        (payload isa AbstractDict && haskey(payload, String(name))),
+                    (payload isa AbstractDict && haskey(payload, String(name))),
                 (:bytes_sent, :bytes_received, :operations)) || error(
                 "network workloads must report bytes_sent, bytes_received, or operations")
             sent = field(:bytes_sent, 0)
@@ -79,7 +79,8 @@ function check(d::Dict, block::Expr, ::Val{:network})
                     capture_layer = String(field(:capture_layer, "application")),
                     attribution_scope = String(field(:attribution_scope, "workload")),
                     interface = String(field(:interface, "")),
-                    latency_context = String(field(:latency_context, "end_to_end_informative"))))
+                    latency_context = String(field(
+                        :latency_context, "end_to_end_informative"))))
         end
         rows
     end
@@ -140,14 +141,12 @@ function network_interface_capabilities()
     return Dict{String, Any}(
         "schema_version" => "perfchecker-network-capabilities/1",
         "supported" => supported,
-        "provider" =>
-            Sys.iswindows() ? "windows-netadapter-statistics" :
-            Sys.islinux() ? "linux-sysfs-netdev" : "unavailable",
+        "provider" => Sys.iswindows() ? "windows-netadapter-statistics" :
+                      Sys.islinux() ? "linux-sysfs-netdev" : "unavailable",
         "capture_layer" => "interface",
-        "counters" =>
-            supported ?
-            ["bytes_sent", "bytes_received", "packets_sent",
-                "packets_received", "discarded_sent", "discarded_received"] : String[],
+        "counters" => supported ?
+                      ["bytes_sent", "bytes_received", "packets_sent",
+            "packets_received", "discarded_sent", "discarded_received"] : String[],
         "attribution" => "host_interface",
         "requires_isolated_interface_for_package_attribution" => true,
         "latency_semantics" => "workload wall time; informative for remote endpoints",
@@ -178,8 +177,10 @@ end
 function _linux_network_snapshots()
     root = "/sys/class/net"
     isdir(root) || return NetworkInterfaceSnapshot[]
-    counter(interface, name) = parse(UInt64,
-        strip(read(joinpath(root, interface, "statistics", name), String)))
+    function counter(interface, name)
+        parse(UInt64,
+            strip(read(joinpath(root, interface, "statistics", name), String)))
+    end
     return [NetworkInterfaceSnapshot(interface, time_ns(),
                 counter(interface, "tx_bytes"), counter(interface, "rx_bytes"),
                 counter(interface, "tx_packets"), counter(interface, "rx_packets"),
@@ -286,8 +287,10 @@ function check(d::Dict, block::Expr, ::Val{:network_interface})
                 return rows
             elseif Sys.islinux()
                 root = "/sys/class/net"
-                counter(name, field) = Base.parse(UInt64,
-                    strip(read(joinpath(root, name, "statistics", field), String)))
+                function counter(name, field)
+                    Base.parse(UInt64,
+                        strip(read(joinpath(root, name, "statistics", field), String)))
+                end
                 return [(interface = name, timestamp_ns = time_ns(),
                             bytes_sent = counter(name, "tx_bytes"),
                             bytes_received = counter(name, "rx_bytes"),
@@ -321,7 +324,7 @@ function check(d::Dict, block::Expr, ::Val{:network_interface})
                 $block
                 workload_seconds = (time_ns() - started) / 1.0e9
                 after = select_snapshot(selected_interface)
-                delta(name) = begin
+                function delta(name)
                     current = getproperty(after, name)
                     previous = getproperty(before, name)
                     current >= previous || error("network interface counter decreased")

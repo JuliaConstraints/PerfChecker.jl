@@ -23,7 +23,7 @@ function _network_dns_servers(value, external::Bool)
             "only IPv4 DNS server addresses are supported: $server"))
         all(
             octet -> tryparse(Int, octet) isa Int &&
-                     0 <= Base.parse(Int, octet) <= 255, octets) ||
+                0 <= Base.parse(Int, octet) <= 255, octets) ||
             throw(ArgumentError("invalid IPv4 DNS server address: $server"))
     end
     return servers

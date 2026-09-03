@@ -78,8 +78,9 @@ function julia_runtime_suite_command(spec::JuliaRuntimeSpec;
     arguments = [cli, "--perfchecker-project=$project", "--suite=$suite_path",
         "--reports=$(abspath(String(reports)))", "--profile=$(string(profile))",
         "--factory=$(string(factory))"]
-    append!(arguments, ["--backend-package=$(String(package))"
-                        for package in backend_packages])
+    append!(
+        arguments, ["--backend-package=$(String(package))"
+                    for package in backend_packages])
     return julia_runtime_command(spec; project = controller,
         extra_arguments = arguments)
 end

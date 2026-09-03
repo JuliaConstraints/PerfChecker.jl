@@ -8,9 +8,11 @@ capabilities["supported"] || error(capabilities["reason"])
 root = pkgdir(PerfChecker)
 linux_root = PerfChecker._wsl_path(isolation, root)
 wsl_prefix = String["wsl.exe", "-d", distribution]
-julia_executable = strip(read(Cmd(vcat(wsl_prefix,
-    ["--", "sh", "-lc",
-        raw"PATH=\"$HOME/.juliaup/bin:$PATH\"; command -v julia"])), String))
+julia_executable = strip(read(
+    Cmd(vcat(wsl_prefix,
+        ["--", "sh", "-lc",
+            raw"PATH=\"$HOME/.juliaup/bin:$PATH\"; command -v julia"])),
+    String))
 isempty(julia_executable) && error("Julia is unavailable in WSL")
 
 mktempdir(; prefix = "perfchecker-wsl-network-") do environment

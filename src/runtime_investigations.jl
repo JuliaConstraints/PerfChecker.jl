@@ -88,10 +88,9 @@ function _runtime_investigation_comparison(campaign::JuliaRuntimeCampaign,
         "status" => isempty(rows) ? "no_source_evidence" : "ranked",
         "frames" => rows,
         "obvious_candidate" => obvious,
-        "reason" =>
-            obvious ?
-            "one Julia runtime frame dominates the positive sampled delta" :
-            "source evidence is ranked but not sufficient for an automatic MWE")
+        "reason" => obvious ?
+                    "one Julia runtime frame dominates the positive sampled delta" :
+                    "source evidence is ranked but not sufficient for an automatic MWE")
 end
 
 "Rank source lines that gained sampled CPU/allocation weight across Julia runtimes."
@@ -137,8 +136,9 @@ function write_julia_investigation(investigation::JuliaRegressionInvestigation,
                 source_line = frame["source_line"]
                 metric = frame["metric"]
                 delta = frame["positive_delta"]
-                println(io, "| $owner | `$source_file` | $source_line | $metric | " *
-                            "$delta | $share% |")
+                println(io,
+                    "| $owner | `$source_file` | $source_line | $metric | " *
+                    "$delta | $share% |")
             end
             println(io)
         end
@@ -184,6 +184,7 @@ end
         @test frame["owner"] == "julia_runtime"
         @test frame["positive_delta"] == 20
         @test only(investigation.comparisons)["obvious_candidate"]
-        @test all(isfile, write_julia_investigation(investigation, joinpath(root, "report")))
+        @test all(
+            isfile, write_julia_investigation(investigation, joinpath(root, "report")))
     end
 end

@@ -323,7 +323,7 @@ end
                 "/test/perfchecker/recovered/jobs")).body))
             @test any(
                 job -> job["job_id"] == launch_body["job_id"] &&
-                       job["state"] == "complete", recovered)
+                    job["state"] == "complete", recovered)
             Oxygen.resetstate()
 
             token = "test-personal-access-token"

@@ -1,97 +1,94 @@
-# PerfChecker.jl
+```@raw html
+---
+layout: home
 
-PerfChecker runs performance checks for Julia packages in isolated Julia
-processes. The public entry point is `@check`; new code should prefer
-`PerfConfig`, while the older dictionary form remains supported.
+hero:
+  name: "PerfChecker.jl"
+  text: "Measure what actually runs"
+  tagline: Deep, reproducible performance testing for Julia packages and complete software suites.
+  image:
+    src: /assets/perfchecker.svg
+    alt: PerfChecker performance pulse
+  actions:
+    - theme: brand
+      text: Start measuring
+      link: /guide/first-check
+    - theme: alt
+      text: Explore the feature catalog
+      link: /reference/checks
+    - theme: alt
+      text: View on GitHub
+      link: https://github.com/Mirage-Interactive-Fr/PerfChecker.jl
 
-Version `1.0.0-rc2` adds the feature-suite workflow, a unified CLI, immutable
-run bundles with integrity metadata, compatibility preflight, Julia runtime
-campaigns, attributed network accounting, and shared report/query contracts.
-See [V1 candidate](v1-candidate.md) for the supported surface and migration
-rules.
-
-```julia
-using PerfChecker, BenchmarkTools
-
-config = PerfConfig(
-    :benchmark;
-    path = @__DIR__,
-    tags = [:smoke],
-    samples = 10,
-    evals = 1,
-)
-
-result = @check config begin
-    x = collect(1:100)
-end begin
-    sum(x)
-end
+features:
+  - icon: "⚗️"
+    title: Isolated measurements
+    details: Every feature/version run gets a fresh Malt process without the controller or visualization stack.
+    link: /software-suites
+  - icon: "↔️"
+    title: Versions and revisions
+    details: Compare releases, working trees, branches, tags, commits and Julia stable/RC/nightly runtimes.
+    link: /tutorials/comparisons
+  - icon: "🔥"
+    title: Deep attribution
+    details: Inspect timings, allocations by line, typed flame graphs, native libraries and network traffic.
+    link: /reference/checks
+  - icon: "▦"
+    title: Interactive everywhere
+    details: Use VS Code, Oxygen, WGLMakie, Pluto, the REPL or generated documentation over one result grammar.
+    link: /interfaces/vscode
+  - icon: "✓"
+    title: CI-ready evidence
+    details: Produce integrity-protected bundles, JSONL, Markdown and JUnit, then gate on explicit regression budgets.
+    link: /tutorials/ci
+  - icon: "⌘"
+    title: Agent-ready contracts
+    details: Query precise evidence and exchange bounded, machine-readable results with human and AI workflows.
+    link: /reference/run-bundles
+---
 ```
 
-The `Dict` interface is intentionally kept for compatibility, but both public
-forms are normalized internally before running. Missing required options such as
-`:path`, invalid tags, invalid thread counts, and malformed package-version
-selectors fail before workers are launched.
+## Performance checks as software tests
 
-## Multi-version Checks
+PerfChecker treats performance as a versioned contract attached to a **business
+feature**. `import_bibtex`, `solve_model`, or `render_frame` is the feature;
+BenchmarkTools, Chairmarks, allocation tracking, profiling and network accounting
+are selectable ways to evaluate it. This separation keeps the suite readable and
+lets every interface offer the same choices.
 
-```julia
-config = PerfConfig(
-    :benchmark;
-    path = @__DIR__,
-    tags = [:release_comparison],
-    pkgs = ("Example", :custom, [v"1.0.0", v"1.1.0"], true),
-)
+```text
+software suite
+  └─ package
+      └─ business feature
+          ├─ check type
+          └─ target: release | working tree | branch | tag | commit
 ```
 
-The `:pkgs` tuple is `(name, selector, versions, prefer_latest)`. Supported
-selectors are `:custom`, `:patches`, `:minor`, `:major`, and `:breaking`.
+The controller resolves this plan, performs compatibility checks and launches
+bounded workers. The measured worker loads only the target package, workload and
+collector. Results return as a portable run bundle consumed by every UI and CI
+adapter.
 
-## Local Development Branches
+## Pick a path
 
-Use `:devops` to compare a local branch with released versions. PerfChecker
-removes the target package from the copied environment before `Pkg.add` or
-`Pkg.develop`, which avoids stale UUID/source state from previous runs.
+<div class="feature-grid">
+  <div><strong>I maintain one package</strong>Start with <a href="/guide/first-check">your first feature check</a>, then add versions and CI.</div>
+  <div><strong>I maintain a software suite</strong>Model package boundaries and version pins in <a href="/software-suites">software suites</a>.</div>
+  <div><strong>I am investigating a regression</strong>Compare <a href="/tutorials/comparisons">releases and Git revisions</a> or <a href="/tutorials/julia-runtimes">Julia runtimes</a>.</div>
+  <div><strong>I need interactive analysis</strong>Choose <a href="/interfaces/vscode">VS Code</a>, <a href="/interfaces/web-studio">Oxygen</a>, or <a href="/interfaces/visualization">Makie</a>.</div>
+  <div><strong>I run a hosted service</strong>Review the <a href="/operations/hosted">controller, authentication and remote-agent model</a>.</div>
+  <div><strong>I build automation</strong>Consume <a href="/reference/run-bundles">run bundles</a> and <a href="/report-queries">bounded queries</a>.</div>
+</div>
 
-```julia
-config = PerfConfig(
-    :benchmark;
-    path = @__DIR__,
-    pkgs = ("Example", :custom, [v"1.0.0"], true),
-    devops = "Example",
-)
-```
+## Candidate status
 
-## REPL and Pluto Setup
+PerfChecker `1.0.0-rc2` is a V1 release candidate. The package preserves the
+original `@check` API while introducing feature suites, common protocols and
+interactive tooling. The [V1 candidate page](v1-candidate.md) distinguishes the
+implemented surface from longer-term roadmap items.
 
-Generate a small Julia-native performance workspace with:
-
-```julia
-perf_setup()
-```
-
-The generated Pluto dashboard activates the surrounding Julia project and
-starts with `run_check = false`, so opening it in Pluto does not immediately
-launch performance workers.
-
-## CI
-
-Run tests with startup files disabled so user-level packages do not mutate the
-test environment:
-
-```sh
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-For feature-level, multi-version and multi-package checks, see
-[Software suites](software-suites.md). A suite keeps PerfChecker and its user
-interfaces in the controller process: isolated Malt workers load only the
-benchmark backend, the package under test and its explicitly pinned peers.
-
-PerfChecker also ships `action.yml` and `bin/perfchecker.jl` so the same
-suite factory and report grammar can be used in GitHub Actions or another CI
-without duplicating orchestration code.
-
-```@autodocs
-Modules=[PerfChecker]
-```
+::: tip Mirage Interactive
+PerfChecker is an open-source Mirage Interactive project built for the wider
+Julia package ecosystem. Its documentation theme and contribution conventions
+are intentionally reusable by future Mirage Interactive repositories.
+:::

@@ -32,7 +32,7 @@ end
 
 function _definition_index(bundle::RunBundle)
     return Dict(String(definition["id"]) => definition
-                for definition in bundle.measurement_definitions)
+    for definition in bundle.measurement_definitions)
 end
 
 function _environment_comparability(baseline::RunBundle, candidate::RunBundle)
@@ -101,16 +101,18 @@ function compare_bundles(baseline::RunBundle, candidate::RunBundle;
         left_definition = get(baseline_definitions, left_definition_id, nothing)
         right_definition = get(candidate_definitions, right_definition_id, nothing)
         if left_definition_id != right_definition_id ||
-                left_definition === nothing || right_definition === nothing ||
-                _canonical_json(left_definition) != _canonical_json(right_definition)
+           left_definition === nothing || right_definition === nothing ||
+           _canonical_json(left_definition) != _canonical_json(right_definition)
             record["status"] = "incomparable"
             record["reason"] = "measurement definition or unit differs"
             push!(records, record)
             continue
         end
-        left_values = Float64[observation["value"] for observation in left
+        left_values = Float64[observation["value"]
+                              for observation in left
                               if observation["value"] isa Number]
-        right_values = Float64[observation["value"] for observation in right
+        right_values = Float64[observation["value"]
+                               for observation in right
                                if observation["value"] isa Number]
         if length(left_values) < min_samples || length(right_values) < min_samples
             record["status"] = "insufficient_samples"
@@ -153,11 +155,12 @@ function compare_bundles(baseline::RunBundle, candidate::RunBundle;
         warnings, records)
 end
 
-comparison_passed(comparison::BundleComparison) =
+function comparison_passed(comparison::BundleComparison)
     comparison.inputs_passed && comparison.environment_status !== :incomparable &&
-    !any(get(record, "status", "") in
-         ("regression", "missing", "incomparable", "insufficient_samples")
-         for record in comparison.records)
+        !any(get(record, "status", "") in (
+                 "regression", "missing", "incomparable", "insufficient_samples")
+        for record in comparison.records)
+end
 
 function comparison_dict(comparison::BundleComparison)
     return Dict{String, Any}(
@@ -191,8 +194,9 @@ function write_comparison_markdown(comparison::BundleComparison, path::AbstractS
             delta = get(record, "relative_delta", nothing)
             formatted_delta = delta === nothing ? "—" :
                               "$(round(100 * delta; digits = 2))%"
-            println(io, "| $(record["metric"]) | $baseline | $candidate | " *
-                        "$formatted_delta | $(record["status"]) |")
+            println(io,
+                "| $(record["metric"]) | $baseline | $candidate | " *
+                "$formatted_delta | $(record["status"]) |")
         end
     end
     return String(path)
@@ -206,9 +210,10 @@ end
         "unit" => "ns", "preference" => "lower")
     function example_bundle(id, values; os = string(Sys.KERNEL))
         observations = [Dict{String, Any}(
-            "metric" => "julia.wall.time", "value" => value, "unit" => "ns",
-            "measurement_definition" => "julia.wall.time/test-v1",
-            "comparison_key" => "parse::julia.wall.time/test-v1") for value in values]
+                            "metric" => "julia.wall.time", "value" => value, "unit" => "ns",
+                            "measurement_definition" => "julia.wall.time/test-v1",
+                            "comparison_key" => "parse::julia.wall.time/test-v1")
+                        for value in values]
         manifest = Dict{String, Any}(
             "schema_version" => "perfchecker-run-bundle/1", "run_id" => id,
             "attempt_id" => id, "reuse_key" => repeat("a", 64),
@@ -237,18 +242,20 @@ end
     for observation in candidate.observations
         observation["case_id"] = "parse@dev"
     end
-    append!(baseline.observations, [merge(copy(observation),
-        Dict("case_id" => "format@dev", "value" => 1000))
-        for observation in baseline.observations[1:3]])
-    append!(candidate.observations, [merge(copy(observation),
-        Dict("case_id" => "format@dev", "value" => 1000))
-        for observation in candidate.observations[1:3]])
+    append!(baseline.observations,
+        [merge(copy(observation),
+             Dict("case_id" => "format@dev", "value" => 1000))
+         for observation in baseline.observations[1:3]])
+    append!(candidate.observations,
+        [merge(copy(observation),
+             Dict("case_id" => "format@dev", "value" => 1000))
+         for observation in candidate.observations[1:3]])
     separated = compare_bundles(baseline, candidate)
     @test length(separated.records) == 2
     @test Set(record["case_id"] for record in separated.records) ==
           Set(["parse@dev", "format@dev"])
     @test all(record["comparison_key"] == "parse::julia.wall.time/test-v1"
-              for record in separated.records)
+    for record in separated.records)
 
     failed = example_bundle("00000000-0000-0000-0000-000000000003", [12, 12, 12])
     failed.manifest["state"] = "failed"

@@ -24,8 +24,7 @@ directory = abspath(option("directory", pwd()))
 timeout_seconds = Base.parse(Float64, option("timeout", "300"))
 output = abspath(option("output", joinpath(directory, "perfchecker-network-result.json")))
 include_output = lowercase(option("include-output", "false")) in ("true", "1", "yes")
-external_connectivity = lowercase(option("external", "false")) in
-                        ("true", "1", "yes")
+external_connectivity = lowercase(option("external", "false")) in ("true", "1", "yes")
 interface_text = option("interface", "")
 interface = isempty(interface_text) ? nothing : interface_text
 dns_text = option("dns", "")

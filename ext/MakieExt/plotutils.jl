@@ -25,7 +25,7 @@ function smart_paths(paths)
         @info "debug 2" path length(common)
     end
     =#
-    
+
     return joinpath(common...), map(joinpath, split_paths)
 end
 

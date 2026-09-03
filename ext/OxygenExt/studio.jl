@@ -378,7 +378,7 @@ end
 
 function _drain_workspace!(workspace::StudioWorkspace)
     while length(workspace.running) < workspace.max_concurrent &&
-          !isempty(workspace.pending)
+        !isempty(workspace.pending)
         id = popfirst!(workspace.pending)
         entry = workspace.jobs[id]
         entry.state = :running
@@ -585,8 +585,7 @@ function _register_suite_workspace!(suite::PerfChecker.SoftwareSuite;
             "profiles" => string.(sort!(collect(_STUDIO_PROFILES))),
             "network" => Dict(
                 "interface" => PerfChecker.network_interface_capabilities(),
-                "isolation" =>
-                    PerfChecker.network_isolation_capabilities(; probe = true)),
+                "isolation" => PerfChecker.network_isolation_capabilities(; probe = true)),
             "resources" => ["suite-plan", "jobs", "agents", "results",
                 "version-comparison", "plots"]))
     end
@@ -844,7 +843,7 @@ function _register_suite_workspace!(suite::PerfChecker.SoftwareSuite;
             supplied_lease = String(get(payload, "lease_token", ""))
             supplied_digest = bytes2hex(PerfChecker.SHA.sha256(supplied_lease))
             !isempty(entry.lease_token_digest) &&
-            supplied_digest == entry.lease_token_digest ||
+                supplied_digest == entry.lease_token_digest ||
                 return Oxygen.json(Dict("error" => "invalid lease token"); status = 403)
             bundle = _bundle_payload(get(payload, "bundle", Dict()))
             get(bundle.manifest, "suite", "") == string(workspace.suite.id) ||
