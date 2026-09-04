@@ -55,15 +55,17 @@ code --install-extension C:\path\to\perfchecker-vscode-0.9.0.vsix --force
 ```
 
 Reload VS Code, open the package root, and select the PerfChecker icon in the
-activity bar. The package currently keeps the extension source under
-`editors/vscode`. A later move to a dedicated Mirage Interactive repository must
-preserve the extension identity `mirage-interactive-fr.perfchecker-vscode`, its
-commands, settings, and shared configuration schema.
+activity bar. The extension source lives in the independent
+[PerfCheckerVSCode repository](https://github.com/Mirage-Interactive-Fr/PerfCheckerVSCode).
+The repository split preserves the extension identity
+`mirage-interactive-fr.perfchecker-vscode`, its commands, settings, and shared
+configuration schema.
 
 ## Develop the extension
 
 ```powershell
-cd editors\vscode
+git clone https://github.com/Mirage-Interactive-Fr/PerfCheckerVSCode.git
+cd PerfCheckerVSCode
 npm ci
 npm test
 npm run package:pre-release -- --out perfchecker-vscode-0.9.0.vsix

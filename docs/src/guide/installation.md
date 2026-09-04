@@ -84,11 +84,11 @@ using PerfChecker, UnicodePlots      # terminal_plot
 
 ## VS Code extension
 
-Until the extension moves to its own Mirage Interactive repository, build it
-from `editors/vscode`:
+The extension has an independent repository and release lifecycle:
 
 ```powershell
-cd editors\vscode
+git clone https://github.com/Mirage-Interactive-Fr/PerfCheckerVSCode.git
+cd PerfCheckerVSCode
 npm ci
 npm test
 npm run package:pre-release -- --out perfchecker-vscode-0.9.0.vsix

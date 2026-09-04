@@ -80,8 +80,10 @@ routes.
 
 ## VS Code
 
-The candidate extension lives in `editors/vscode`. It resolves the suite through
-the same CLI and `perfchecker-suite-plan/1` contract as every other interface.
+The candidate extension lives in the independent
+[PerfCheckerVSCode repository](https://github.com/Mirage-Interactive-Fr/PerfCheckerVSCode).
+It resolves the suite through the same CLI and `perfchecker-suite-plan/1`
+contract as every other interface.
 The tree groups package, business feature, check type and version. The stable
 `workload` field keeps `import_bibtex` distinct from the selected BenchmarkTools,
 Chairmarks, allocation or profile collector. Selecting a node launches only

@@ -222,10 +222,7 @@ outputs = [
     render_lockup(joinpath(EXPORT_ROOT, "perfchecker-lockup-dark.svg"); dark = true),
     render_preview(joinpath(EXPORT_ROOT, "perfchecker-preview.png")),
     render_mark(joinpath(REPOSITORY_ROOT, "docs", "src", "public", "assets",
-        "perfchecker.svg")),
-    render_mark(joinpath(REPOSITORY_ROOT, "editors", "vscode", "media",
-            "perfchecker.png");
-        size = 256)
+        "perfchecker.svg"))
 ]
 
 foreach(println, outputs)

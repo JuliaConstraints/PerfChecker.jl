@@ -269,7 +269,8 @@ From the Test Explorer or PerfChecker activity view, you can:
 ### Build and install the current VSIX
 
 ```powershell
-Set-Location editors\vscode
+git clone https://github.com/Mirage-Interactive-Fr/PerfCheckerVSCode.git
+Set-Location PerfCheckerVSCode
 npm ci
 npm test
 npm run package:pre-release -- --out perfchecker-vscode-0.9.0.vsix
@@ -281,10 +282,11 @@ and run **PerfChecker: Open visual suite editor** from the command palette. The
 extension settings select the Julia executable, runner project, suite factory,
 profile, report directory, and shared UI configuration.
 
-The extension currently lives in `editors/vscode`. Moving it to a dedicated
-Mirage Interactive repository must preserve its Marketplace identity,
-`mirage-interactive-fr.perfchecker-vscode`, along with command and setting IDs.
-See the [VS Code guide](docs/src/interfaces/vscode.md).
+The extension is developed and released independently from the
+[PerfCheckerVSCode](https://github.com/Mirage-Interactive-Fr/PerfCheckerVSCode)
+repository. Its stable Marketplace identity remains
+`mirage-interactive-fr.perfchecker-vscode`. See the
+[VS Code guide](docs/src/interfaces/vscode.md).
 
 ## Other interfaces
 
@@ -311,13 +313,8 @@ Run Julia tests without user startup files:
 julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-Validate the extension independently:
-
-```sh
-cd editors/vscode
-npm ci
-npm test
-```
+The VS Code client has its own TypeScript tests and release lifecycle in the
+[PerfCheckerVSCode repository](https://github.com/Mirage-Interactive-Fr/PerfCheckerVSCode).
 
 Bug reports, feature proposals, documentation improvements, and new measurement
 providers are welcome through GitHub issues and pull requests. PerfChecker is
